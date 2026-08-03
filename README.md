@@ -1,16 +1,139 @@
-## Hi there 👋
+# Hi, I'm Dennis Jay Dole 👋
 
-<!--
-**djdole/djdole** is a ✨ _special_ ✨ repository because its `README.md` (this file) appears on your GitHub profile.
+Software Developer with 22+ years of experience at Docusign, Microsoft, and Amazon, building automated test frameworks, internal developer tooling, and webhook integration systems for distributed, production-scale software. Proficient across C#, Ruby, Python, Java, PHP, and Node.js, with a track record of designing APIs, debugging complex production issues, and leading technical migrations. Skilled at partnering with developers and product managers throughout the SDLC, and at mentoring engineers on new teams.
 
-Here are some ideas to get you started:
+📍 Des Moines, WA
+📧 [Dennis.Dole@djdole.net](mailto:Dennis.Dole@djdole.net)
+📱 734-218-2358
+🔗 [linkedin.com/in/djdole](https://linkedin.com/in/djdole)
+🔗 [profile.indeed.com/p/dennisd-9lrkjhr](https://profile.indeed.com/p/dennisd-9lrkjhr)
 
-- 🔭 I’m currently working on ...
-- 🌱 I’m currently learning ...
-- 👯 I’m looking to collaborate on ...
-- 🤔 I’m looking for help with ...
-- 💬 Ask me about ...
-- 📫 How to reach me: ...
-- 😄 Pronouns: ...
-- ⚡ Fun fact: ...
--->
+---
+
+## 🛠️ Skills
+
+**Languages:** C#, Ruby, Python, Java, PHP, Node.js, Bash, PowerShell, C++
+
+**APIs & Web Servers:** REST API design, Apache HTTPD/Tomcat, IIS, nginx, Node.js, MongoDB
+
+**CI/CD & DevOps:** Jenkins, Hudson, Octopus, Azure Pipelines, Docker, Kubernetes, Ansible
+
+**Test Automation Frameworks:** Selenium, Playwright, Echo, Docusign's SAW (Ruby), KAF (Kahuna Automation Framework), custom API test/automation harnesses
+
+**Unit & Integration Testing:** nUnit, xUnit, jUnit, PHPUnit, WTT (Microsoft internal), SAW (Docusign internal)
+
+**Test Management & Planning:** MTM, TFS, test plan design, bug triage, exploratory testing (black/white box)
+
+**Performance Testing:** JMeter
+
+**Databases & Query Languages:** SQL, Kusto, MongoDB
+
+**Version Control:** Git, Mercurial, TFS, Source Depot, PVCS
+
+**Debugging & Diagnostics:** Fiddler, Postman, Resharper, xDebug, rDebug
+
+**Virtualization & Infrastructure:** Docker, Kubernetes, HyperV, VirtualBox, Proxmox, WSL
+
+**Methodologies:** Agile, Scrum, Kanban, TDD, Waterfall, DevOps
+
+**Collaboration & Docs:** Jira, Confluence, SharePoint, MediaWiki
+
+**Monitoring & Incident Management:** PagerDuty
+
+---
+
+## 💼 Experience
+
+### Software Developer - Docusign, Inc.
+* Docusign Connect * Connect Test Listener (webhook) * Ruby Webhook Test Interface * x509 Certificate Management *
+**Mar 2024 - Jul 2025**
+
+- Designed, implemented, and maintained the Connect Team APIListener webhook tool, a production service used for automated end-to-end validation of webhook delivery.
+- Built and maintained a Ruby-based webhook testing application enabling fast, safe switching of targeted webhook endpoints, while preserving operational functionality across internal Docusign systems.
+- Led a migration to a new internal x509 certificate for Docusign Connect webhook connections, coordinating certificate rotation and deployment validation with 5+ internal engineering teams.
+- Improved the stability and reliability of internal webhook tooling relied on by automation and developer initiatives.
+- Partnered with Product Management to reproduce, triage, and resolve customer upgrade and configuration issues.
+
+### Software Design Engineer in Test (SDET) - Docusign, Inc.
+* Docusign Connect * Product Incubation Team * Docusign Print Tool (deprecated) *
+**Nov 2013 - Mar 2024**
+
+- Designed and built automated test frameworks and a custom API request communication layer using NUnit and Selenium.
+- Engineered obfuscated interfaces and test frameworks supporting webhook endpoint selection for automated and manual testing.
+- Developed sample HMAC-authenticated webhook integration code and ported it to Java, PHP, Python, C#, Ruby, and Node.js for customer-facing developer documentation.
+- Debugged product issues and authored clear, reproducible bug reports including environment details, stack traces, and metrics.
+- Maintained and extended existing automated test suites to sustain reliable coverage of product code.
+- Participated in code reviews for new features, automation, and bug fixes alongside developers.
+- Planned and organized bug-bash events, giving developers, testers, and managers early access to alpha features.
+- Participated in bug triage of internal and customer-reported issues, and in dev/QA on-call rotations.
+- Collaborated with release management to verify successful deployment and configuration of releases.
+- Trained and mentored new developers, testers, and team leads.
+
+### SDET2 - Microsoft Engineering Excellence
+* Team Foundation Server * Microsoft Test Manager * C# *
+**Jan 2012 - Jun 2013**
+
+- Designed and implemented automated tests for Quality Essentials v3 Client and Server.
+- Collaborated with developers, PMs, and leads to ensure quality testing of existing and new features.
+
+### SDET2 - Amazon
+* Linux * Eclipse * Hudson * Ant * TestNG * Java * Selenium *
+**Nov 2011 - Jan 2012**
+
+- Automated manual test cases to improve execution efficiency and coverage.
+- Collaborated with other engineers to debug and maintain the existing test automation environment.
+
+### SDET - Microsoft Live
+* C# * SQL * WTT * Kahuna Automation Framework (KAF) * NUnit * Source Depot * HyperV * Octopus *
+**Apr 2011 - Oct 2011**
+
+- Designed and implemented a KAF-based test automation framework to execute Build Verification Tests (BVTs) for the BaR team.
+- Owned test features end-to-end, collaborating with developers and product managers to plan and execute strategy.
+- Tested and documented issues across current and related product features.
+
+### SDET - Microsoft Health Solutions Group
+* C# * SQL * WTT * Echo * KAF * NUnit * iMacros * REST * XML * HyperV *
+**Feb 2008 - Nov 2010**
+
+- Designed, updated, and maintained test plans for owned and shared product features.
+- Built and maintained web-app automation to increase test case execution efficiency.
+- Performed exploratory black- and white-box testing to proactively mitigate release risk.
+- Participated in bug triage to review, prioritize, and delegate issue resolution.
+- Partnered with management, developers, UX, and operations to ensure product quality met release standards.
+
+### Software Engineer - Cosworth Tech Inc. / MAHLE Powertrain LLC
+* Borland JBuilder * Java * Swing * Borland C++ * Oracle SQL * PVCS/Serena *
+**Mar 2006 - Feb 2008**
+
+- Designed, developed, and debugged desktop applications using Borland C++ and Java, resolving defects tracked in Team Track.
+- Automated Excel-based reporting integrated with a SQL trouble-ticket tracking system for contract customers.
+
+### Quality Assurance Engineer - Cosworth Tech Inc. / MAHLE Powertrain LLC
+* Excel * iMacros * Visual Basic * Team Track *
+**Mar 2005 - Aug 2006**
+
+- Developed and maintained system and regression test plans for existing and new software applications.
+- Performed software validation across multiple projects to ensure product quality prior to release.
+
+---
+
+## 🎓 Education
+
+**Bachelor of Science in Computer Science**
+Michigan Technological University - Computer Science
+Graduated December 2004
+
+---
+
+## ✨ Career Highlights
+
+- Deep, unusual specialization in webhook systems: design, testing, HMAC authentication, x509 certificate migration, and multi-language sample code (Java, PHP, Python, C#, Ruby, Node.js).
+- 15+ years of continuous experience across three well-known tech employers: Docusign, Microsoft, and Amazon.
+- Progressed from QA/manual testing → SDET → SDE, demonstrating growth into full software development.
+- Led a cross-team technical migration (x509 certificate rotation) coordinating 5+ engineering teams.
+- Long track record of mentoring and training new engineers.
+- Fluent in six programming languages - valuable for polyglot, integration-heavy roles.
+
+---
+
+📫 Reach out at [Dennis.Dole@djdole.net](mailto:Dennis.Dole@djdole.net) or connect on [LinkedIn](https://linkedin.com/in/djdole).
