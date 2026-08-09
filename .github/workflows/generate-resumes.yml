@@ -1,37 +1,5 @@
 name: Generate resumes and cover letters
 
-# Regenerates the baseline (no-specific-JD) resume and cover letter files
-# whenever a pull request changes the knowledge base, and commits the
-# generated files directly onto that PR's own branch -- so the PR ends up
-# containing both the resume_data.json change and the resulting generated/
-# output change together, reviewable and mergeable as one unit. Job-tailored
-# resumes for a specific posting are a separate, manual, per-application
-# workflow (done in chat) and are NOT handled by this file.
-#
-# Uses a self-hosted LiteLLM proxy (in front of Ollama, per that stack's
-# docker-compose.yml) instead of a paid API, so this workflow never spends
-# API credits and never fails due to account balance/credits.
-#
-# NETWORK REACHABILITY -- read before enabling:
-# `runs-on: ubuntu-latest` below uses GitHub's hosted runners, which live
-# on the public internet. They can only reach your LiteLLM instance if it's
-# exposed via something like a Cloudflare Tunnel, Tailscale Funnel, or a
-# reverse proxy with auth in front of it (set LITELLM_BASE_URL to that
-# public address, pointing at ${LITELLM_PORT} -- NOT Open WebUI's UI port).
-# If you'd rather not expose it at all, install a self-hosted GitHub
-# Actions runner on the same network as that stack (Settings -> Actions ->
-# Runners -> New self-hosted runner) and change `runs-on: ubuntu-latest` to
-# `runs-on: self-hosted` below -- then LITELLM_BASE_URL can just be a plain
-# LAN address (e.g. http://192.168.x.x:4000).
-#
-# FORK PULL REQUESTS: pull_request-triggered workflows from a fork get a
-# read-only GITHUB_TOKEN for security, so the commit-back step below can't
-# push to a forked branch. That's fine for a personal single-owner repo
-# where every PR comes from a branch in this same repo; if you ever accept
-# PRs from forks, this step will just fail harmlessly on those (nothing to
-# push), and you'd want a separate `pull_request_target`-based approach for
-# that case, with the extra security review that implies.
-
 on:
   pull_request:
     types: [opened, synchronize, reopened]
@@ -49,12 +17,6 @@ concurrency:
 
 jobs:
   generate:
-    # The "Commit generated files" step below pushes to the PR branch, which
-    # would normally re-trigger this same workflow via `synchronize` and
-    # loop. GitHub attributes a push made with the workflow's GITHUB_TOKEN
-    # to github-actions[bot], so skipping runs triggered by that actor
-    # breaks the loop after one pass (the regenerate step is also a no-op
-    # on that second run anyway, since nothing would have changed).
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest # see network reachability note above before changing to self-hosted
     timeout-minutes: 15 # fail fast instead of hanging if LiteLLM is unreachable
@@ -62,11 +24,6 @@ jobs:
       - name: Check out PR branch
         uses: actions/checkout@v4
         with:
-          # For pull_request events, the default checkout ref is a detached
-          # merge-preview ref, not something we can push back to. Pin to
-          # the PR's actual head branch instead (falls back to the
-          # triggering ref for workflow_dispatch, e.g. when run manually
-          # against main or another branch from the Actions tab).
           ref: ${{ github.head_ref || github.ref_name }}
 
       - name: Set up Python
