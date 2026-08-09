@@ -106,24 +106,17 @@ def build_system_prompt(kb: dict) -> str:
         "cover_letter_building_blocks.generic_fallback_template for the "
         "cover letter. Follow every rule in meta.output_rules, especially "
         "never_fabricate and never_use_em_dash.\n\n"
-        "OUTPUT CONTRACT:\n"
-        "- Do NOT include any introductory or concluding text.\n"
+        "CRITICAL RULES:\n"
+        "- DO NOT BREAK ANY OF THE FOLLOWING RULES.\n"
+        "- Do NOT include any introductory or concluding text in your response.\n"
         "- Respond with EXACTLY ONE JSON object and nothing else.\n"
         "- Do NOT include markdown formatting, markdown blocks, or triple backticks (```).\n"
         "- Do not include markdown code fences (no ```).\n"
-        "- Do not include any heading, label, or prose before or after the "
-        "JSON (no '**Resume:**', no '**Cover Letter:**', no closing notes "
-        "explaining the output, no apologies, no requests, no inquiries,\n"
-        " no superfluous text at all).\n"
-        "- Do not produce two separate JSON objects. The resume and cover "
-        "letter both go INSIDE the one object below, as the 'resume' and "
-        "'cover_letter' keys.\n"
-        "- Do not include any additional text before or after the JSON "
-        "response. Your entire response should be SOLELY valid JSON.\n"
-        "- Before responding, review your response to ensure you're only "
-        " returning valid parsable JSON.\n"
-        "- Your entire response must be parseable by json.loads() with no "
-        "preprocessing.\n\n"
+        "- Do not include any heading, label, or prose before or after the JSON (no '**Resume:**', no '**Cover Letter:**', no 'Here is the generated baseline resume and cover letter JSON:', no closing notes explaining the output, no apologies, no requests, no inquiries, no superfluous text at all).\n"
+        "- Do not produce two separate JSON objects. The resume and cover letter both go INSIDE the one object below, as the 'resume' and 'cover_letter' keys.\n"
+        "- Do not include any additional text before or after the JSON response. Your entire response should be SOLELY valid JSON.\n"
+        "- Your entire response must be parseable by json.loads() with no preprocessing.\n"
+        "- Before responding, review your response to ensure you're only returning valid parsable JSON.\n\n"
         "Required shape, with a filled-in example so the structure is "
         "unambiguous (use your own real content from the knowledge base, "
         "this is only to illustrate the shape):\n"
@@ -221,7 +214,7 @@ def call_llm(kb: dict) -> dict:
         try:
             response = client.chat.completions.create(
                 model=MODEL,
-                max_tokens=4000,
+                max_tokens=10000,
                 temperature=0.4,
                 timeout=180,  # fail fast rather than hang if the instance is unreachable
                 messages=messages,
