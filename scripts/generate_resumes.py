@@ -99,6 +99,7 @@ def build_system_prompt(kb: dict) -> str:
     trimmed_kb = {k: v for k, v in kb.items() if k not in _KB_KEYS_TO_OMIT_FROM_PROMPT}
 
     return (
+        "Output ONLY valid JSON.\n"
         "You are generating a BASELINE resume and cover letter (no specific "
         "job description provided) from the candidate knowledge base below. "
         "Use the SDE summary_variant as the default summary, default skill "
@@ -106,18 +107,19 @@ def build_system_prompt(kb: dict) -> str:
         "cover_letter_building_blocks.generic_fallback_template for the "
         "cover letter. Follow every rule in meta.output_rules, especially "
         "never_fabricate and never_use_em_dash.\n\n"
-        "CRITICAL RULES:\n"
+        "CRITICAL RULES which you MUST obey:\n"
         "- DO NOT BREAK ANY OF THE FOLLOWING RULES.\n"
+        "- Output ONLY valid JSON.\n"
         "- Do NOT omit data by using placeholder text like '...'.\n"
         "- Do NOT include any introductory or concluding text in your response.\n"
         "- Respond with EXACTLY ONE JSON object and nothing else.\n"
         "- Do NOT include markdown formatting, markdown blocks, or triple backticks (```).\n"
-        "- Do not include markdown code fences (no ```).\n"
-        "- Do not include any heading, label, or prose before or after the JSON (no '**Resume:**', no '**Cover Letter:**', no 'Here is the generated baseline resume and cover letter JSON:', no closing notes explaining the output, no apologies, no requests, no inquiries, no superfluous text at all).\n"
-        "- Do not produce two separate JSON objects. The resume and cover letter both go INSIDE the one object below, as the 'resume' and 'cover_letter' keys.\n"
-        "- Do not include any additional text before or after the JSON response. Your entire response should be SOLELY valid JSON.\n"
+        "- Do NOT include markdown code fences (no ```).\n"
+        "- Do NOT include any heading, label, or prose before or after the JSON (no '**Resume:**', no '**Cover Letter:**', no 'Here is the generated baseline resume and cover letter JSON:', no closing notes explaining the output, no apologies, no requests, no inquiries, no superfluous text at all).\n"
+        "- Do NOT produce two separate JSON objects. The resume and cover letter both go INSIDE the one object below, as the 'resume' and 'cover_letter' keys.\n"
+        "- Do NOT include any additional text before or after the JSON response. Your entire response should be SOLELY valid JSON.\n"
         "- Your entire response must be parseable by json.loads() with no preprocessing.\n"
-        "- Before responding, review your response to ensure you're only returning valid parsable JSON.\n\n"
+        "- Before responding, review your response to ensure you're following the CRITICAL RULES and outputting ONLY valid json.\n\n"
         "Required shape, with a filled-in example so the structure is "
         "unambiguous (use your own real content from the knowledge base, "
         "this is only to illustrate the shape):\n"
@@ -255,7 +257,7 @@ def call_llm(kb: dict) -> dict:
                 messages.append({
                     "role": "user",
                     "content": (
-                        f"That response was invalid: {e}. It must be EXACTLY ONE JSON object with top-level keys 'resume' and 'cover_letter', no headings like '**Resume:**', no separate JSON objects, no commentary before or after, no markdown code fences. Return the corrected JSON object now, and nothing else.\nCRITICAL RULES:\n- DO NOT BREAK ANY OF THE FOLLOWING RULES.\n- Do NOT omit data by using placeholder text like '...'.\n- Do NOT include any introductory or concluding text in your response.\n- Respond with EXACTLY ONE JSON object and nothing else.\n- Do NOT include markdown formatting, markdown blocks, or triple backticks (```).\n- Do not include markdown code fences (no ```).\n- Do not include any heading, label, or prose before or after the JSON (no '**Resume:**', no '**Cover Letter:**', no 'Here is the generated baseline resume and cover letter JSON:', no closing notes explaining the output, no apologies, no requests, no inquiries, no superfluous text at all).\n- Do not produce two separate JSON objects. The resume and cover letter both go INSIDE the one object below, as the 'resume' and 'cover_letter' keys.\n- Do not include any additional text before or after the JSON response. Your entire response should be SOLELY valid JSON.\n- Your entire response must be parseable by json.loads() with no preprocessing.\n- Before responding, review your response to ensure you're only returning valid parsable JSON."
+                        f"That response was invalid: {e}. Output ONLY valid JSON.\nIt must be EXACTLY ONE JSON object with top-level keys 'resume' and 'cover_letter', no headings like '**Resume:**', no separate JSON objects, no commentary before or after, no markdown code fences. Return the corrected JSON object now, and nothing else.\nCRITICAL RULES:\n- DO NOT BREAK ANY OF THE FOLLOWING RULES.\n- Do NOT omit data by using placeholder text like '...'.\n- Do NOT include any introductory or concluding text in your response.\n- Respond with EXACTLY ONE JSON object and nothing else.\n- Do NOT include markdown formatting, markdown blocks, or triple backticks (```).\n- Do not include markdown code fences (no ```).\n- Do not include any heading, label, or prose before or after the JSON (no '**Resume:**', no '**Cover Letter:**', no 'Here is the generated baseline resume and cover letter JSON:', no closing notes explaining the output, no apologies, no requests, no inquiries, no superfluous text at all).\n- Do not produce two separate JSON objects. The resume and cover letter both go INSIDE the one object below, as the 'resume' and 'cover_letter' keys.\n- Do not include any additional text before or after the JSON response. Your entire response should be SOLELY valid JSON.\n- Your entire response must be parseable by json.loads() with no preprocessing.\n- Before responding, review your response to ensure you're only returning valid parsable JSON."
                     ),
                 })
 
