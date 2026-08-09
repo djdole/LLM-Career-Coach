@@ -1,0 +1,142 @@
+{
+  "basics": {
+    "name": "Dennis Jay Dole",
+    "label": "Software Developer",
+    "email": "Dennis.Dole@djdole.net",
+    "phone": "734-218-2358",
+    "location": {
+      "address": "26645 16th Ave S",
+      "city": "Des Moines",
+      "region": "WA",
+      "postalCode": "98198",
+      "countryCode": "US"
+    },
+    "profiles": [
+      { "network": "LinkedIn", "url": "https://linkedin.com/in/djdole" },
+      { "network": "Indeed", "url": "https://profile.indeed.com/p/dennisd-9lrkjhr" }
+    ],
+    "summary": "Software Developer with 15+ years of experience at Docusign, Microsoft, and Amazon building automated test frameworks, internal developer tooling, and webhook integration systems for distributed, production-scale software. Proficient across C#, Ruby, Python, Java, PHP, and Node.js, with a track record of designing APIs, debugging complex production issues, and leading technical migrations. Skilled at partnering with developers and product managers throughout the SDLC, and at mentoring engineers on new teams."
+  },
+  "skills": [
+    { "category": "Languages", "keywords": ["C#", "Ruby", "Python", "Java", "PHP", "Node.js", "Bash", "PowerShell"] },
+    { "category": "APIs & Web Servers", "keywords": ["REST API design", "Apache HTTPD/Tomcat", "IIS", "nginx", "Node.js", "MongoDB"] },
+    { "category": "Frameworks & Tooling", "keywords": ["Selenium", "Playwright", "custom API test/automation harnesses", "nUnit", "xUnit", "jUnit", "PHPUnit"] },
+    { "category": "CI/CD & DevOps", "keywords": ["Jenkins", "Hudson", "Octopus", "Azure Pipelines", "Docker", "Kubernetes", "Ansible"] },
+    { "category": "Databases & Query Languages", "keywords": ["SQL", "Kusto", "MongoDB"] },
+    { "category": "Version Control", "keywords": ["Git", "Mercurial", "TFS", "Source Depot", "PVCS"] },
+    { "category": "Debugging & Diagnostics", "keywords": ["Fiddler", "Postman", "Resharper", "xDebug", "rDebug"] },
+    { "category": "Virtualization & Infra", "keywords": ["Docker", "Kubernetes", "HyperV", "VirtualBox", "Proxmox", "WSL"] },
+    { "category": "Methodologies", "keywords": ["Agile", "Scrum", "Kanban", "TDD", "DevOps"] },
+    { "category": "Collaboration & Docs", "keywords": ["Jira", "Confluence", "SharePoint", "MediaWiki"] },
+    { "category": "Monitoring / Incident Mgmt", "keywords": ["PagerDuty"] }
+  ],
+  "work": [
+    {
+      "title": "Software Developer",
+      "company": "Docusign, Inc.",
+      "tags": "Docusign Connect · Connect Test Listener (webhook) · Ruby Webhook Test Interface · x509 Certificate Management",
+      "startDate": "2024-03",
+      "endDate": "2025-07",
+      "highlights": [
+        "Designed, implemented, and maintained the Connect Team APIListener webhook tool, a production service used for automated end-to-end validation of webhook delivery.",
+        "Built and maintained a Ruby-based webhook testing application enabling fast, safe switching of targeted webhook endpoints, while preserving operational functionality across internal Docusign systems.",
+        "Led a migration to a new internal x509 certificate for Docusign Connect webhook connections, coordinating certificate rotation and deployment validation with 5+ internal engineering teams.",
+        "Improved the stability and reliability of internal webhook tooling relied on by automation and developer initiatives.",
+        "Partnered with Product Management to reproduce, triage, and resolve customer upgrade and configuration issues."
+      ]
+    },
+    {
+      "title": "Software Design Engineer in Test (SDET)",
+      "company": "Docusign, Inc.",
+      "tags": "Docusign Connect · Product Incubation Team · Docusign Print Tool (deprecated)",
+      "startDate": "2013-11",
+      "endDate": "2024-03",
+      "highlights": [
+        "Designed and built automated test frameworks and a custom API request communication layer using NUnit and Selenium.",
+        "Engineered obfuscated interfaces and test frameworks supporting webhook endpoint selection for automated and manual testing.",
+        "Developed sample HMAC-authenticated webhook integration code and ported it to Java, PHP, Python, C#, Ruby, and Node.js for customer-facing developer documentation.",
+        "Debugged product issues and authored clear, reproducible bug reports including environment details, stack traces, and metrics.",
+        "Participated in code reviews for new features, automation, and bug fixes alongside developers.",
+        "Planned and organized bug-bash events, giving developers, testers, and managers early access to alpha features.",
+        "Collaborated with release management to verify successful deployment and configuration of releases.",
+        "Trained and mentored new developers, testers, and team leads."
+      ]
+    },
+    {
+      "title": "SDET2",
+      "company": "Microsoft Engineering Excellence",
+      "tags": "Team Foundation Server · Microsoft Test Manager · C#",
+      "startDate": "2012-01",
+      "endDate": "2013-06",
+      "highlights": [
+        "Designed and implemented automated tests for Quality Essentials v3 Client and Server.",
+        "Collaborated with developers, PMs, and leads to ensure quality testing of existing and new features."
+      ]
+    },
+    {
+      "title": "SDET2",
+      "company": "Amazon",
+      "tags": "Linux · Eclipse · Hudson · Ant · TestNG · Java · Selenium",
+      "startDate": "2011-11",
+      "endDate": "2012-01",
+      "highlights": [
+        "Automated manual test cases to improve execution efficiency and coverage.",
+        "Collaborated with other engineers to debug and maintain the existing test automation environment."
+      ]
+    },
+    {
+      "title": "SDET",
+      "company": "Microsoft Live",
+      "tags": "C# · SQL · WTT · Kahuna Automation Framework (KAF) · NUnit · Source Depot · HyperV · Octopus",
+      "startDate": "2011-04",
+      "endDate": "2011-10",
+      "highlights": [
+        "Designed and implemented a KAF-based test automation framework to execute Build Verification Tests (BVTs) for the BaR team.",
+        "Owned test features end-to-end, collaborating with developers and product managers to plan and execute strategy.",
+        "Tested and documented issues across current and related product features."
+      ]
+    },
+    {
+      "title": "SDET",
+      "company": "Microsoft Health Solutions Group",
+      "tags": "C# · SQL · WTT · Echo · KAF · NUnit · iMacros · REST · XML · HyperV",
+      "startDate": "2008-02",
+      "endDate": "2010-11",
+      "highlights": [
+        "Designed, updated, and maintained test plans for owned and shared product features.",
+        "Built and maintained web-app automation to increase test case execution efficiency.",
+        "Performed exploratory black- and white-box testing to proactively mitigate release risk.",
+        "Partnered with management, developers, UX, and operations to ensure product quality met release standards."
+      ]
+    },
+    {
+      "title": "Software Engineer",
+      "company": "Cosworth Tech Inc. / MAHLE Powertrain LLC",
+      "tags": "Borland JBuilder · Java · Swing · Borland C++ · Oracle SQL · PVCS/Serena",
+      "startDate": "2006-03",
+      "endDate": "2008-02",
+      "highlights": [
+        "Designed, developed, and debugged desktop applications using Borland C++ and Java, resolving defects tracked in Team Track.",
+        "Automated Excel-based reporting integrated with a SQL trouble-ticket tracking system for contract customers."
+      ]
+    },
+    {
+      "title": "Quality Assurance Engineer",
+      "company": "Cosworth Tech Inc. / MAHLE Powertrain LLC",
+      "tags": "Excel · iMacros · Visual Basic · Team Track",
+      "startDate": "2005-03",
+      "endDate": "2006-08",
+      "highlights": [
+        "Developed and maintained system and regression test plans for existing and new software applications.",
+        "Performed software validation across multiple projects to ensure product quality prior to release."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "institution": "Michigan Technological University",
+      "studyType": "Bachelor of Science",
+      "area": "Computer Science"
+    }
+  ]
+}
