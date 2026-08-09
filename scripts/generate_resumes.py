@@ -3,6 +3,10 @@
 Generates baseline (no-specific-JD) resume + cover letter outputs from
 data/resume_data.json, in pdf/docx/txt/md/json formats.
 
+Uses a self-hosted LiteLLM proxy (in front of Ollama, via its OpenAI-
+compatible API) rather than a paid hosted API, so this never spends API
+credits and never fails due to account balance.
+
 This covers the automated, on-push path only: regenerating the generic
 resume/cover letter/README content whenever the knowledge base changes
 (new skill, new bullet, etc). Tailoring a resume to a *specific* job
@@ -20,7 +24,8 @@ import re
 import sys
 from pathlib import Path
 
-import anthropic
+import os
+import openai
 from docx import Document
 from docx.shared import Pt
 from reportlab.lib.pagesizes import LETTER
@@ -28,7 +33,36 @@ from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
-MODEL = "claude-sonnet-4-6"
+# Points at a self-hosted LiteLLM proxy instead of the Anthropic API. This
+# stack runs LiteLLM in front of Ollama specifically as an OpenAI-compatible
+# gateway (see docker-compose.yml), so we call LiteLLM directly rather than
+# Open WebUI's own API layer. Avoids paid-API token usage entirely;
+# generation runs against whatever local model Ollama has loaded.
+#
+# Required repo configuration (Settings -> Secrets and variables -> Actions):
+#   Secrets:   LITELLM_BASE_URL   e.g. https://litellm.example.com
+#                                 (points at the LiteLLM container's port,
+#                                 ${LITELLM_PORT} in docker-compose.yml --
+#                                 NOT Open WebUI's UI port)
+#              LITELLM_API_KEY    same value as LITELLM_MASTER_KEY in that
+#                                 stack's .env -- this is the bearer token
+#                                 LiteLLM already expects on its API
+#   Variables: LITELLM_MODEL      the model string LiteLLM proxies to, e.g.
+#                                 "ollama/llama3.1:70b" (matches the
+#                                 --model argument in the litellm service's
+#                                 `command:` in docker-compose.yml) -- NOT
+#                                 sensitive, so it's a repo Variable rather
+#                                 than a Secret.
+#
+# IMPORTANT -- network reachability: GitHub's hosted runners live on the
+# public internet and cannot reach an instance sitting on your home LAN
+# unless it's exposed through something like a Cloudflare Tunnel, Tailscale
+# Funnel, or reverse proxy with auth in front of it. If you'd rather not
+# expose it at all, run this workflow on a *self-hosted* runner on the same
+# network as LiteLLM instead (change `runs-on:` in the workflow file) --
+# see the accompanying yml for the toggle.
+MODEL = os.environ.get("LITELLM_MODEL", "ollama/llama3.1:70b")
+
 
 # The model sometimes reaches for an em dash out of habit even when told
 # not to. The knowledge base's own never_use_em_dash rule is the primary
@@ -75,24 +109,58 @@ def build_system_prompt(kb: dict) -> str:
     )
 
 
-def call_claude(kb: dict) -> dict:
-    client = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY from env
-    response = client.messages.create(
-        model=MODEL,
-        max_tokens=4000,
-        system=build_system_prompt(kb),
-        messages=[
-            {
-                "role": "user",
-                "content": "Generate the baseline resume and cover letter JSON now.",
-            }
-        ],
-    )
-    raw = "".join(block.text for block in response.content if block.type == "text")
+def call_llm(kb: dict) -> dict:
+    base_url = os.environ.get("LITELLM_BASE_URL")
+    api_key = os.environ.get("LITELLM_API_KEY")
+    if not base_url or not api_key:
+        print(
+            "LITELLM_BASE_URL and/or LITELLM_API_KEY are not set. "
+            "Set them as repo secrets (Settings -> Secrets and variables -> "
+            "Actions) before running this workflow. LITELLM_API_KEY should "
+            "match LITELLM_MASTER_KEY in that stack's .env.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    client = openai.OpenAI(base_url=base_url.rstrip("/") + "/v1", api_key=api_key)
+
+    try:
+        response = client.chat.completions.create(
+            model=MODEL,
+            max_tokens=4000,
+            temperature=0.4,
+            timeout=180,  # fail fast rather than hang if the instance is unreachable
+            messages=[
+                {"role": "system", "content": build_system_prompt(kb)},
+                {"role": "user", "content": "Generate the baseline resume and cover letter JSON now."},
+            ],
+        )
+    except openai.APIConnectionError as e:
+        print(
+            f"Could not reach LiteLLM at {base_url}. Is the stack running and "
+            "reachable from this runner? (Hosted GitHub runners cannot reach "
+            "a private home LAN instance unless it's tunneled/exposed, or "
+            "unless this workflow runs on a self-hosted runner on the same "
+            f"network.) Underlying error: {e}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    except openai.APIStatusError as e:
+        print(
+            f"LiteLLM returned an error (HTTP {e.status_code}): {e.message}. "
+            "Check LITELLM_API_KEY matches LITELLM_MASTER_KEY and that "
+            "LITELLM_MODEL matches the --model argument LiteLLM was started with.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    raw = response.choices[0].message.content or ""
     raw = re.sub(r"^```(?:json)?|```$", "", raw.strip(), flags=re.MULTILINE).strip()
     try:
         return json.loads(raw)
     except json.JSONDecodeError as e:
+        # Local/open models are less consistent than Claude about returning
+        # bare JSON; surface the raw text so a failed run is easy to debug.
         print("Model did not return valid JSON:\n", raw, file=sys.stderr)
         raise e
 
@@ -236,7 +304,7 @@ def main():
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    content = call_claude(kb)
+    content = call_llm(kb)
 
     base = "Dennis_Dole_Resume_Baseline"
     cl_base = "Dennis_Dole_CoverLetter_Baseline"
@@ -257,4 +325,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
