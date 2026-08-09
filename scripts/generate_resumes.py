@@ -76,116 +76,37 @@ def strip_em_dashes(text: str) -> str:
     return text.replace(EM_DASH, ",")
 
 
-# Keys from resume_data.json that must NOT be embedded verbatim in this
-# script's prompt. Both were written for a different, interactive workflow
-# (a chat assistant tailoring a resume to a pasted job description) and
-# actively contradict this script's single-JSON-object contract:
-#   - generation_workflow_for_llm step 9 says to "clearly separate RESUME
-#     and COVER LETTER content" as prose sections.
-#   - output_format_instructions describes pdf/docx/txt/md/json as parallel
-#     *output formats* to choose between, not a nested JSON schema.
-# A weaker local model will follow whichever instruction it saw, and these
-# two blocks are large, detailed, and internally consistent enough that
-# they can out-compete the wrapper instruction below. Excluding them here
-# removes the contradiction instead of just out-shouting it.
-_KB_KEYS_TO_OMIT_FROM_PROMPT = {"generation_workflow_for_llm", "output_format_instructions"}
-
-
 def build_system_prompt(kb: dict) -> str:
     """
-    Embeds the relevant parts of the knowledge base into the system prompt.
-    See _KB_KEYS_TO_OMIT_FROM_PROMPT for what's deliberately left out and why.
+    Embeds the knowledge base's own meta/output_rules/generation_workflow
+    instructions into the system prompt, so the resume generation logic
+    lives in one place (the JSON file) rather than being duplicated here.
     """
-    trimmed_kb = {k: v for k, v in kb.items() if k not in _KB_KEYS_TO_OMIT_FROM_PROMPT}
-
     return (
-        "Output ONLY valid JSON.\n"
         "You are generating a BASELINE resume and cover letter (no specific "
         "job description provided) from the candidate knowledge base below. "
-        "Use the SDE summary_variant as the default summary, default skill "
-        "category order, all default (non-alt) work_experience bullets, and "
+        "Follow generation_workflow_for_llm step 0's no-JD fallback: use the "
+        "SDE summary_variant as the default summary, default skill category "
+        "order, all default (non-alt) work_experience bullets, and "
         "cover_letter_building_blocks.generic_fallback_template for the "
         "cover letter. Follow every rule in meta.output_rules, especially "
         "never_fabricate and never_use_em_dash.\n\n"
-        "CRITICAL RULES which you MUST obey:\n"
-        "- DO NOT BREAK ANY OF THE FOLLOWING RULES.\n"
-        "- Output ONLY valid JSON.\n"
-        "- Do NOT omit data by using placeholder text like '...'.\n"
-        "- Do NOT include any introductory or concluding text in your response.\n"
-        "- Respond with EXACTLY ONE JSON object and nothing else.\n"
-        "- Do NOT include markdown formatting, markdown blocks, or triple backticks (```).\n"
-        "- Do NOT include markdown code fences (no ```).\n"
-        "- Do NOT include any heading, label, or prose before or after the JSON (no '**Resume:**', no '**Cover Letter:**', no 'Here is the generated baseline resume and cover letter JSON:', no closing notes explaining the output, no apologies, no requests, no inquiries, no superfluous text at all).\n"
-        "- Do NOT produce two separate JSON objects. The resume and cover letter both go INSIDE the one object below, as the 'resume' and 'cover_letter' keys.\n"
-        "- Do NOT include any additional text before or after the JSON response. Your entire response should be SOLELY valid JSON.\n"
-        "- Your entire response must be parseable by json.loads() with no preprocessing.\n"
-        "- Before responding, review your response to ensure you're following the CRITICAL RULES and outputting ONLY valid json.\n\n"
-        "Required shape, with a filled-in example so the structure is "
-        "unambiguous (use your own real content from the knowledge base, "
-        "this is only to illustrate the shape):\n"
+        "Respond with ONLY a single JSON object (no markdown fences, no "
+        "commentary) matching exactly this shape:\n"
         "{\n"
         '  "resume": {\n'
-        '    "name": "Dennis Jay Dole",\n'
-        '    "contact_line": "Des Moines, WA | Dennis.Dole@djdole.net | 734-218-2358",\n'
-        '    "summary": "Software developer with ...",\n'
-        '    "skills": [{"category": "Languages", "items": ["C#", "Python"]}],\n'
+        '    "name": str, "contact_line": str, "summary": str,\n'
+        '    "skills": [{"category": str, "items": [str, ...]}, ...],\n'
         '    "work_experience": [\n'
-        "      {\n"
-        '        "title": "Software Developer",\n'
-        '        "company": "Docusign, Inc.",\n'
-        '        "date_range": "Mar 2024 - Jul 2025",\n'
-        '        "team_context": "Docusign Connect",\n'
-        '        "bullets": ["Designed and implemented ..."]\n'
-        "      }\n"
+        '      {"title": str, "company": str, "date_range": str,\n'
+        '       "team_context": str, "bullets": [str, ...]}, ...\n'
         "    ],\n"
-        '    "education": [{"degree": "B.S. Computer Science", "institution": "Michigan Technological University", "date": "Dec 2004"}]\n'
+        '    "education": [{"degree": str, "institution": str, "date": str}]\n'
         "  },\n"
-        '  "cover_letter": {"body": "Dear Hiring Manager, ..."}\n'
+        '  "cover_letter": {"body": str}\n'
         "}\n\n"
-        "Knowledge base:\n" + json.dumps(trimmed_kb, indent=2)
+        "Knowledge base:\n" + json.dumps(kb, indent=2)
     )
-
-
-def extract_json_object(raw: str) -> str:
-    """
-    Best-effort extraction of a single JSON object from model output that
-    may still have stray prose/labels/fences around it despite the prompt
-    (local models drift more than hosted ones). Finds the first '{' and
-    the matching closing '}' by brace counting, so leading text like
-    '**Resume:**' or a trailing 'Note that this output is...' sentence
-    doesn't break json.loads(). Does NOT attempt to merge multiple
-    separate JSON objects -- if the model returned two objects instead of
-    one, that's a prompt-compliance failure the retry in call_llm handles,
-    not something safe to paper over here.
-    """
-    text = re.sub(r"^```(?:json)?|```$", "", raw.strip(), flags=re.MULTILINE).strip()
-    start = text.find("{")
-    if start == -1:
-        return text
-    depth = 0
-    for i, ch in enumerate(text[start:], start=start):
-        if ch == "{":
-            depth += 1
-        elif ch == "}":
-            depth -= 1
-            if depth == 0:
-                return text[start : i + 1]
-    return text  # unbalanced; let json.loads() raise with the real error
-
-
-def validate_content_shape(content: dict) -> None:
-    """Fail with a clear message instead of a KeyError deep in a render_* function."""
-    if "resume" not in content or "cover_letter" not in content:
-        raise ValueError(
-            f"Parsed JSON is missing top-level 'resume' and/or 'cover_letter' "
-            f"keys. Got keys: {list(content.keys())}"
-        )
-    resume_required = {"name", "contact_line", "summary", "skills", "work_experience", "education"}
-    missing = resume_required - set(content["resume"].keys())
-    if missing:
-        raise ValueError(f"'resume' object is missing required keys: {sorted(missing)}")
-    if "body" not in content["cover_letter"]:
-        raise ValueError("'cover_letter' object is missing required key: 'body'")
 
 
 def call_llm(kb: dict) -> dict:
@@ -203,66 +124,45 @@ def call_llm(kb: dict) -> dict:
 
     client = openai.OpenAI(base_url=base_url.rstrip("/") + "/v1", api_key=api_key)
 
-    messages = [
-        {"role": "system", "content": build_system_prompt(kb)},
-        {"role": "user", "content": "Generate the baseline resume and cover letter JSON now."},
-    ]
+    try:
+        response = client.chat.completions.create(
+            model=MODEL,
+            max_tokens=4000,
+            temperature=0.4,
+            timeout=180,  # fail fast rather than hang if the instance is unreachable
+            messages=[
+                {"role": "system", "content": build_system_prompt(kb)},
+                {"role": "user", "content": "Generate the baseline resume and cover letter JSON now."},
+            ],
+        )
+    except openai.APIConnectionError as e:
+        print(
+            f"Could not reach LiteLLM at {base_url}. Is the stack running and "
+            "reachable from this runner? (Hosted GitHub runners cannot reach "
+            "a private home LAN instance unless it's tunneled/exposed, or "
+            "unless this workflow runs on a self-hosted runner on the same "
+            f"network.) Underlying error: {e}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    except openai.APIStatusError as e:
+        print(
+            f"LiteLLM returned an error (HTTP {e.status_code}): {e.message}. "
+            "Check LITELLM_API_KEY matches LITELLM_MASTER_KEY and that "
+            "LITELLM_MODEL matches the --model argument LiteLLM was started with.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
-    # Local/open models are less reliable than hosted ones about staying on
-    # format; give it one corrective retry with the bad output and a
-    # sharper instruction before giving up, rather than failing the whole
-    # workflow run on the first drift.
-    last_error: Exception | None = None
-    for attempt in range(1, 3):
-        try:
-            response = client.chat.completions.create(
-                model=MODEL,
-                max_tokens=10000,
-                temperature=0.4,
-                timeout=180,  # fail fast rather than hang if the instance is unreachable
-                messages=messages,
-            )
-        except openai.APIConnectionError as e:
-            print(
-                f"Could not reach LiteLLM at {base_url}. Is the stack running and "
-                "reachable from this runner? (Hosted GitHub runners cannot reach "
-                "a private home LAN instance unless it's tunneled/exposed, or "
-                "unless this workflow runs on a self-hosted runner on the same "
-                f"network.) Underlying error: {e}",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-        except openai.APIStatusError as e:
-            print(
-                f"LiteLLM returned an error (HTTP {e.status_code}): {e.message}. "
-                "Check LITELLM_API_KEY matches LITELLM_MASTER_KEY and that "
-                "LITELLM_MODEL matches the --model argument LiteLLM was started with.",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-
-        raw = response.choices[0].message.content or ""
-        candidate = extract_json_object(raw)
-        try:
-            content = json.loads(candidate)
-            validate_content_shape(content)
-            return content
-        except (json.JSONDecodeError, ValueError) as e:
-            last_error = e
-            print(f"Attempt {attempt} did not produce valid content ({e}).", file=sys.stderr)
-            if attempt == 1:
-                print("Raw model output was:\n", raw, file=sys.stderr)
-                print("Retrying once with a corrective follow-up message...", file=sys.stderr)
-                messages.append({"role": "assistant", "content": raw})
-                messages.append({
-                    "role": "user",
-                    "content": (
-                        f"That response was invalid: {e}. Output ONLY valid JSON.\nIt must be EXACTLY ONE JSON object with top-level keys 'resume' and 'cover_letter', no headings like '**Resume:**', no separate JSON objects, no commentary before or after, no markdown code fences. Return the corrected JSON object now, and nothing else.\nCRITICAL RULES:\n- DO NOT BREAK ANY OF THE FOLLOWING RULES.\n- Do NOT omit data by using placeholder text like '...'.\n- Do NOT include any introductory or concluding text in your response.\n- Respond with EXACTLY ONE JSON object and nothing else.\n- Do NOT include markdown formatting, markdown blocks, or triple backticks (```).\n- Do not include markdown code fences (no ```).\n- Do not include any heading, label, or prose before or after the JSON (no '**Resume:**', no '**Cover Letter:**', no 'Here is the generated baseline resume and cover letter JSON:', no closing notes explaining the output, no apologies, no requests, no inquiries, no superfluous text at all).\n- Do not produce two separate JSON objects. The resume and cover letter both go INSIDE the one object below, as the 'resume' and 'cover_letter' keys.\n- Do not include any additional text before or after the JSON response. Your entire response should be SOLELY valid JSON.\n- Your entire response must be parseable by json.loads() with no preprocessing.\n- Before responding, review your response to ensure you're only returning valid parsable JSON."
-                    ),
-                })
-
-    print("Model did not return valid JSON after retrying:\n", raw, file=sys.stderr)
-    raise last_error
+    raw = response.choices[0].message.content or ""
+    raw = re.sub(r"^```(?:json)?|```$", "", raw.strip(), flags=re.MULTILINE).strip()
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError as e:
+        # Local/open models are less consistent than Claude about returning
+        # bare JSON; surface the raw text so a failed run is easy to debug.
+        print("Model did not return valid JSON:\n", raw, file=sys.stderr)
+        raise e
 
 
 def render_txt(content: dict) -> str:
