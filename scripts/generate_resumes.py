@@ -254,11 +254,7 @@ def call_llm(kb: dict) -> dict:
                 messages.append({
                     "role": "user",
                     "content": (
-                        f"That response was invalid: {e}. It must be EXACTLY ONE JSON "
-                        "object with top-level keys 'resume' and 'cover_letter', no "
-                        "headings like '**Resume:**', no separate JSON objects, no "
-                        "commentary before or after, no markdown code fences. Return "
-                        "the corrected JSON object now, and nothing else."
+                        f"That response was invalid: {e}. It must be EXACTLY ONE JSON object with top-level keys 'resume' and 'cover_letter', no headings like '**Resume:**', no separate JSON objects, no commentary before or after, no markdown code fences. Return the corrected JSON object now, and nothing else.\nCRITICAL RULES:\n- DO NOT BREAK ANY OF THE FOLLOWING RULES.\n- Do NOT include any introductory or concluding text in your response.\n- Respond with EXACTLY ONE JSON object and nothing else.\n- Do NOT include markdown formatting, markdown blocks, or triple backticks (```).\n- Do not include markdown code fences (no ```).\n- Do not include any heading, label, or prose before or after the JSON (no '**Resume:**', no '**Cover Letter:**', no 'Here is the generated baseline resume and cover letter JSON:', no closing notes explaining the output, no apologies, no requests, no inquiries, no superfluous text at all).\n- Do not produce two separate JSON objects. The resume and cover letter both go INSIDE the one object below, as the 'resume' and 'cover_letter' keys.\n- Do not include any additional text before or after the JSON response. Your entire response should be SOLELY valid JSON.\n- Your entire response must be parseable by json.loads() with no preprocessing.\n- Before responding, review your response to ensure you're only returning valid parsable JSON."
                     ),
                 })
 
