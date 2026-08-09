@@ -1,0 +1,57 @@
+name: Generate resumes and cover letters
+
+# Regenerates the baseline (no-specific-JD) resume and cover letter files
+# whenever the knowledge base changes, and opens a PR with the results
+# instead of pushing straight to main. Job-tailored resumes for a specific
+# posting are a separate, manual, per-application workflow (done in chat)
+# and are NOT handled by this file.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "data/resume_data.json"
+  workflow_dispatch: {} # allows manually re-running from the Actions tab
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: generate-resumes
+  cancel-in-progress: true
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Generate baseline outputs
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python scripts/generate_resumes.py --data data/resume_data.json --out generated/
+
+      - name: Open pull request with regenerated files
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "Regenerate resumes and cover letters from updated knowledge base"
+          branch: auto/regenerate-resumes
+          delete-branch: true
+          title: "Auto: regenerate resumes/cover letters from resume_data.json"
+          body: |
+            Triggered by a change to `data/resume_data.json`.
+
+            This PR was opened automatically and was **not** reviewed by a human yet.
+            Please read the diff in `generated/` before merging: LLM output can drift
+            in small ways (odd phrasing, reordered bullets) that are worth a skim.
+          labels: automated-pr
