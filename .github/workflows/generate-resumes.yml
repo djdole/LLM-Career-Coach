@@ -1,10 +1,12 @@
 name: Generate resumes and cover letters
 
 # Regenerates the baseline (no-specific-JD) resume and cover letter files
-# whenever the knowledge base changes, and opens a PR with the results
-# instead of pushing straight to main. Job-tailored resumes for a specific
-# posting are a separate, manual, per-application workflow (done in chat)
-# and are NOT handled by this file.
+# whenever a pull request changes the knowledge base, and commits the
+# generated files directly onto that PR's own branch -- so the PR ends up
+# containing both the resume_data.json change and the resulting generated/
+# output change together, reviewable and mergeable as one unit. Job-tailored
+# resumes for a specific posting are a separate, manual, per-application
+# workflow (done in chat) and are NOT handled by this file.
 #
 # Uses a self-hosted LiteLLM proxy (in front of Ollama, per that stack's
 # docker-compose.yml) instead of a paid API, so this workflow never spends
@@ -21,10 +23,18 @@ name: Generate resumes and cover letters
 # Runners -> New self-hosted runner) and change `runs-on: ubuntu-latest` to
 # `runs-on: self-hosted` below -- then LITELLM_BASE_URL can just be a plain
 # LAN address (e.g. http://192.168.x.x:4000).
+#
+# FORK PULL REQUESTS: pull_request-triggered workflows from a fork get a
+# read-only GITHUB_TOKEN for security, so the commit-back step below can't
+# push to a forked branch. That's fine for a personal single-owner repo
+# where every PR comes from a branch in this same repo; if you ever accept
+# PRs from forks, this step will just fail harmlessly on those (nothing to
+# push), and you'd want a separate `pull_request_target`-based approach for
+# that case, with the extra security review that implies.
 
 on:
   pull_request:
-    types: [closed] # fires when a PR closes; the job-level `if` below narrows this to merged-only
+    types: [opened, synchronize, reopened]
     branches: [main]
     paths:
       - "data/resume_data.json"
@@ -32,29 +42,32 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
 
 concurrency:
-  group: generate-resumes
+  group: generate-resumes-${{ github.event.pull_request.number || 'manual' }}
   cancel-in-progress: true
 
 jobs:
   generate:
-    # `pull_request: types: [closed]` fires on every closed PR, merged or not --
-    # a merge is just one way to close one. This condition is what actually
-    # restricts the job to real merges (skipped for closed-without-merging),
-    # while still allowing manual re-runs from the Actions tab.
-    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+    # The "Commit generated files" step below pushes to the PR branch, which
+    # would normally re-trigger this same workflow via `synchronize` and
+    # loop. GitHub attributes a push made with the workflow's GITHUB_TOKEN
+    # to github-actions[bot], so skipping runs triggered by that actor
+    # breaks the loop after one pass (the regenerate step is also a no-op
+    # on that second run anyway, since nothing would have changed).
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest # see network reachability note above before changing to self-hosted
     timeout-minutes: 15 # fail fast instead of hanging if LiteLLM is unreachable
     steps:
-      - name: Check out repo
+      - name: Check out PR branch
         uses: actions/checkout@v4
         with:
-          # The pull_request event's default checkout ref is the PR branch's
-          # last commit, NOT the resulting merge commit on main. Pin to main
-          # explicitly so this always builds from the post-merge state.
-          ref: main
+          # For pull_request events, the default checkout ref is a detached
+          # merge-preview ref, not something we can push back to. Pin to
+          # the PR's actual head branch instead (falls back to the
+          # triggering ref for workflow_dispatch, e.g. when run manually
+          # against main or another branch from the Actions tab).
+          ref: ${{ github.head_ref || github.ref_name }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -71,19 +84,14 @@ jobs:
           LITELLM_MODEL: ${{ vars.LITELLM_MODEL }}
         run: python scripts/generate_resumes.py --data data/resume_data.json --out generated/
 
-      - name: Open pull request with regenerated files
-        uses: peter-evans/create-pull-request@v6
-        with:
-          commit-message: "Regenerate resumes and cover letters from updated knowledge base"
-          branch: auto/regenerate-resumes
-          delete-branch: true
-          title: "Auto: regenerate resumes/cover letters from resume_data.json"
-          body: |
-            Triggered by a change to `data/resume_data.json`.
-
-            Generated via self-hosted LiteLLM/Ollama (model: ${{ vars.LITELLM_MODEL }}).
-            This PR was opened automatically and was **not** reviewed by a human yet.
-            Please read the diff in `generated/` before merging: local-model output
-            can drift more than a hosted model's (odd phrasing, malformed sections,
-            reordered bullets) -- worth a closer skim than usual.
-          labels: automated-pr
+      - name: Commit generated files to the PR branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add generated/
+          if git diff --cached --quiet; then
+            echo "No changes to generated/ -- nothing to commit."
+          else
+            git commit -m "Regenerate resumes and cover letters from updated knowledge base"
+            git push origin HEAD:${{ github.head_ref || github.ref_name }}
+          fi
