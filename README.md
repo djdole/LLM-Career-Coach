@@ -1,6 +1,6 @@
 # Hi, I'm Dennis Jay Dole 👋
 
-Software Developer with 22+ years of experience at Docusign, Microsoft, and Amazon, building automated test frameworks, internal developer tooling, and webhook integration systems for distributed, production-scale software. Proficient across C#, Ruby, Python, Java, PHP, and Node.js, with a track record of designing APIs, debugging complex production issues, and leading technical migrations. Skilled at partnering with developers and product managers throughout the SDLC, and at mentoring engineers on new teams.
+Software Developer with 22+ years of experience at Docusign, Microsoft, and Amazon building automated test frameworks, internal developer tooling, and webhook integration systems for distributed, production-scale software. Proficient across C#, Ruby, Python, Java, PHP, and Node.js, with a track record of designing APIs, debugging complex production issues, and leading technical migrations. Skilled at partnering with developers and product managers throughout the SDLC, and at mentoring engineers on new teams.
 
 📍 Des Moines, WA
 📧 [Dennis.Dole@djdole.net](mailto:Dennis.Dole@djdole.net)
@@ -16,9 +16,9 @@ Software Developer with 22+ years of experience at Docusign, Microsoft, and Amaz
 
 **APIs & Web Servers:** REST API design, Apache HTTPD/Tomcat, IIS, nginx, Node.js, MongoDB
 
-**CI/CD & DevOps:** Jenkins, Hudson, Octopus, Azure Pipelines, Docker, Kubernetes, Ansible
+**Test Automation Frameworks:** Selenium, Playwright, Echo, Docusign's SAW Ruby framework, KAF (Kahuna Automation Framework), custom API test/automation harnesses
 
-**Test Automation Frameworks:** Selenium, Playwright, Echo, Docusign's SAW (Ruby), KAF (Kahuna Automation Framework), custom API test/automation harnesses
+**Frontend & Mobile Testing:** Angular (manual + Selenium automated testing), React (manual + Selenium automated testing), mobile application manual testing
 
 **Unit & Integration Testing:** nUnit, xUnit, jUnit, PHPUnit, WTT (Microsoft internal), SAW (Docusign internal)
 
@@ -26,19 +26,25 @@ Software Developer with 22+ years of experience at Docusign, Microsoft, and Amaz
 
 **Performance Testing:** JMeter
 
+**CI/CD & DevOps:** Jenkins, Hudson, Octopus, Azure Pipelines, GitHub Actions / GitHub Workflows, Docker, Kubernetes, Ansible
+
 **Databases & Query Languages:** SQL, Kusto, MongoDB
 
 **Version Control:** Git, Mercurial, TFS, Source Depot, PVCS
 
 **Debugging & Diagnostics:** Fiddler, Postman, Resharper, xDebug, rDebug
 
-**Virtualization & Infrastructure:** Docker, Kubernetes, HyperV, VirtualBox, Proxmox, WSL
+**Virtualization & Infra:** Docker, Kubernetes, HyperV, VirtualBox, Proxmox, WSL
+
+**Developer Tools & IDEs:** VS Code (Git/GitHub integration)
+
+**AI & Automation Tooling:** LLM-assisted content/document generation (Claude), structured JSON knowledge-base design for LLM consumption, prompt/instruction engineering for repeatable AI workflows, AI-assisted CI/CD pipeline design (GitHub Actions + LLM API)
 
 **Methodologies:** Agile, Scrum, Kanban, TDD, Waterfall, DevOps
 
 **Collaboration & Docs:** Jira, Confluence, SharePoint, MediaWiki
 
-**Monitoring & Incident Management:** PagerDuty
+**Monitoring / Incident Mgmt:** PagerDuty
 
 ---
 
@@ -68,6 +74,8 @@ Software Developer with 22+ years of experience at Docusign, Microsoft, and Amaz
 - Participated in bug triage of internal and customer-reported issues, and in dev/QA on-call rotations.
 - Collaborated with release management to verify successful deployment and configuration of releases.
 - Trained and mentored new developers, testers, and team leads.
+- Performed manual and Selenium-based automated testing of Angular and React front-end applications, verifying UI functionality and catching regressions ahead of release.
+- Conducted manual mobile application testing for approximately six months, verifying functionality and user experience across mobile platforms.
 
 ### SDET2 - Microsoft Engineering Excellence
 * Team Foundation Server * Microsoft Test Manager * C# *
@@ -81,7 +89,6 @@ Software Developer with 22+ years of experience at Docusign, Microsoft, and Amaz
 **Nov 2011 - Jan 2012**
 
 - Automated manual test cases to improve execution efficiency and coverage.
-- Collaborated with other engineers to debug and maintain the existing test automation environment.
 
 ### SDET - Microsoft Live
 * C# * SQL * WTT * Kahuna Automation Framework (KAF) * NUnit * Source Depot * HyperV * Octopus *
@@ -121,18 +128,19 @@ Software Developer with 22+ years of experience at Docusign, Microsoft, and Amaz
 
 **Bachelor of Science in Computer Science**
 Michigan Technological University - Computer Science
-Graduated December 2004
+Graduated 2004
 
 ---
 
 ## ✨ Career Highlights
 
-- Deep, unusual specialization in webhook systems: design, testing, HMAC authentication, x509 certificate migration, and multi-language sample code (Java, PHP, Python, C#, Ruby, Node.js).
-- 15+ years of continuous experience across three well-known tech employers: Docusign, Microsoft, and Amazon.
-- Progressed from QA/manual testing → SDET → SDE, demonstrating growth into full software development.
+- Deep, unusual specialization in webhook systems: design, testing, HMAC authentication, x509 certificate migration, multi-language sample code (Java/PHP/Python/C#/Ruby/Node.js).
+- 15+ years of continuous experience across three well-known tech employers (Docusign, Microsoft, Amazon).
+- Demonstrated progression from QA/manual testing to SDET to SDE, showing growth into full software development.
 - Led a cross-team technical migration (x509 certificate rotation) coordinating 5+ engineering teams.
 - Long track record of mentoring and training new engineers.
-- Fluent in six programming languages - valuable for polyglot, integration-heavy roles.
+- Fluent in many languages (C#, Ruby, Python, Java, PHP, Node.js) which is valuable for polyglot/integration-heavy roles.
+- Hands-on manual and Selenium-automated testing experience with Angular and React front-end applications, plus manual mobile testing experience.
 
 ---
 

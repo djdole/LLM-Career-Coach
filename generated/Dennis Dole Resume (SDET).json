@@ -1,69 +1,213 @@
 {
   "name": "Dennis Jay Dole",
-  "contact": {
-    "email": "Dennis.Dole@djdole.net",
-    "phone": "734-218-2358",
-    "linkedin": "linkedin.com/in/djdole",
-    "portfolio": "profile.indeed.com/p/dennisd-9lrkjhr",
-    "address": "26645 16th Ave S, Des Moines, WA 98198"
-  },
-  "summary": "Software Development Engineer in Test with 15+ years of experience at Docusign, Microsoft, and Amazon, specializing in designing automated test frameworks, building internal test tooling, and debugging complex product issues across distributed systems and webhook integrations. Skilled at driving test coverage, root-causing defects, and partnering with developers and product managers throughout the SDLC. Proven track record mentoring new engineers and leading testing initiatives from planning through release.",
-  "skills": {
-    "test_automation": ["Selenium", "Playwright", "Echo", "KAF (Kahuna Automation Framework)", "custom API test harnesses"],
-    "unit_and_integration_testing": ["nUnit", "xUnit", "jUnit", "PHPUnit", "WTT (Microsoft internal)", "SAW (Docusign internal)"],
-    "test_management_and_planning": ["MTM", "TFS", "test plan design", "bug triage", "exploratory (black/white box) testing"],
-    "performance_testing": ["JMeter"],
-    "ci_cd_and_devops": ["Jenkins", "Hudson", "Octopus", "Azure Pipelines", "Docker", "Kubernetes", "Ansible"],
-    "scripting_and_languages": ["C#", "Ruby", "Python", "Bash", "PowerShell", "Java", "PHP", "Node.js"],
-    "query_languages": ["SQL", "Kusto"],
-    "version_control": ["Git", "Mercurial", "TFS", "Source Depot", "PVCS"],
-    "debugging_and_diagnostics": ["Fiddler", "Postman", "Resharper", "xDebug", "rDebug"],
-    "servers_and_infrastructure": ["Apache HTTPD/Tomcat", "IIS", "nginx", "node.js", "MongoDB"],
-    "methodologies": ["Agile", "Scrum", "Kanban", "TDD", "Waterfall", "DevOps"],
-    "collaboration_and_documentation": ["Jira", "Confluence", "SharePoint", "MediaWiki"],
-    "monitoring_and_incident_management": ["PagerDuty"],
-    "virtualization": ["HyperV", "VirtualBox", "Proxmox", "WSL"]
-  },
+  "contact_line": "Dennis.Dole@djdole.net \u00b7 734-218-2358 \u00b7 linkedin.com/in/djdole \u00b7 profile.indeed.com/p/dennisd-9lrkjhr",
+  "skills_heading": "CORE SDET SKILLS",
+  "summary": "Software Development Engineer in Test with 22+ years of experience at Docusign, Microsoft, and Amazon, specializing in designing automated test frameworks, building internal test tooling, and debugging complex product issues across distributed systems and webhook integrations. Skilled at driving test coverage, root-causing defects, and partnering with developers and product managers throughout the SDLC. Proven track record mentoring new engineers and leading testing initiatives from planning through release.",
+  "skills": [
+    {
+      "category": "Languages",
+      "items": [
+        "C#",
+        "Ruby",
+        "Python",
+        "Java",
+        "PHP",
+        "Node.js",
+        "Bash",
+        "PowerShell",
+        "C++"
+      ]
+    },
+    {
+      "category": "APIs & Web Servers",
+      "items": [
+        "REST API design",
+        "Apache HTTPD/Tomcat",
+        "IIS",
+        "nginx",
+        "Node.js",
+        "MongoDB"
+      ]
+    },
+    {
+      "category": "Test Automation Frameworks",
+      "items": [
+        "Selenium",
+        "Playwright",
+        "Echo",
+        "Docusign's SAW Ruby framework",
+        "KAF (Kahuna Automation Framework)",
+        "custom API test/automation harnesses"
+      ]
+    },
+    {
+      "category": "Frontend & Mobile Testing",
+      "items": [
+        "Angular (manual + Selenium automated testing)",
+        "React (manual + Selenium automated testing)",
+        "mobile application manual testing"
+      ]
+    },
+    {
+      "category": "Unit & Integration Testing",
+      "items": [
+        "nUnit",
+        "xUnit",
+        "jUnit",
+        "PHPUnit",
+        "WTT (Microsoft internal)",
+        "SAW (Docusign internal)"
+      ]
+    },
+    {
+      "category": "Test Management & Planning",
+      "items": [
+        "MTM",
+        "TFS",
+        "test plan design",
+        "bug triage",
+        "exploratory testing (black/white box)"
+      ]
+    },
+    {
+      "category": "Performance Testing",
+      "items": [
+        "JMeter"
+      ]
+    },
+    {
+      "category": "CI/CD & DevOps",
+      "items": [
+        "Jenkins",
+        "Hudson",
+        "Octopus",
+        "Azure Pipelines",
+        "GitHub Actions / GitHub Workflows",
+        "Docker",
+        "Kubernetes",
+        "Ansible"
+      ]
+    },
+    {
+      "category": "Databases & Query Languages",
+      "items": [
+        "SQL",
+        "Kusto",
+        "MongoDB"
+      ]
+    },
+    {
+      "category": "Version Control",
+      "items": [
+        "Git",
+        "Mercurial",
+        "TFS",
+        "Source Depot",
+        "PVCS"
+      ]
+    },
+    {
+      "category": "Debugging & Diagnostics",
+      "items": [
+        "Fiddler",
+        "Postman",
+        "Resharper",
+        "xDebug",
+        "rDebug"
+      ]
+    },
+    {
+      "category": "Virtualization & Infra",
+      "items": [
+        "Docker",
+        "Kubernetes",
+        "HyperV",
+        "VirtualBox",
+        "Proxmox",
+        "WSL"
+      ]
+    },
+    {
+      "category": "Developer Tools & IDEs",
+      "items": [
+        "VS Code (Git/GitHub integration)"
+      ]
+    },
+    {
+      "category": "AI & Automation Tooling",
+      "items": [
+        "LLM-assisted content/document generation (Claude)",
+        "structured JSON knowledge-base design for LLM consumption",
+        "prompt/instruction engineering for repeatable AI workflows",
+        "AI-assisted CI/CD pipeline design (GitHub Actions + LLM API)"
+      ]
+    },
+    {
+      "category": "Methodologies",
+      "items": [
+        "Agile",
+        "Scrum",
+        "Kanban",
+        "TDD",
+        "Waterfall",
+        "DevOps"
+      ]
+    },
+    {
+      "category": "Collaboration & Docs",
+      "items": [
+        "Jira",
+        "Confluence",
+        "SharePoint",
+        "MediaWiki"
+      ]
+    },
+    {
+      "category": "Monitoring / Incident Mgmt",
+      "items": [
+        "PagerDuty"
+      ]
+    }
+  ],
   "work_experience": [
     {
       "title": "Software Developer",
       "company": "Docusign, Inc.",
-      "start_date": "2024-03",
-      "end_date": "2025-07",
-      "context": "Docusign Connect; Connect Test Listener (webhook); Ruby Webhook Test Interface; x509 Certificate Management",
+      "team_context": "Docusign Connect \u00b7 Connect Test Listener (webhook) \u00b7 Ruby Webhook Test Interface \u00b7 x509 Certificate Management",
+      "date_range": "2024-03 - 2025-07",
       "bullets": [
-        "Designed, implemented, and maintained the Connect Team APIListener (webhook) tool used for automated end-to-end validation of webhook delivery.",
-        "Built and maintained a Ruby-based webhook testing interface enabling fast switching of targeted webhook endpoints for QA and automation, while preserving operational functionality across internal Docusign resources.",
-        "Led migration to a new internal x509 certificate for Docusign Connect webhook connections, coordinating certificate rotation and deployment validation testing with 5+ internal teams.",
-        "Improved stability and test reliability of internal webhook tooling supporting automation and developer initiatives.",
+        "Designed, implemented, and maintained the Connect Team APIListener webhook tool, a production service used for automated end-to-end validation of webhook delivery.",
+        "Built and maintained a Ruby-based webhook testing application enabling fast, safe switching of targeted webhook endpoints, while preserving operational functionality across internal Docusign systems.",
+        "Led a migration to a new internal x509 certificate for Docusign Connect webhook connections, coordinating certificate rotation and deployment validation with 5+ internal engineering teams.",
+        "Improved the stability and reliability of internal webhook tooling relied on by automation and developer initiatives.",
         "Partnered with Product Management to reproduce, triage, and resolve customer upgrade and configuration issues."
       ]
     },
     {
       "title": "Software Design Engineer in Test (SDET)",
       "company": "Docusign, Inc.",
-      "start_date": "2013-11",
-      "end_date": "2024-03",
-      "context": "Docusign Connect; Product Incubation Team; Docusign Print Tool (deprecated)",
+      "team_context": "Docusign Connect \u00b7 Product Incubation Team \u00b7 Docusign Print Tool (deprecated)",
+      "date_range": "2013-11 - 2024-03",
       "bullets": [
-        "Designed and implemented automated tests and workflows using NUnit, Selenium, and a custom API request communication layer.",
-        "Designed test frameworks and obfuscated interfaces to support webhook endpoint selection for automated and manual testing.",
+        "Designed and built automated test frameworks and a custom API request communication layer using NUnit and Selenium.",
+        "Engineered obfuscated interfaces and test frameworks supporting webhook endpoint selection for automated and manual testing.",
+        "Developed sample HMAC-authenticated webhook integration code and ported it to Java, PHP, Python, C#, Ruby, and Node.js for customer-facing developer documentation.",
         "Debugged product issues and authored clear, reproducible bug reports including environment details, stack traces, and metrics.",
         "Maintained and extended existing automated test suites to sustain reliable coverage of product code.",
-        "Developed sample HMAC-authenticated webhook code and ported it to Java, PHP, Python, C#, Ruby, and Node.js for customer-facing documentation.",
-        "Participated in QA and developer code reviews for new features, test automation, and bug fixes.",
+        "Participated in code reviews for new features, automation, and bug fixes alongside developers.",
         "Planned and organized bug-bash events, giving developers, testers, and managers early access to alpha features.",
         "Participated in bug triage of internal and customer-reported issues, and in dev/QA on-call rotations.",
         "Collaborated with release management to verify successful deployment and configuration of releases.",
-        "Trained and mentored new developers, testers, and team leads."
+        "Trained and mentored new developers, testers, and team leads.",
+        "Performed manual and Selenium-based automated testing of Angular and React front-end applications, verifying UI functionality and catching regressions ahead of release.",
+        "Conducted manual mobile application testing for approximately six months, verifying functionality and user experience across mobile platforms."
       ]
     },
     {
       "title": "SDET2",
       "company": "Microsoft Engineering Excellence",
-      "start_date": "2012-01",
-      "end_date": "2013-06",
-      "context": "Team Foundation Server; Microsoft Test Manager; C#",
+      "team_context": "Team Foundation Server \u00b7 Microsoft Test Manager \u00b7 C#",
+      "date_range": "2012-01 - 2013-06",
       "bullets": [
         "Designed and implemented automated tests for Quality Essentials v3 Client and Server.",
         "Collaborated with developers, PMs, and leads to ensure quality testing of existing and new features."
@@ -72,32 +216,28 @@
     {
       "title": "SDET2",
       "company": "Amazon",
-      "start_date": "2011-11",
-      "end_date": "2012-01",
-      "context": "Linux; Eclipse; Hudson; Ant; TestNG; Java; Selenium",
+      "team_context": "Linux \u00b7 Eclipse \u00b7 Hudson \u00b7 Ant \u00b7 TestNG \u00b7 Java \u00b7 Selenium",
+      "date_range": "2011-11 - 2012-01",
       "bullets": [
-        "Automated manual test cases to improve execution efficiency and coverage.",
-        "Collaborated with other testers to debug and maintain the existing test automation environment."
+        "Automated manual test cases to improve execution efficiency and coverage."
       ]
     },
     {
       "title": "SDET",
       "company": "Microsoft Live",
-      "start_date": "2011-04",
-      "end_date": "2011-10",
-      "context": "C#; SQL; WTT; Kahuna Automation Framework (KAF); NUnit; Source Depot; HyperV; Octopus",
+      "team_context": "C# \u00b7 SQL \u00b7 WTT \u00b7 Kahuna Automation Framework (KAF) \u00b7 NUnit \u00b7 Source Depot \u00b7 HyperV \u00b7 Octopus",
+      "date_range": "2011-04 - 2011-10",
       "bullets": [
         "Designed and implemented a KAF-based test automation framework to execute Build Verification Tests (BVTs) for the BaR team.",
-        "Owned test features end-to-end, collaborating with developers and product managers to plan and execute test strategy.",
+        "Owned test features end-to-end, collaborating with developers and product managers to plan and execute strategy.",
         "Tested and documented issues across current and related product features."
       ]
     },
     {
       "title": "SDET",
       "company": "Microsoft Health Solutions Group",
-      "start_date": "2008-02",
-      "end_date": "2010-11",
-      "context": "C#; SQL; WTT; Echo; KAF; NUnit; iMacros; REST; XML; HyperV",
+      "team_context": "C# \u00b7 SQL \u00b7 WTT \u00b7 Echo \u00b7 KAF \u00b7 NUnit \u00b7 iMacros \u00b7 REST \u00b7 XML \u00b7 HyperV",
+      "date_range": "2008-02 - 2010-11",
       "bullets": [
         "Designed, updated, and maintained test plans for owned and shared product features.",
         "Built and maintained web-app automation to increase test case execution efficiency.",
@@ -107,32 +247,31 @@
       ]
     },
     {
-      "title": "Quality Assurance Engineer",
+      "title": "Software Engineer",
       "company": "Cosworth Tech Inc. / MAHLE Powertrain LLC",
-      "start_date": "2005-03",
-      "end_date": "2006-08",
-      "context": "Excel; iMacros; Visual Basic; Team Track",
+      "team_context": "Borland JBuilder \u00b7 Java \u00b7 Swing \u00b7 Borland C++ \u00b7 Oracle SQL \u00b7 PVCS/Serena",
+      "date_range": "2006-03 - 2008-02",
       "bullets": [
-        "Developed and maintained system and regression test plans for existing and new software applications.",
-        "Performed software validation across multiple projects to ensure product quality prior to release."
+        "Designed, developed, and debugged desktop applications using Borland C++ and Java, resolving defects tracked in Team Track.",
+        "Automated Excel-based reporting integrated with a SQL trouble-ticket tracking system for contract customers."
       ]
     },
     {
-      "title": "Software Engineer",
+      "title": "Quality Assurance Engineer",
       "company": "Cosworth Tech Inc. / MAHLE Powertrain LLC",
-      "start_date": "2006-03",
-      "end_date": "2008-02",
-      "context": "Borland JBuilder; Java; Swing; Borland C++; Oracle SQL; PVCS/Serena",
+      "team_context": "Excel \u00b7 iMacros \u00b7 Visual Basic \u00b7 Team Track",
+      "date_range": "2005-03 - 2006-08",
       "bullets": [
-        "Designed, developed, and debugged applications using Borland C++ and Java, resolving defects tracked in Team Track.",
-        "Automated Excel-based reporting integrated with the SQL trouble-ticket tracking system for contract customers."
+        "Developed and maintained system and regression test plans for existing and new software applications.",
+        "Performed software validation across multiple projects to ensure product quality prior to release."
       ]
     }
   ],
   "education": [
     {
       "degree": "Bachelor of Science in Computer Science",
-      "institution": "Michigan Technological University"
+      "institution": "Michigan Technological University",
+      "date": "2004"
     }
   ]
 }
