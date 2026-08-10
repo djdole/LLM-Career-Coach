@@ -87,6 +87,30 @@ BULLET_CHAR = "\u25cf"  # "●", matches the existing hand-written resumes' styl
 EM_DASH = "\u2014"
 
 
+def compute_job_column_widths(work_experience: list, body_pt: float, total_pt: float, min_title_pt: float = 130) -> tuple:
+    """
+    Sizes the title/employer/date columns from the ACTUAL text in this
+    resume at this font size, instead of fixed percentages -- fixed splits
+    silently overflow whenever a company name (e.g. 'Cosworth Tech Inc. /
+    MAHLE Powertrain LLC') is longer than whatever guess produced the
+    split, forcing it to wrap mid-name. Measured with reportlab's
+    Helvetica-Bold metrics as a stand-in font for both PDF and DOCX --
+    DOCX's actual font differs slightly, but widths are close enough that
+    this still prevents wrapping in practice.
+
+    Employer and date each get exactly what their longest actual value
+    needs (plus a small buffer); title gets whatever's left, floored at
+    min_title_pt so a long employer name can't crush the title column to
+    nothing.
+    """
+    from reportlab.pdfbase.pdfmetrics import stringWidth
+    pad = 8
+    employer_pt = max(stringWidth(j["company"], "Helvetica-Bold", body_pt) for j in work_experience) + pad
+    date_pt = max(stringWidth(j["date_range"], "Helvetica-Bold", body_pt) for j in work_experience) + pad
+    title_pt = max(total_pt - employer_pt - date_pt, min_title_pt)
+    return title_pt, employer_pt, date_pt
+
+
 def strip_em_dashes(text: str) -> str:
     """Belt-and-suspenders fallback behind the never_use_em_dash rule the
     model is given -- not a substitute for the model actually following it."""
@@ -440,29 +464,36 @@ def render_resume_docx(r: dict, path: Path, body_pt: float = 10.5) -> None:
         _tight(p, space_after=2)
 
     add_heading("WORK EXPERIENCE")
+    docx_usable_pt = 612 - 2 * 54  # page width minus the left/right margins set above (Pt(54) each)
+    title_col, employer_col, date_col = compute_job_column_widths(r["work_experience"], body_pt, docx_usable_pt)
     for job in r["work_experience"]:
-        table = doc.add_table(rows=1, cols=2)
+        table = doc.add_table(rows=1, cols=3)
         table.autofit = True
-        table.columns[0].width = Pt(340)
-        table.columns[1].width = Pt(120)
-        left, right = table.rows[0].cells
+        table.columns[0].width = Pt(title_col)
+        table.columns[1].width = Pt(employer_col)
+        table.columns[2].width = Pt(date_col)
+        left, middle, right = table.rows[0].cells
         lp = left.paragraphs[0]
         lr = lp.add_run(job["title"])
         lr.bold = True
         _tight(lp, space_after=0)
+        mp = middle.paragraphs[0]
+        mr = mp.add_run(job["company"])
+        mr.bold = True
+        _tight(mp, space_after=0)
         rp = right.paragraphs[0]
         rp.alignment = WD_ALIGN_PARAGRAPH.RIGHT
         rr = rp.add_run(job["date_range"])
         rr.bold = True
         _tight(rp, space_after=0)
 
-        line2 = job["company"] + (f" \u00b7 {job['team_context']}" if job.get("team_context") else "")
-        cp = doc.add_paragraph()
-        cr = cp.add_run(line2)
-        cr.italic = True
-        cr.font.color.rgb = ACCENT_RGB
-        cr.font.size = Pt(body_pt - 0.5)
-        _tight(cp, space_after=3)
+        if job.get("team_context"):
+            cp = doc.add_paragraph()
+            cr = cp.add_run(job["team_context"])
+            cr.italic = True
+            cr.font.color.rgb = ACCENT_RGB
+            cr.font.size = Pt(body_pt - 0.5)
+            _tight(cp, space_after=3)
 
         for i, b in enumerate(job["bullets"]):
             bp = doc.add_paragraph(style="List Bullet")
@@ -508,6 +539,7 @@ def _build_resume_story(r: dict, tier) -> list:
     name_style = ParagraphStyle("Name", parent=styles["Title"], fontSize=name_pt, textColor=ACCENT_COLOR, alignment=TA_CENTER, spaceAfter=2)
     contact_style = ParagraphStyle("Contact", parent=body_style, alignment=TA_CENTER, spaceAfter=10, fontSize=body_pt - 0.5)
     title_style = ParagraphStyle("JobTitle", parent=body_style, fontName="Helvetica-Bold", spaceAfter=0)
+    employer_style = ParagraphStyle("JobEmployer", parent=body_style, fontName="Helvetica-Bold", spaceAfter=0)
     date_style = ParagraphStyle("JobDate", parent=title_style, alignment=2)
 
     def heading(text):
@@ -520,10 +552,12 @@ def _build_resume_story(r: dict, tier) -> list:
     for group in r["skills"]:
         story.append(Paragraph(f"<b>{group['category']}:</b> {strip_em_dashes(', '.join(group['items']))}", body_style))
     story += heading("WORK EXPERIENCE")
+    usable_width = LETTER[0] - 2 * 0.7 * inch
+    title_col, employer_col, date_col = compute_job_column_widths(r["work_experience"], body_pt, usable_width)
     for job in r["work_experience"]:
         row = Table(
-            [[Paragraph(job["title"], title_style), Paragraph(job["date_range"], date_style)]],
-            colWidths=["70%", "30%"],
+            [[Paragraph(job["title"], title_style), Paragraph(job["company"], employer_style), Paragraph(job["date_range"], date_style)]],
+            colWidths=[title_col, employer_col, date_col],
         )
         row.setStyle(TableStyle([
             ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
@@ -531,8 +565,8 @@ def _build_resume_story(r: dict, tier) -> list:
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ]))
         story.append(row)
-        line2 = job["company"] + (f" \u00b7 {job['team_context']}" if job.get("team_context") else "")
-        story.append(Paragraph(line2, company_style))
+        if job.get("team_context"):
+            story.append(Paragraph(job["team_context"], company_style))
         for b in job["bullets"]:
             story.append(Paragraph(f"{BULLET_CHAR} {strip_em_dashes(b)}", bullet_style))
     story += heading("EDUCATION")
@@ -567,10 +601,73 @@ def render_cover_letter_pdf(cl: dict, path: Path) -> None:
     doc.build(story)
 
 
+# --- GitHub profile README --------------------------------------------
+
+def _format_readme_date_range(date_range: str) -> str:
+    """Best-effort 'YYYY-MM - YYYY-MM' -> 'Mon YYYY - Mon YYYY'. Falls back
+    to the input unchanged if it doesn't match that pattern, rather than
+    crashing on a model that reformatted the date differently."""
+    m = re.match(r"^(\d{4})-(\d{2})\s*-\s*(\d{4})-(\d{2})$", date_range.strip())
+    if not m:
+        return date_range
+    months = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    y1, m1, y2, m2 = m.groups()
+    return f"{months[int(m1)]} {y1} - {months[int(m2)]} {y2}"
+
+
+def render_github_profile_readme(kb: dict, resume_sde: dict) -> str:
+    """
+    Builds the root-level README.md that serves as this GitHub profile's
+    page. Reuses the SDE resume content already generated by call_llm
+    (name, contact, summary, skills, work_experience bullets) rather than
+    making a separate LLM call for essentially the same data. A few fields
+    the resume schema doesn't carry (location, education's field of study,
+    the differentiators list) are pulled directly from the knowledge base
+    -- deterministic and exact, since these are verbatim-reproduction
+    fields rather than anything requiring generation.
+    """
+    info = kb["personal_info"]
+    lines = [f"# Hi, I'm {resume_sde['name']} \U0001f44b", "", strip_em_dashes(resume_sde["summary"]), ""]
+    lines.append(f"\U0001f4cd {info['location_short']}")
+    lines.append(f"\U0001f4e7 [{info['email']}](mailto:{info['email']})")
+    lines.append(f"\U0001f4f1 {info['phone']}")
+    lines.append(f"\U0001f517 [{info['linkedin']}](https://{info['linkedin']})")
+    if info.get("portfolio_or_profile"):
+        lines.append(f"\U0001f517 [{info['portfolio_or_profile']}](https://{info['portfolio_or_profile']})")
+    lines += ["", "---", "", "## \U0001f6e0\ufe0f Skills", ""]
+    for group in resume_sde["skills"]:
+        lines.append(f"**{group['category']}:** {strip_em_dashes(', '.join(group['items']))}")
+        lines.append("")
+    lines += ["---", "", "## \U0001f4bc Experience", ""]
+    for job in resume_sde["work_experience"]:
+        lines.append(f"### {job['title']} - {job['company']}")
+        if job.get("team_context"):
+            parts = [p.strip() for p in job["team_context"].split("\u00b7") if p.strip()]
+            lines.append("* " + " * ".join(parts) + " *")
+        lines.append(f"**{_format_readme_date_range(job['date_range'])}**")
+        lines.append("")
+        for b in job["bullets"]:
+            lines.append(f"- {strip_em_dashes(b)}")
+        lines.append("")
+    lines += ["---", "", "## \U0001f393 Education", ""]
+    for ed in kb["education"]:
+        lines.append(f"**{ed['degree']}**")
+        field = ed.get("field of study")
+        lines.append(f"{ed['institution']}" + (f" - {field}" if field else ""))
+        lines.append(f"Graduated {ed['graduation date']}")
+        lines.append("")
+    lines += ["---", "", "## \u2728 Career Highlights", ""]
+    for item in kb.get("career_narrative_notes", {}).get("strongest_differentiators", []):
+        lines.append(f"- {strip_em_dashes(item)}")
+    lines += ["", "---", "", f"\U0001f4eb Reach out at [{info['email']}](mailto:{info['email']}) or connect on [LinkedIn](https://{info['linkedin']})."]
+    return "\n".join(lines)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--data", required=True, help="Path to resume_data.json")
     parser.add_argument("--out", required=True, help="Output directory (e.g. generated/)")
+    parser.add_argument("--readme-out", default="README.md", help="Path for the GitHub profile README.md (default: repo root)")
     args = parser.parse_args()
 
     kb = json.loads(Path(args.data).read_text(encoding="utf-8"))
@@ -578,11 +675,14 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
 
     cover_letter = None
+    resume_sde = None
     for variant in VARIANTS:
         content = call_llm(kb, variant)
         r = content["resume"]
         if cover_letter is None:
             cover_letter = content["cover_letter"]  # identical regardless of variant; keep the first
+        if variant == "SDE":
+            resume_sde = r  # reused for the GitHub profile README below, no extra LLM call needed
 
         base = out_dir / f"Dennis Dole Resume ({variant})"
         (base.with_suffix(".json")).write_text(json.dumps(r, indent=2), encoding="utf-8")
@@ -602,6 +702,10 @@ def main():
     (cl_base.with_suffix(".md")).write_text(render_cover_letter_md(cover_letter), encoding="utf-8")
     render_cover_letter_docx(cover_letter, cl_base.with_suffix(".docx"))
     render_cover_letter_pdf(cover_letter, cl_base.with_suffix(".pdf"))
+
+    readme_path = Path(args.readme_out)
+    readme_path.write_text(render_github_profile_readme(kb, resume_sde), encoding="utf-8")
+    print(f"Wrote GitHub profile README to {readme_path}")
 
     print(f"Wrote {len(VARIANTS)} resume variant(s) + 1 cover letter (5 formats each) to {out_dir}/")
 
