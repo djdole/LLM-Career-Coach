@@ -6,7 +6,7 @@ Software Developer with 22+ years of experience at Docusign, Microsoft, and Amaz
 📧 [Dennis.Dole@djdole.net](mailto:Dennis.Dole@djdole.net)
 📱 734-218-2358
 🔗 [linkedin.com/in/djdole](https://linkedin.com/in/djdole)
-🔗 [profile.indeed.com/p/dennisd-9lrkjhr](https://profile.indeed.com/p/dennisd-9lrjh)
+🔗 [profile.indeed.com/p/dennisd-9lrkjhr](https://profile.indeed.com/p/dennisd-9lrkjhr)
 
 ---
 
@@ -35,74 +35,56 @@ Software Developer with 22+ years of experience at Docusign, Microsoft, and Amaz
 ## 💼 Experience
 
 ### Software Developer - Docusign, Inc.
-* Docusign Connect \u00b7 Connect Test Listener (webhook) \u00b7 Ruby Webhook Test Interface \u00b7 x509 Certificate Management * 
 **2024-03 - 2025-07**
+* Designed, implemented, and maintained the Connect Team APIListener webhook tool, a production service used for automated end-to-end validation of webhook delivery.
+* Built and maintained a Ruby-based webhook testing application enabling fast, safe switching of targeted webhook endpoints, while preserving operational functionality across internal Docusign systems.
+* Led a migration to a new internal x509 certificate for Docusign Connect webhook connections, coordinating certificate rotation and deployment validation with 5+ internal engineering teams.
+* Improved the stability and reliability of internal webhook tooling relied on by automation and developer initiatives.
+* Partnered with Product Management to reproduce, triage, and resolve customer upgrade and configuration issues.
 
-- Designed, implemented, and maintained the Connect Team APIListener webhook tool, a production service used for automated end-to-end validation of webhook delivery.
-- Built and maintained a Ruby-based webhook testing application enabling fast, safe switching of targeted webhook endpoints, while preserving operational functionality across internal Docusign systems.
-- Led a migration to a new internal x509 certificate for Docusign Connect webhook connections, coordinating certificate rotation and deployment validation with 5+ internal engineering teams.
-- Improved the stability and reliability of internal webhook tooling relied on by automation and developer initiatives.
-- Partnered with Product Management to reproduce, triage, and resolve customer upgrade and configuration issues.
-
-### Software Developer - Docusign, Inc.
-* Docusign Connect \u00b7 Product Incubation Team \u00b7 Docusign Print Tool (deprecated) * 
+### SDET - Docusign, Inc.
 **2013-11 - 2024-03**
-
-- Designed and built automated test frameworks and a custom API request communication layer using NUnit and Selenium.
-- Engineered obfuscated interfaces and test frameworks supporting webhook endpoint selection for automated and manual testing.
-- Developed sample HMAC-authenticated webhook integration code and ported it to Java, PHP, Python, C#, Ruby, and Node.js for customer-facing developer documentation.
-- Debugged product issues and authored clear, reproducible bug reports including environment details, stack traces, and metrics.
-- Maintained and extended existing automated test suites to sustain reliable coverage of product code.
-- Participated in code reviews for new features, automation, and bug fixes alongside developers.
-- Planned and organized bug-bash events, giving developers, testers, and managers early access to alpha features.
-- Participated in bug triage of internal and customer-reported issues, and in dev/QA on-call rotations.
-- Collaborated with release management to verify successful deployment and configuration of releases.
-- Trained and mentored new engineers.
+* Docusign Connect \u00b7 Connect Test Listener (webhook) \u00b7 Ruby Webhook Test Interface \u00b7 x509 Certificate Management
+* Designed, implemented, and maintained the Connect Team APIListener webhook tool, a production service used for automated end-to-end validation of webhook delivery.
+* Built and maintained a Ruby-based webhook testing application enabling fast, safe switching of targeted webhook endpoints, while preserving operational functionality across internal Docusign systems.
+* Led a migration to a new internal x509 certificate for Docusign Connect webhook connections, coordinating certificate rotation and deployment validation with 5+ internal engineering teams.
+* Improved the stability and reliability of internal webhook tooling relied on by automation and developer initiatives.
+* Partnered with Product Management to reproduce, triage, and resolve customer upgrade and configuration issues.
+* Designed and implemented automated tests for Quality Essentials v3 Client and Server.
+* Collaborated with developers, PMs, and leads to ensure quality testing of existing and new features.
 
 ### SDET2 - Microsoft Engineering Excellence
-* Team Foundation Server \u00b7 Microsoft Test Manager \u00b7 C# * 
 **2012-01 - 2013-06**
-
-- Designed and implemented automated tests for Quality Essentials v3 Client and Server.
-- Collaborated with developers, PMs, and leads to ensure quality testing of existing and new features.
+* Designed and implemented automated tests for Quality Essentials v3 Client and Server.
+* Collaborated with developers, PMs, and leads to ensure quality testing of existing and new features.
 
 ### SDET2 - Amazon
-* Linux \u00b7 Eclipse \u00b7 Hudson \u00b7 Ant \u00b7 TestNG \u00b7 Java \u00b7 Selenium * 
 **2011-11 - 2012-01**
-
-- Automated manual test cases to improve execution efficiency and coverage.
+* Automated manual test cases to improve execution efficiency and coverage.
 
 ### SDET - Microsoft Live
-* C# \u00b7 SQL \u00b7 WTT \u00b7 Kahuna Automation Framework (KAF) \u00b7 NUnit \u00b7 Source Depot \u00b7 HyperV \u00b7 Octopus * 
 **2011-04 - 2011-10**
-
-- Designed and implemented a KAF-based test automation framework to execute Build Verification Tests (BVTs) for the BaR team.
-- Owned test features end-to-end, collaborating with developers and product managers to plan and execute strategy.
-- Tested and documented issues across current and related product features.
+* Designed and implemented a KAF-based test automation framework to execute Build Verification Tests (BVTs) for the BaR team.
+* Owned test features end-to-end, collaborating with developers and product managers to plan and execute strategy.
+* Tested and documented issues across current and related product features.
 
 ### SDET - Microsoft Health Solutions Group
-* C# \u00b7 SQL \u00b7 WTT \u00b7 Echo \u00b7 KAF \u00b7 NUnit \u00b7 iMacros \u00b7 REST \u00b7 XML \u00b7 HyperV * 
 **2008-02 - 2010-11**
-
-- Designed, updated, and maintained test plans for owned and shared product features.
-- Built and maintained web-app automation to increase test case execution efficiency.
-- Performed exploratory black- and white-box testing to proactively mitigate release risk.
-- Participated in bug triage to review, prioritize, and delegate issue resolution.
-- Partnered with management, developers, UX, and operations to ensure product quality met release standards.
+* Designed, updated, and maintained test plans for owned and shared product features.
+* Built and maintained web-app automation to increase test case execution efficiency.
+* Performed exploratory black- and white-box testing to proactively mitigate release risk.
+* Participated in bug triage to review, prioritize, and delegate issue resolution.
+* Partnered with management, developers, UX, and operations to ensure product quality met release standards.
 
 ### Software Engineer - Cosworth Tech Inc. / MAHLE Powertrain LLC
-* Borland JBuilder \u00b7 Java \u00b7 Swing \u00b7 Borland C++ \u00b7 Oracle SQL \u00b7 PVCS/Serena * 
 **2006-03 - 2008-02**
-
-- Designed, developed, and debugged desktop applications using Borland C++ and Java, resolving defects tracked in Team Track.
-- Automated Excel-based reporting integrated with a SQL trouble-ticket tracking system for contract customers.
+* Designed, developed, and debugged desktop applications using Borland C++ and Java, resolving defects tracked in Team Track.
+* Automated Excel-based reporting integrated with a SQL trouble-ticket tracking system for contract customers.
 
 ### Quality Assurance Engineer - Cosworth Tech Inc. / MAHLE Powertrain LLC
-* Excel \u00b7 iMacros \u00b7 Visual Basic \u00b7 Team Track * 
 **2005-03 - 2006-08**
-
-- Developed and maintained system and regression test plans for existing and new software applications.
-- Performed software validation across multiple projects to ensure product quality prior to release.
+* Developed and maintained system and regression test plans for existing and new software applications.
+* Performed software validation across multiple projects to ensure product quality prior to release.
 
 ---
 
