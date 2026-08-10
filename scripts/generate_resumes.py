@@ -1,18 +1,16 @@
 #!/usr/bin/env python3
 """
-Generates baseline (no-specific-JD) resume + cover letter outputs from
-data/resume_data.json, in pdf/docx/txt/md/json formats.
+Generates baseline (no-specific-JD) SDE and SDET resumes, plus a cover
+letter, from data/resume_data.json, in pdf/docx/txt/md/json formats.
 
-Uses a self-hosted LiteLLM proxy (in front of Ollama, via its OpenAI-
-compatible API) rather than a paid hosted API, so this never spends API
-credits and never fails due to account balance.
+Uses a self-hosted LiteLLM proxy (in front of Ollama, per that stack's
+docker-compose.yml) rather than a paid hosted API, so this never spends
+API credits and never fails due to account balance.
 
-This covers the automated, on-push path only: regenerating the generic
-resume/cover letter/README content whenever the knowledge base changes
-(new skill, new bullet, etc). Tailoring a resume to a *specific* job
-posting is a separate, manual, per-application workflow done in chat
-(see data/resume_data.json -> generation_workflow_for_llm step 0), not
-something this script does.
+Tailoring a resume to a *specific* job posting is a different task (it
+requires selecting/adapting content to a JD) and stays a separate,
+manual, chat-based workflow -- see data/resume_data.json's own
+generation_workflow_for_llm for that path. This script does not do that.
 
 Usage:
     python scripts/generate_resumes.py --data data/resume_data.json --out generated/
@@ -20,18 +18,23 @@ Usage:
 
 import argparse
 import json
+import os
 import re
 import sys
 from pathlib import Path
 
-import os
 import openai
 from docx import Document
-from docx.shared import Pt
+from docx.shared import Pt, RGBColor
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.pagesizes import LETTER
 from reportlab.lib.units import inch
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, HRFlowable
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+
+VARIANTS = ["SDE", "SDET"]
 
 # Points at a self-hosted LiteLLM proxy instead of the Anthropic API. This
 # stack runs LiteLLM in front of Ollama specifically as an OpenAI-compatible
@@ -45,65 +48,80 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 #                                 ${LITELLM_PORT} in docker-compose.yml --
 #                                 NOT Open WebUI's UI port)
 #              LITELLM_API_KEY    same value as LITELLM_MASTER_KEY in that
-#                                 stack's .env -- this is the bearer token
-#                                 LiteLLM already expects on its API
+#                                 stack's .env
 #   Variables: LITELLM_MODEL      the model string LiteLLM proxies to, e.g.
-#                                 "ollama/llama3.1:70b" (matches the
-#                                 --model argument in the litellm service's
-#                                 `command:` in docker-compose.yml) -- NOT
-#                                 sensitive, so it's a repo Variable rather
-#                                 than a Secret.
-#
-# IMPORTANT -- network reachability: GitHub's hosted runners live on the
-# public internet and cannot reach an instance sitting on your home LAN
-# unless it's exposed through something like a Cloudflare Tunnel, Tailscale
-# Funnel, or reverse proxy with auth in front of it. If you'd rather not
-# expose it at all, run this workflow on a *self-hosted* runner on the same
-# network as LiteLLM instead (change `runs-on:` in the workflow file) --
-# see the accompanying yml for the toggle.
+#                                 "ollama/llama3.1:70b" -- NOT sensitive,
+#                                 so it's a repo Variable rather than a
+#                                 Secret.
+#   Optional:  OLLAMA_NUM_CTX     context window size override (default
+#                                 16384) -- lower if your GPU can't hold
+#                                 that much context for the model in use.
 MODEL = os.environ.get("LITELLM_MODEL", "ollama/llama3.1:70b")
 
+# Maps the knowledge base's snake_case skill category keys to display
+# labels matching the existing hand-written resumes' style, fed to the
+# model as already-formatted so it only has to copy them, not invent
+# formatting for them.
+CATEGORY_LABELS = {
+    "languages": "Languages",
+    "apis_and_web_servers": "APIs & Web Servers",
+    "test_automation_frameworks": "Test Automation Frameworks",
+    "frontend_and_mobile_testing": "Frontend & Mobile Testing",
+    "unit_integration_testing": "Unit & Integration Testing",
+    "test_management_and_planning": "Test Management & Planning",
+    "performance_testing": "Performance Testing",
+    "ci_cd_and_devops": "CI/CD & DevOps",
+    "databases_and_query_languages": "Databases & Query Languages",
+    "version_control": "Version Control",
+    "debugging_and_diagnostics": "Debugging & Diagnostics",
+    "virtualization_and_infra": "Virtualization & Infra",
+    "developer_tools_and_ides": "Developer Tools & IDEs",
+    "ai_and_automation_tooling": "AI & Automation Tooling",
+    "methodologies": "Methodologies",
+    "collaboration_and_docs": "Collaboration & Docs",
+    "monitoring_and_incident_mgmt": "Monitoring / Incident Mgmt",
+}
 
-# The model sometimes reaches for an em dash out of habit even when told
-# not to. The knowledge base's own never_use_em_dash rule is the primary
-# guard; this is a cheap belt-and-suspenders fallback, not a substitute
-# for the model actually following the instruction.
+SKILLS_HEADING_BY_VARIANT = {"SDE": "CORE TECHNICAL SKILLS", "SDET": "CORE SDET SKILLS"}
+BULLET_CHAR = "\u25cf"  # "●", matches the existing hand-written resumes' style
 EM_DASH = "\u2014"
 
 
 def strip_em_dashes(text: str) -> str:
-    """Replace any stray em dash with a comma, as a last-resort safety net."""
+    """Belt-and-suspenders fallback behind the never_use_em_dash rule the
+    model is given -- not a substitute for the model actually following it."""
     return text.replace(EM_DASH, ",")
 
 
-def build_baseline_context(kb: dict) -> dict:
+# --- Prompt construction -------------------------------------------------
+
+def build_baseline_context(kb: dict, variant: str) -> dict:
     """
     Trims the full knowledge base down to only what the BASELINE (no-JD)
-    path actually needs, per generation_workflow_for_llm step 0's fallback.
+    path needs for ONE variant (SDE or SDET), per generation_workflow_for_llm
+    step 0's fallback.
 
-    This matters for two separate reasons:
-    1. Token budget -- the full KB is ~10k tokens on its own; a small/local
-       model's context window (num_ctx in Ollama terms) may be far smaller
-       than that, especially combined with the system prompt and the
-       expected completion, and often defaults to something like 2048-4096
-       unless explicitly raised (see call_llm's extra_body num_ctx).
-    2. Signal-to-noise -- the full KB includes fields the model has no
-       business copying for this task: JD-tailoring bullet variants,
-       per-bullet 'themes'/'skills' tags, both title_by_variant options,
-       and cover_letter_building_blocks' opening_hook_options /
-       body_paragraph_themes / closing_options (all JD-specific, unused in
-       the no-JD path). Those are exactly the field names that showed up
-       verbatim in a bad response before this trimming was added -- fewer
-       irrelevant JSON shapes nearby means less for the model to latch
-       onto instead of the requested output schema.
+    Trimming matters for two reasons: (1) token budget -- the full KB is
+    ~10k tokens alone, likely exceeding a local model's context window
+    unless num_ctx is raised (see call_llm); (2) signal-to-noise -- the
+    full KB includes JD-tailoring-only fields (bullet variants, per-bullet
+    themes/skills tags, the other variant's title, cover letter JD-specific
+    building blocks) that have shown up verbatim in bad output before this
+    trimming existed -- fewer irrelevant JSON shapes nearby means less for
+    a smaller model to latch onto instead of the requested schema.
+
+    Skill category labels are pre-formatted here (see CATEGORY_LABELS) so
+    the model only has to copy them, not invent formatting.
     """
     rules = kb["meta"]["output_rules"]
-    summary = kb.get("summary_variants", {}).get("SDE") or next(
-        iter(kb.get("summary_variants", {}).values()), ""
-    )
+    summary = kb["summary_variants"].get(variant) or kb["summary_variants"]["SDE"]
+    skills = [
+        {"category": CATEGORY_LABELS.get(k, k.replace("_", " ").title()), "items": v}
+        for k, v in kb["skills"].items() if isinstance(v, list)
+    ]
     work_experience = [
         {
-            "title": job["title_by_variant"].get("SDE", next(iter(job["title_by_variant"].values()))),
+            "title": job["title_by_variant"].get(variant) or next(iter(job["title_by_variant"].values())),
             "company": job["company"],
             "team_context": job.get("team_context", ""),
             "date_range": f"{job['start_date']} - {job['end_date']}",
@@ -111,38 +129,44 @@ def build_baseline_context(kb: dict) -> dict:
         }
         for job in kb["work_experience"]
     ]
+    # The raw KB uses the key "graduation date" (with a space); the output
+    # schema calls it "date". Renaming it here -- rather than relying on the
+    # model to perform that rename -- is what actually fixed education[]
+    # entries coming back without a date at all.
+    education = [
+        {"degree": ed["degree"], "institution": ed["institution"], "date": ed["graduation date"]}
+        for ed in kb["education"]
+    ]
     return {
         "output_rules": {
             "never_fabricate": rules["never_fabricate"],
             "never_use_em_dash": rules["never_use_em_dash"],
         },
         "personal_info": kb["personal_info"],
-        "education": kb["education"],
+        "education": education,
         "summary": summary,
-        "skills": kb["skills"],
+        "skills_heading": SKILLS_HEADING_BY_VARIANT[variant],
+        "skills": skills,
         "work_experience": work_experience,
         "cover_letter_generic_template": kb["cover_letter_building_blocks"]["generic_fallback_template"],
     }
 
 
-def build_system_prompt(kb: dict) -> str:
+def build_system_prompt(kb: dict, variant: str) -> str:
     """
-    Builds the prompt from a TRIMMED baseline-only context (see
-    build_baseline_context), not the raw knowledge base -- see that
-    function's docstring for why. The target OUTPUT schema is placed
-    AFTER the source data and includes a filled-in example (not just
-    types), since smaller/local models otherwise tend to echo the
-    nearest JSON shape they've seen instead of the requested one.
+    Schema is placed AFTER the source data and includes a filled-in
+    example (not just types), since smaller/local models otherwise tend to
+    echo the nearest JSON shape they've seen instead of the requested one.
     """
-    context = build_baseline_context(kb)
+    context = build_baseline_context(kb, variant)
     return (
-        "You are generating a BASELINE resume and cover letter (no specific "
-        "job description provided) for the candidate described below. "
-        "Use the summary as given, all skills, all work_experience bullets "
-        "in the order given, and cover_letter_generic_template for the "
-        "cover letter (lightly adapt it, keep 'Dear Hiring Manager'). "
-        "Follow output_rules exactly, especially never_fabricate and "
-        "never_use_em_dash.\n\n"
+        f"You are generating a BASELINE {variant} resume (no specific job "
+        "description provided) and a cover letter, for the candidate "
+        "described below. Use the summary, skills, and skills_heading "
+        "exactly as given, all work_experience bullets in the order given, "
+        "and cover_letter_generic_template for the cover letter (lightly "
+        "adapt it, keep 'Dear Hiring Manager'). Follow output_rules "
+        "exactly, especially never_fabricate and never_use_em_dash.\n\n"
         "=== CANDIDATE DATA (read this for content only; its field names "
         "like team_context, date_range, and cover_letter_generic_template "
         "belong to THIS input and must NOT appear in your answer) ===\n"
@@ -158,7 +182,8 @@ def build_system_prompt(kb: dict) -> str:
         "{\n"
         '  "resume": {\n'
         '    "name": "Full Name",\n'
-        '    "contact_line": "email | phone | linkedin",\n'
+        '    "contact_line": "email \u00b7 phone \u00b7 linkedin \u00b7 portfolio",\n'
+        '    "skills_heading": "CORE TECHNICAL SKILLS",\n'
         '    "summary": "2-4 sentence professional summary",\n'
         '    "skills": [{"category": "Languages", "items": ["Python", "Go"]}],\n'
         '    "work_experience": [\n'
@@ -178,14 +203,13 @@ def build_system_prompt(kb: dict) -> str:
 
 
 REQUIRED_RESUME_KEYS = {"name", "contact_line", "summary", "skills", "work_experience", "education"}
+REQUIRED_JOB_KEYS = {"title", "company", "date_range", "bullets"}
+REQUIRED_EDUCATION_KEYS = {"degree", "institution", "date"}
 
 
 def extract_json_object(raw: str) -> str:
-    """
-    Pulls the first balanced {...} block out of a string that may contain
-    markdown fences and/or prose before/after it (both observed from the
-    local LiteLLM/Ollama model in practice).
-    """
+    """Pulls the first balanced {...} block out of a string that may
+    contain markdown fences and/or prose before/after it."""
     start = raw.find("{")
     if start == -1:
         raise ValueError("No '{' found in model output.")
@@ -201,16 +225,29 @@ def extract_json_object(raw: str) -> str:
 
 
 def validate_content(content: dict) -> None:
+    """Checks both top-level keys AND the nested shape of each
+    work_experience/education entry -- the renderers assume every entry
+    has these fields, so a model response that's missing one needs to be
+    caught HERE (and retried) rather than crashing deep inside rendering."""
     if not isinstance(content, dict) or "resume" not in content or "cover_letter" not in content:
         raise ValueError("Missing top-level 'resume' and/or 'cover_letter' keys.")
-    missing = REQUIRED_RESUME_KEYS - set(content["resume"].keys())
+    resume = content["resume"]
+    missing = REQUIRED_RESUME_KEYS - set(resume.keys())
     if missing:
         raise ValueError(f"resume is missing required keys: {missing}")
+    for i, job in enumerate(resume["work_experience"]):
+        job_missing = REQUIRED_JOB_KEYS - set(job.keys())
+        if job_missing:
+            raise ValueError(f"work_experience[{i}] is missing required keys: {job_missing}")
+    for i, ed in enumerate(resume["education"]):
+        ed_missing = REQUIRED_EDUCATION_KEYS - set(ed.keys())
+        if ed_missing:
+            raise ValueError(f"education[{i}] is missing required keys: {ed_missing}")
     if "body" not in content["cover_letter"]:
         raise ValueError("cover_letter is missing required key: 'body'")
 
 
-def call_llm(kb: dict) -> dict:
+def call_llm(kb: dict, variant: str) -> dict:
     base_url = os.environ.get("LITELLM_BASE_URL")
     api_key = os.environ.get("LITELLM_API_KEY")
     if not base_url or not api_key:
@@ -224,54 +261,31 @@ def call_llm(kb: dict) -> dict:
         sys.exit(1)
 
     client = openai.OpenAI(base_url=base_url.rstrip("/") + "/v1", api_key=api_key)
-    system_prompt = build_system_prompt(kb)
+    system_prompt = build_system_prompt(kb, variant)
     messages = [
         {"role": "system", "content": system_prompt},
-        {"role": "user", "content": "Generate the baseline resume and cover letter JSON now."},
+        {"role": "user", "content": f"Generate the baseline {variant} resume and cover letter JSON now."},
     ]
 
-    # Rough (chars/4) estimate, printed so a too-small OLLAMA_NUM_CTX is easy
-    # to spot in the Actions log rather than showing up only as a confusing
-    # malformed-JSON failure.
     est_input_tokens = len(system_prompt) // 4
-    print(f"Prompt size estimate: ~{est_input_tokens} input tokens (trimmed baseline context).", file=sys.stderr)
+    print(f"[{variant}] Prompt size estimate: ~{est_input_tokens} input tokens.", file=sys.stderr)
 
-    # max_tokens governs OUTPUT length only. A full resume + cover letter is
-    # a substantial completion (many bullets across 8 roles, plus a full
-    # cover letter body) -- 4000 risked truncating the JSON mid-object,
-    # which extract_json_object() would then correctly reject as
-    # "no balanced closing brace", surfacing as a confusing failure rather
-    # than a clear one. Raised with headroom.
-    max_output_tokens = 10000
-
-    # num_ctx is the separate, often-overlooked budget: INPUT + OUTPUT
-    # combined, enforced by Ollama itself. Many Ollama models default to a
-    # much smaller context window (frequently 2048-4096) than the model
-    # architecture actually supports, regardless of max_tokens. If num_ctx
-    # is smaller than (prompt + completion), Ollama silently truncates the
-    # context -- which can drop or de-prioritize instructions placed early
-    # in the prompt, plausibly contributing to the earlier schema-echo bug.
-    # Passed through LiteLLM via extra_body; overridable via env var in case
-    # your GPU can't hold a larger context for this model.
+    max_output_tokens = int(os.environ.get("LITELLM_MAX_TOKENS", "10000"))
     num_ctx = int(os.environ.get("OLLAMA_NUM_CTX", "16384"))
 
     last_error = None
     for attempt in range(2):  # one retry with a corrective follow-up if the first reply is malformed
         try:
-            # response_format is a best-effort hint; many Ollama/local models
-            # via LiteLLM honor it (forces valid JSON, not necessarily our
-            # exact schema), but not all do, so failures here don't abort --
-            # extract_json_object()/validate_content() are the real safety net.
             try:
                 response = client.chat.completions.create(
-                    model=MODEL, max_tokens=max_output_tokens, temperature=0.4, timeout=180,
+                    model=MODEL, max_tokens=max_output_tokens, temperature=0.3, timeout=180,
                     response_format={"type": "json_object"},
                     extra_body={"options": {"num_ctx": num_ctx}},
                     messages=messages,
                 )
             except openai.BadRequestError:
                 response = client.chat.completions.create(
-                    model=MODEL, max_tokens=max_output_tokens, temperature=0.4, timeout=180,
+                    model=MODEL, max_tokens=max_output_tokens, temperature=0.3, timeout=180,
                     extra_body={"options": {"num_ctx": num_ctx}},
                     messages=messages,
                 )
@@ -296,157 +310,260 @@ def call_llm(kb: dict) -> dict:
 
         raw = response.choices[0].message.content or ""
         try:
-            json_str = extract_json_object(raw)
-            content = json.loads(json_str)
+            content = json.loads(extract_json_object(raw))
             validate_content(content)
             return content
         except (ValueError, json.JSONDecodeError) as e:
             last_error = e
-            print(f"Attempt {attempt + 1}: model output was malformed ({e}). Raw output:\n{raw}\n", file=sys.stderr)
+            print(f"[{variant}] Attempt {attempt + 1}: malformed output ({e}). Raw:\n{raw}\n", file=sys.stderr)
             messages.append({"role": "assistant", "content": raw})
             messages.append({
                 "role": "user",
                 "content": (
                     f"That response was invalid: {e}. Respond again with ONLY the "
                     "JSON object described earlier -- no prose, no markdown fences, "
-                    "no commentary, and use exactly the keys resume/cover_letter "
-                    "(not the source knowledge base's own field names)."
+                    "no commentary, and use exactly the keys resume/cover_letter."
                 ),
             })
 
-    print(
-        f"Model failed to produce valid, correctly-shaped JSON after 2 attempts. Last error: {last_error}",
-        file=sys.stderr,
-    )
+    print(f"[{variant}] Model failed to produce valid JSON after 2 attempts. Last error: {last_error}", file=sys.stderr)
     sys.exit(1)
 
 
-def render_txt(content: dict) -> str:
-    r = content["resume"]
-    lines = [r["name"], r["contact_line"], "", "SUMMARY", r["summary"], ""]
-    lines.append("SKILLS")
+# --- Plain text / Markdown -------------------------------------------------
+
+def render_resume_txt(r: dict) -> str:
+    lines = [r["name"], r["contact_line"], "", "SUMMARY", r["summary"], "", r["skills_heading"]]
     for group in r["skills"]:
         lines.append(f"{group['category']}: {', '.join(group['items'])}")
-    lines.append("")
-    lines.append("WORK EXPERIENCE")
+    lines += ["", "WORK EXPERIENCE"]
     for job in r["work_experience"]:
-        lines.append(f"{job['title']} | {job['company']} | {job['date_range']}")
-        if job.get("team_context"):
-            lines.append(job["team_context"])
+        lines.append(f"{job['title']} {job['date_range']}")
+        line2 = job["company"] + (f" \u00b7 {job['team_context']}" if job.get("team_context") else "")
+        lines.append(line2)
         for b in job["bullets"]:
-            lines.append(f"- {b}")
+            lines.append(f"{BULLET_CHAR} {b}")
         lines.append("")
     lines.append("EDUCATION")
     for ed in r["education"]:
-        lines.append(f"{ed['degree']}, {ed['institution']} ({ed['date']})")
-    text = "\n".join(lines)
-    return strip_em_dashes(text)
+        lines.append(f"{ed['degree']}")
+        lines.append(f"{ed['institution']} ({ed['date']})")
+    return strip_em_dashes("\n".join(lines))
 
 
-def render_md(content: dict) -> str:
-    r = content["resume"]
-    lines = [f"# {r['name']}", r["contact_line"], "", "## Summary", r["summary"], ""]
-    lines.append("## Skills")
+def render_resume_md(r: dict) -> str:
+    lines = [f"# {r['name']}", r["contact_line"], "", "## Summary", r["summary"], "", f"## {r['skills_heading'].title()}"]
     for group in r["skills"]:
         lines.append(f"- **{group['category']}:** {', '.join(group['items'])}")
-    lines.append("")
-    lines.append("## Work Experience")
+    lines += ["", "## Work Experience"]
     for job in r["work_experience"]:
-        lines.append(f"### {job['title']} — {job['company']}")
-        # note: literal "—" avoided per never_use_em_dash; use a pipe instead
-        lines[-1] = f"### {job['title']} | {job['company']}"
-        lines.append(f"*{job['date_range']}*")
-        if job.get("team_context"):
-            lines.append(f"*{job['team_context']}*")
+        lines.append(f"### {job['title']} | {job['date_range']}")
+        line2 = job["company"] + (f" \u00b7 {job['team_context']}" if job.get("team_context") else "")
+        lines.append(f"*{line2}*")
         for b in job["bullets"]:
             lines.append(f"- {b}")
         lines.append("")
     lines.append("## Education")
     for ed in r["education"]:
         lines.append(f"- {ed['degree']}, {ed['institution']} ({ed['date']})")
-    text = "\n".join(lines)
-    return strip_em_dashes(text)
+    return strip_em_dashes("\n".join(lines))
 
 
-def render_docx(content: dict, path: Path) -> None:
-    r = content["resume"]
+def render_cover_letter_txt(cl: dict) -> str:
+    return strip_em_dashes(cl["body"])
+
+
+def render_cover_letter_md(cl: dict) -> str:
+    return strip_em_dashes(cl["body"])
+
+
+# --- DOCX --------------------------------------------------------------
+
+ACCENT_RGB = RGBColor(0x1F, 0x38, 0x64)  # navy, sampled from the existing hand-written resumes
+
+
+def _tight(paragraph, space_after=2, space_before=0):
+    paragraph.paragraph_format.space_after = Pt(space_after)
+    paragraph.paragraph_format.space_before = Pt(space_before)
+    return paragraph
+
+
+def render_resume_docx(r: dict, path: Path, body_pt: float = 10.5) -> None:
     doc = Document()
+    doc.styles["Normal"].font.size = Pt(body_pt)
+    for section in doc.sections:
+        section.top_margin = Pt(40)
+        section.bottom_margin = Pt(40)
+        section.left_margin = Pt(54)
+        section.right_margin = Pt(54)
 
-    title = doc.add_heading(r["name"], level=1)
-    contact = doc.add_paragraph(r["contact_line"])
-    contact.runs[0].font.size = Pt(10)
+    name_p = doc.add_paragraph()
+    name_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = name_p.add_run(r["name"])
+    run.bold = True
+    run.font.size = Pt(body_pt + 9)
+    run.font.color.rgb = ACCENT_RGB
+    _tight(name_p, space_after=2)
 
-    doc.add_heading("Summary", level=2)
-    doc.add_paragraph(strip_em_dashes(r["summary"]))
+    contact_p = doc.add_paragraph()
+    contact_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    crun = contact_p.add_run(r["contact_line"])
+    crun.font.size = Pt(body_pt - 1)
+    _tight(contact_p, space_after=10)
 
-    doc.add_heading("Skills", level=2)
+    def add_heading(text):
+        h = doc.add_paragraph()
+        hr = h.add_run(text)
+        hr.bold = True
+        hr.font.size = Pt(body_pt + 1.5)
+        hr.font.color.rgb = ACCENT_RGB
+        _tight(h, space_after=1, space_before=10)
+        pPr = h._p.get_or_add_pPr()
+        ns = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+        pBdr = pPr.makeelement(f"{ns}pBdr")
+        bottom = pPr.makeelement(f"{ns}bottom")
+        bottom.set(f"{ns}val", "single")
+        bottom.set(f"{ns}sz", "6")
+        bottom.set(f"{ns}color", "1F3864")
+        pBdr.append(bottom)
+        pPr.append(pBdr)
+        return h
+
+    add_heading("SUMMARY")
+    _tight(doc.add_paragraph(strip_em_dashes(r["summary"])), space_after=8)
+
+    add_heading(r["skills_heading"])
     for group in r["skills"]:
         p = doc.add_paragraph()
         p.add_run(f"{group['category']}: ").bold = True
         p.add_run(strip_em_dashes(", ".join(group["items"])))
+        _tight(p, space_after=2)
 
-    doc.add_heading("Work Experience", level=2)
+    add_heading("WORK EXPERIENCE")
     for job in r["work_experience"]:
-        p = doc.add_paragraph()
-        p.add_run(f"{job['title']} | {job['company']}").bold = True
-        doc.add_paragraph(job["date_range"])
-        if job.get("team_context"):
-            doc.add_paragraph(job["team_context"]).italic = True
-        for b in job["bullets"]:
-            doc.add_paragraph(strip_em_dashes(b), style="List Bullet")
+        table = doc.add_table(rows=1, cols=2)
+        table.autofit = True
+        table.columns[0].width = Pt(340)
+        table.columns[1].width = Pt(120)
+        left, right = table.rows[0].cells
+        lp = left.paragraphs[0]
+        lr = lp.add_run(job["title"])
+        lr.bold = True
+        _tight(lp, space_after=0)
+        rp = right.paragraphs[0]
+        rp.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        rr = rp.add_run(job["date_range"])
+        rr.bold = True
+        _tight(rp, space_after=0)
 
-    doc.add_heading("Education", level=2)
+        line2 = job["company"] + (f" \u00b7 {job['team_context']}" if job.get("team_context") else "")
+        cp = doc.add_paragraph()
+        cr = cp.add_run(line2)
+        cr.italic = True
+        cr.font.color.rgb = ACCENT_RGB
+        cr.font.size = Pt(body_pt - 0.5)
+        _tight(cp, space_after=3)
+
+        for i, b in enumerate(job["bullets"]):
+            bp = doc.add_paragraph(style="List Bullet")
+            bp.add_run(strip_em_dashes(b))
+            is_last = i == len(job["bullets"]) - 1
+            _tight(bp, space_after=6 if is_last else 1)
+
+    add_heading("EDUCATION")
     for ed in r["education"]:
-        doc.add_paragraph(f"{ed['degree']}, {ed['institution']} ({ed['date']})")
+        _tight(doc.add_paragraph(f"{ed['degree']}, {ed['institution']} ({ed['date']})"), space_after=1)
 
     doc.save(path)
 
 
-def render_cover_letter_docx(content: dict, path: Path) -> None:
+def render_cover_letter_docx(cl: dict, path: Path) -> None:
     doc = Document()
-    body = strip_em_dashes(content["cover_letter"]["body"])
-    for para in body.split("\n\n"):
+    for para in strip_em_dashes(cl["body"]).split("\n\n"):
         doc.add_paragraph(para)
     doc.save(path)
 
 
-def render_pdf(content: dict, path: Path, is_cover_letter: bool = False) -> None:
+# --- PDF (with page-fit: retries at smaller sizes until <=2 pages) -----
+
+ACCENT_COLOR = colors.HexColor("#1F3864")  # sampled from the existing hand-written resumes
+
+# Each tier: (body_pt, leading, bullet_space_after, top/bottom margin inches, name_pt, heading_pt)
+PDF_TIERS = [
+    (10.5, 13, 2, 0.55, 21, 12.5),
+    (10, 12.5, 2, 0.5, 20, 12),
+    (9.5, 12, 1.5, 0.45, 19, 11.5),
+    (9, 11.5, 1, 0.4, 18, 11),
+]
+
+
+def _build_resume_story(r: dict, tier) -> list:
+    body_pt, leading, bullet_space, _, name_pt, heading_pt = tier
     styles = getSampleStyleSheet()
-    body_style = ParagraphStyle("Body", parent=styles["Normal"], spaceAfter=8, leading=14)
-    heading_style = ParagraphStyle("H2", parent=styles["Heading2"], spaceBefore=12)
+    body_style = ParagraphStyle("Body", parent=styles["Normal"], fontSize=body_pt, leading=leading, spaceAfter=3)
+    bullet_style = ParagraphStyle("Bullet", parent=body_style, spaceAfter=bullet_space, leftIndent=10)
+    company_style = ParagraphStyle("Company", parent=body_style, textColor=ACCENT_COLOR, fontName="Helvetica-Oblique", spaceAfter=3)
+    heading_style = ParagraphStyle("H2", parent=styles["Heading2"], fontSize=heading_pt, textColor=ACCENT_COLOR,
+                                    spaceBefore=heading_pt * 0.9, spaceAfter=2, fontName="Helvetica-Bold")
+    name_style = ParagraphStyle("Name", parent=styles["Title"], fontSize=name_pt, textColor=ACCENT_COLOR, alignment=TA_CENTER, spaceAfter=2)
+    contact_style = ParagraphStyle("Contact", parent=body_style, alignment=TA_CENTER, spaceAfter=10, fontSize=body_pt - 0.5)
+    title_style = ParagraphStyle("JobTitle", parent=body_style, fontName="Helvetica-Bold", spaceAfter=0)
+    date_style = ParagraphStyle("JobDate", parent=title_style, alignment=2)
+
+    def heading(text):
+        return [Paragraph(text, heading_style), HRFlowable(width="100%", thickness=0.75, color=ACCENT_COLOR, spaceAfter=4)]
+
+    story = [Paragraph(r["name"], name_style), Paragraph(r["contact_line"], contact_style)]
+    story += heading("SUMMARY")
+    story.append(Paragraph(strip_em_dashes(r["summary"]), body_style))
+    story += heading(r["skills_heading"])
+    for group in r["skills"]:
+        story.append(Paragraph(f"<b>{group['category']}:</b> {strip_em_dashes(', '.join(group['items']))}", body_style))
+    story += heading("WORK EXPERIENCE")
+    for job in r["work_experience"]:
+        row = Table(
+            [[Paragraph(job["title"], title_style), Paragraph(job["date_range"], date_style)]],
+            colWidths=["70%", "30%"],
+        )
+        row.setStyle(TableStyle([
+            ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+            ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ]))
+        story.append(row)
+        line2 = job["company"] + (f" \u00b7 {job['team_context']}" if job.get("team_context") else "")
+        story.append(Paragraph(line2, company_style))
+        for b in job["bullets"]:
+            story.append(Paragraph(f"{BULLET_CHAR} {strip_em_dashes(b)}", bullet_style))
+    story += heading("EDUCATION")
+    for ed in r["education"]:
+        story.append(Paragraph(f"{ed['degree']}, {ed['institution']} ({ed['date']})", body_style))
+    return story
+
+
+def render_resume_pdf(r: dict, path: Path, max_pages: int = 2):
+    """Tries progressively smaller tiers until the rendered PDF fits within
+    max_pages, or the smallest tier is reached. Returns (pages, body_pt)."""
+    for tier in PDF_TIERS:
+        _, _, _, margin_in, _, _ = tier
+        doc = SimpleDocTemplate(
+            str(path), pagesize=LETTER,
+            leftMargin=0.7 * inch, rightMargin=0.7 * inch,
+            topMargin=margin_in * inch, bottomMargin=margin_in * inch,
+        )
+        doc.build(_build_resume_story(r, tier))
+        if doc.page <= max_pages:
+            return doc.page, tier[0]
+    return doc.page, tier[0]
+
+
+def render_cover_letter_pdf(cl: dict, path: Path) -> None:
+    styles = getSampleStyleSheet()
+    body_style = ParagraphStyle("Body", parent=styles["Normal"], fontSize=11, leading=15, spaceAfter=10)
     doc = SimpleDocTemplate(str(path), pagesize=LETTER,
                              leftMargin=0.9 * inch, rightMargin=0.9 * inch,
-                             topMargin=0.8 * inch, bottomMargin=0.8 * inch)
-    story = []
-
-    if is_cover_letter:
-        body = strip_em_dashes(content["cover_letter"]["body"])
-        for para in body.split("\n\n"):
-            story.append(Paragraph(para.replace("\n", "<br/>"), body_style))
-    else:
-        r = content["resume"]
-        story.append(Paragraph(f"<b>{r['name']}</b>", styles["Title"]))
-        story.append(Paragraph(r["contact_line"], body_style))
-        story.append(Paragraph("Summary", heading_style))
-        story.append(Paragraph(strip_em_dashes(r["summary"]), body_style))
-        story.append(Paragraph("Skills", heading_style))
-        for group in r["skills"]:
-            story.append(Paragraph(
-                f"<b>{group['category']}:</b> {strip_em_dashes(', '.join(group['items']))}",
-                body_style))
-        story.append(Paragraph("Work Experience", heading_style))
-        for job in r["work_experience"]:
-            story.append(Paragraph(f"<b>{job['title']} | {job['company']}</b>", body_style))
-            story.append(Paragraph(job["date_range"], body_style))
-            if job.get("team_context"):
-                story.append(Paragraph(f"<i>{job['team_context']}</i>", body_style))
-            for b in job["bullets"]:
-                story.append(Paragraph(f"- {strip_em_dashes(b)}", body_style))
-            story.append(Spacer(1, 6))
-        story.append(Paragraph("Education", heading_style))
-        for ed in r["education"]:
-            story.append(Paragraph(f"{ed['degree']}, {ed['institution']} ({ed['date']})", body_style))
-
+                             topMargin=0.9 * inch, bottomMargin=0.9 * inch)
+    story = [Paragraph(p.replace("\n", "<br/>"), body_style) for p in strip_em_dashes(cl["body"]).split("\n\n")]
     doc.build(story)
 
 
@@ -460,23 +577,33 @@ def main():
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    content = call_llm(kb)
+    cover_letter = None
+    for variant in VARIANTS:
+        content = call_llm(kb, variant)
+        r = content["resume"]
+        if cover_letter is None:
+            cover_letter = content["cover_letter"]  # identical regardless of variant; keep the first
 
-    base = "Dennis_Dole_Resume_Baseline"
-    cl_base = "Dennis_Dole_CoverLetter_Baseline"
+        base = out_dir / f"Dennis Dole Resume ({variant})"
+        (base.with_suffix(".json")).write_text(json.dumps(r, indent=2), encoding="utf-8")
+        (base.with_suffix(".txt")).write_text(render_resume_txt(r), encoding="utf-8")
+        (base.with_suffix(".md")).write_text(render_resume_md(r), encoding="utf-8")
 
-    (out_dir / f"{base}.json").write_text(json.dumps(content["resume"], indent=2), encoding="utf-8")
-    (out_dir / f"{base}.txt").write_text(render_txt(content), encoding="utf-8")
-    (out_dir / f"{base}.md").write_text(render_md(content), encoding="utf-8")
-    render_docx(content, out_dir / f"{base}.docx")
-    render_pdf(content, out_dir / f"{base}.pdf", is_cover_letter=False)
+        pages, body_pt = render_resume_pdf(r, base.with_suffix(".pdf"))
+        if pages > 2:
+            print(f"WARNING: {variant} resume rendered at {pages} pages even at the smallest tier ({body_pt}pt).")
+        else:
+            print(f"{variant} resume: {pages} page(s) at {body_pt}pt.")
+        render_resume_docx(r, base.with_suffix(".docx"), body_pt=body_pt)
 
-    (out_dir / f"{cl_base}.txt").write_text(strip_em_dashes(content["cover_letter"]["body"]), encoding="utf-8")
-    (out_dir / f"{cl_base}.json").write_text(json.dumps(content["cover_letter"], indent=2), encoding="utf-8")
-    render_cover_letter_docx(content, out_dir / f"{cl_base}.docx")
-    render_pdf(content, out_dir / f"{cl_base}.pdf", is_cover_letter=True)
+    cl_base = out_dir / "Dennis Dole Cover Letter"
+    (cl_base.with_suffix(".json")).write_text(json.dumps(cover_letter, indent=2), encoding="utf-8")
+    (cl_base.with_suffix(".txt")).write_text(render_cover_letter_txt(cover_letter), encoding="utf-8")
+    (cl_base.with_suffix(".md")).write_text(render_cover_letter_md(cover_letter), encoding="utf-8")
+    render_cover_letter_docx(cover_letter, cl_base.with_suffix(".docx"))
+    render_cover_letter_pdf(cover_letter, cl_base.with_suffix(".pdf"))
 
-    print(f"Wrote baseline resume + cover letter (5 formats each) to {out_dir}/")
+    print(f"Wrote {len(VARIANTS)} resume variant(s) + 1 cover letter (5 formats each) to {out_dir}/")
 
 
 if __name__ == "__main__":

@@ -1,8 +1,29 @@
-name: Generate resumes and cover letters
+name: Generate resumes and cover letter
+
+# Regenerates the baseline (no-specific-JD) SDE and SDET resumes, plus a
+# generic cover letter, whenever the knowledge base changes, and opens a
+# PR with the results instead of pushing straight to main. Job-tailored
+# resumes for a specific posting are a separate, manual, per-application
+# workflow (done in chat) and are NOT handled by this file.
+#
+# Uses a self-hosted LiteLLM proxy (in front of Ollama, per that stack's
+# docker-compose.yml) instead of a paid API, so this workflow never spends
+# API credits and never fails due to account balance/credits.
+#
+# NETWORK REACHABILITY -- read before enabling:
+# `runs-on: ubuntu-latest` below uses GitHub's hosted runners, which live
+# on the public internet. They can only reach your LiteLLM instance if it's
+# exposed via something like a Cloudflare Tunnel, Tailscale Funnel, or a
+# reverse proxy with auth in front of it (set LITELLM_BASE_URL to that
+# public address, pointing at ${LITELLM_PORT} -- NOT Open WebUI's UI port).
+# If you'd rather not expose it at all, install a self-hosted GitHub
+# Actions runner on the same network as that stack (Settings -> Actions ->
+# Runners -> New self-hosted runner) and change `runs-on: ubuntu-latest` to
+# `runs-on: self-hosted` below -- then LITELLM_BASE_URL can just be a plain
+# LAN address (e.g. http://192.168.x.x:4000).
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
+  push:
     branches: [main]
     paths:
       - "data/resume_data.json"
@@ -10,21 +31,19 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 concurrency:
-  group: generate-resumes-${{ github.event.pull_request.number || 'manual' }}
+  group: generate-resumes
   cancel-in-progress: true
 
 jobs:
   generate:
-    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest # see network reachability note above before changing to self-hosted
     timeout-minutes: 15 # fail fast instead of hanging if LiteLLM is unreachable
     steps:
-      - name: Check out PR branch
+      - name: Check out repo
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref || github.ref_name }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -41,14 +60,18 @@ jobs:
           LITELLM_MODEL: ${{ vars.LITELLM_MODEL }}
         run: python scripts/generate_resumes.py --data data/resume_data.json --out generated/
 
-      - name: Commit generated files to the PR branch
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add generated/
-          if git diff --cached --quiet; then
-            echo "No changes to generated/ -- nothing to commit."
-          else
-            git commit -m "Regenerate resumes and cover letters from updated knowledge base"
-            git push origin HEAD:${{ github.head_ref || github.ref_name }}
-          fi
+      - name: Open pull request with regenerated files
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "Regenerate resumes and cover letter from updated knowledge base"
+          branch: auto/regenerate-resumes
+          delete-branch: true
+          title: "Auto: regenerate resumes/cover letter from resume_data.json"
+          body: |
+            Triggered by a change to `data/resume_data.json`.
+
+            Generated via self-hosted LiteLLM/Ollama (model: ${{ vars.LITELLM_MODEL }}).
+            This PR was opened automatically and was **not** reviewed by a human yet.
+            Please read the diff in `generated/` before merging: local-model output
+            can drift more than a hosted model's -- worth a closer skim than usual.
+          labels: automated-pr
