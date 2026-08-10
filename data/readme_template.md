@@ -12,17 +12,17 @@
 
 ## 🛠️ Skills
 
-<!-- Repeat this line once per skill category, in the order given in the data. -->
+<!-- Repeat this line once per skill category, each on a separate line, in the order given in the data. Only use ascii characters. -->
 **{{CATEGORY_NAME}}:** {{COMMA_SEPARATED_SKILLS}}
 
 ---
 
 ## 💼 Experience
 
-<!-- Repeat this whole block once per job, in the order given in the data (most recent first). -->
+<!-- Repeat this whole block once per job, each on a separate line, in the order given in the data (most recent first). Only use ascii characters. -->
 ### {{JOB_TITLE}} - {{COMPANY}}
-* {{TEAM_CONTEXT_ITEM}} * {{TEAM_CONTEXT_ITEM}} * ... *
 **{{START_MONTH_YEAR}} - {{END_MONTH_YEAR}}**
+* {{TEAM_CONTEXT_ITEM}} * {{TEAM_CONTEXT_ITEM}} * ... *
 
 - {{BULLET}}
 - {{BULLET}}
