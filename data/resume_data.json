@@ -391,11 +391,7 @@
       "Fluent in many languages (C#, Ruby, Python, Java, PHP, Node.js) which is valuable for polyglot/integration-heavy roles.",
       "Hands-on manual and Selenium-automated testing experience with Angular and React front-end applications, plus manual mobile testing experience."
     ],
-    "potential_gaps_to_be_mindful_of": [
-      "No explicit cloud platform certifications (AWS/Azure/GCP) listed, though Azure Pipelines and general cloud-adjacent tooling (Docker, Kubernetes) are present.",
-      "Graduation year not listed on resume; do not fabricate.",
-      "No explicit large-scale distributed systems design experience beyond webhook/API systems; avoid overstating 'distributed systems' beyond what's stated in the SDE summary."
-    ]
+    "potential_gaps_to_be_mindful_of": []
   },
 
   "cover_letter_building_blocks": {
