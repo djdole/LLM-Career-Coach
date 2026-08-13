@@ -69,7 +69,7 @@
     "test_management_and_planning": ["MTM", "TFS", "test plan design", "bug triage", "exploratory testing (black/white box)"],
     "performance_testing": ["JMeter"],
     "ci_cd_and_devops": ["Jenkins", "Hudson", "Octopus", "Azure Pipelines", "GitHub Actions / GitHub Workflows", "Docker", "Kubernetes", "Ansible"],
-    "databases_and_query_languages": ["SQL", "Kusto", "MongoDB"],
+    "databases_and_query_languages": ["SQL", "Kusto", "MongoDB", "Kusto Query Language", "KQL"],
     "version_control": ["Git", "Mercurial", "TFS", "Source Depot", "PVCS"],
     "debugging_and_diagnostics": ["Fiddler", "Postman", "Resharper", "xDebug", "rDebug"],
     "virtualization_and_infra": ["Docker", "Kubernetes", "HyperV", "VirtualBox", "Proxmox", "WSL"],
@@ -84,12 +84,12 @@
 
   "work_experience": [
     {
-      "title_by_variant": {"SDE": "Software Developer", "SDET": "Software Developer"},
+      "title_by_variant": {"SDE": "Software Developer"},
       "company": "Docusign, Inc.",
       "team_context": "Docusign Connect · Connect Test Listener (webhook) · Ruby Webhook Test Interface · x509 Certificate Management",
       "start_date": "2024-03",
       "end_date": "2025-07",
-      "technologies": ["Ruby", "x509 certificates", "webhooks"],
+      "technologies": ["C#", "Ruby", "x509 certificates", "webhooks", "Azure", "Terraform", "JavaScript", "XML", "JSON", "REST", "SOAP", "API", "SQL", "Kusto Query Language", "KQL"],
       "bullets": [
         {
           "id": "docusign_dev_1",
@@ -135,7 +135,7 @@
       "team_context": "Docusign Connect · Product Incubation Team · Docusign Print Tool (deprecated)",
       "start_date": "2013-11",
       "end_date": "2024-03",
-      "technologies": ["NUnit", "Selenium", "Java", "PHP", "Python", "C#", "Ruby", "Node.js", "HMAC", "Angular", "React", "mobile (manual testing)"],
+      "technologies": ["NUnit", "Selenium", "Java", "PHP", "Python", "C#", "Ruby", "Node.js", "HMAC", "Angular", "React", "mobile (manual testing)", "Kusto Query Language", "KQL"],
       "bullets": [
         {
           "id": "docusign_sdet_1",
@@ -223,7 +223,7 @@
       "team_context": "Team Foundation Server · Microsoft Test Manager · C#",
       "start_date": "2012-01",
       "end_date": "2013-06",
-      "technologies": ["C#", "TFS", "Microsoft Test Manager"],
+      "technologies": ["C#", "TFS", "Microsoft Test Manager", "SQL"],
       "bullets": [
         {
           "id": "msee_1",
