@@ -79,7 +79,7 @@
     "collaboration_and_docs": ["Jira", "Confluence", "SharePoint", "MediaWiki"],
     "monitoring_and_incident_mgmt": ["PagerDuty"],
     "skill_selection_guidance": "For SDE-leaning JDs, lead with languages, apis_and_web_servers, ci_cd_and_devops, databases_and_query_languages, version_control. For SDET-leaning JDs, lead with test_automation_frameworks, unit_integration_testing, test_management_and_planning, performance_testing. For devtools/platform/AI-adjacent JDs, also surface developer_tools_and_ides and ai_and_automation_tooling. Always include languages and ci_cd_and_devops as they apply broadly.",
-    "soft_skills": ["listening", "empathy", "communication", "understanding", "delegation", "collaboration"]
+    "soft_skills": ["listening", "empathy", "communication", "understanding", "delegation", "collaboration", "critical thinking", "adaptability"]
   },
 
   "work_experience": [
