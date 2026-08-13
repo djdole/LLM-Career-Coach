@@ -86,10 +86,10 @@
     {
       "title_by_variant": {"SDE": "Software Developer"},
       "company": "Docusign, Inc.",
-      "team_context": "Docusign Connect · Connect Test Listener (webhook) · Ruby Webhook Test Interface · x509 Certificate Management",
+      "team_context": "Docusign Connect, Connect Test Listener (webhook), Ruby Webhook Test Interface, x509 Certificate Management",
       "start_date": "2024-03",
       "end_date": "2025-07",
-      "technologies": ["C#", "Ruby", "x509 certificates", "webhooks", "Azure", "Terraform", "JavaScript", "XML", "JSON", "REST", "SOAP", "API", "SQL", "Kusto Query Language", "KQL"],
+      "technologies": ["C#", "Ruby", "x509", "certificates", "webhooks", "Azure", "Terraform", "JavaScript", "XML", "JSON", "REST", "SOAP", "API", "SQL", "Kusto Query Language", "KQL"],
       "bullets": [
         {
           "id": "docusign_dev_1",
@@ -132,7 +132,7 @@
     {
       "title_by_variant": {"SDE": "Software Design Engineer in Test (SDET)", "SDET": "Software Design Engineer in Test (SDET)"},
       "company": "Docusign, Inc.",
-      "team_context": "Docusign Connect · Product Incubation Team · Docusign Print Tool (deprecated)",
+      "team_context": "Docusign Connect, Product Incubation Team, Docusign Print Tool (deprecated)",
       "start_date": "2013-11",
       "end_date": "2024-03",
       "technologies": ["NUnit", "Selenium", "Java", "PHP", "Python", "C#", "Ruby", "Node.js", "HMAC", "Angular", "React", "mobile (manual testing)", "Kusto Query Language", "KQL"],
@@ -177,7 +177,7 @@
           "id": "docusign_sdet_6",
           "text": "Participated in code reviews for new features, automation, and bug fixes alongside developers.",
           "themes": ["code review", "collaboration"],
-          "skills": ["code review"]
+          "skills": ["code review", "C#", "KQL", "SQL", "Ruby", "JavaScript", "MongoDB"]
         },
         {
           "id": "docusign_sdet_7",
@@ -201,7 +201,7 @@
           "id": "docusign_sdet_10",
           "text": "Trained and mentored new developers, testers, and team leads.",
           "themes": ["mentorship", "leadership"],
-          "skills": ["mentoring", "leadership"]
+          "skills": ["mentoring", "leadership", "listening", "empathy", "communication", "understanding", "delegation", "collaboration", "critical thinking", "adaptability"]
         },
         {
           "id": "docusign_sdet_11",
@@ -212,15 +212,15 @@
         {
           "id": "docusign_sdet_12",
           "text": "Conducted manual mobile application testing for approximately six months, verifying functionality and user experience across mobile platforms.",
-          "themes": ["mobile testing", "manual testing"],
-          "skills": ["mobile testing", "manual testing"]
+          "themes": ["mobile testing", "manual testing", "UI Testing"],
+          "skills": ["mobile testing", "manual testing", "UI Testing"]
         }
       ]
     },
     {
       "title_by_variant": {"SDE": "SDET2", "SDET": "SDET2"},
       "company": "Microsoft Engineering Excellence",
-      "team_context": "Team Foundation Server · Microsoft Test Manager · C#",
+      "team_context": "Team Foundation Server, Microsoft Test Manager, C#",
       "start_date": "2012-01",
       "end_date": "2013-06",
       "technologies": ["C#", "TFS", "Microsoft Test Manager", "SQL"],
@@ -242,7 +242,7 @@
     {
       "title_by_variant": {"SDE": "SDET2", "SDET": "SDET2"},
       "company": "Amazon",
-      "team_context": "Linux · Eclipse · Hudson · Ant · TestNG · Java · Selenium",
+      "team_context": "Linux, Eclipse, Hudson, Ant, TestNG, Java, Selenium",
       "start_date": "2011-11",
       "end_date": "2012-01",
       "technologies": ["Linux", "Eclipse", "Hudson", "Ant", "TestNG", "Java", "Selenium"],
@@ -270,7 +270,7 @@
     {
       "title_by_variant": {"SDE": "SDET", "SDET": "SDET"},
       "company": "Microsoft Live",
-      "team_context": "C# · SQL · WTT · Kahuna Automation Framework (KAF) · NUnit · Source Depot · HyperV · Octopus",
+      "team_context": "C#, SQL, WTT, Kahuna Automation Framework (KAF), NUnit, Source Depot, HyperV, Octopus",
       "start_date": "2011-04",
       "end_date": "2011-10",
       "technologies": ["C#", "SQL", "WTT", "KAF", "NUnit", "Source Depot", "HyperV", "Octopus"],
@@ -298,7 +298,7 @@
     {
       "title_by_variant": {"SDE": "SDET", "SDET": "SDET"},
       "company": "Microsoft Health Solutions Group",
-      "team_context": "C# · SQL · WTT · Echo · KAF · NUnit · iMacros · REST · XML · HyperV",
+      "team_context": "C#, SQL, WTT, Echo, KAF, NUnit, iMacros, REST, XML, HyperV",
       "start_date": "2008-02",
       "end_date": "2010-11",
       "technologies": ["C#", "SQL", "WTT", "Echo", "KAF", "NUnit", "iMacros", "REST", "XML", "HyperV"],
@@ -338,7 +338,7 @@
     {
       "title_by_variant": {"SDE": "Software Engineer", "SDET": "Software Engineer"},
       "company": "Cosworth Tech Inc. / MAHLE Powertrain LLC",
-      "team_context": "Borland JBuilder · Java · Swing · Borland C++ · Oracle SQL · PVCS/Serena",
+      "team_context": "Borland JBuilder, Java, Swing, Borland C++, Oracle SQL, PVCS/Serena",
       "start_date": "2006-03",
       "end_date": "2008-02",
       "technologies": ["Java", "Swing", "Borland C++", "Oracle SQL", "PVCS/Serena"],
@@ -361,7 +361,7 @@
     {
       "title_by_variant": {"SDE": "Quality Assurance Engineer", "SDET": "Quality Assurance Engineer"},
       "company": "Cosworth Tech Inc. / MAHLE Powertrain LLC",
-      "team_context": "Excel · iMacros · Visual Basic · Team Track",
+      "team_context": "Excel, iMacros, Visual Basic, Team Track",
       "start_date": "2005-03",
       "end_date": "2006-08",
       "technologies": ["Excel", "iMacros", "Visual Basic", "Team Track"],
