@@ -60,8 +60,9 @@
   },
 
   "skills": {
-    "languages": ["C#", "Ruby", "Python", "Java", "PHP", "Node.js", "Bash", "PowerShell", "C++"],
+    "languages": ["C#", "Ruby", "Python", "Java", "PHP", "Node.js", "Bash", "PowerShell", "C++", "Lisp", "Visual Basic", "JavaScript"],
     "apis_and_web_servers": ["REST API design", "Apache HTTPD/Tomcat", "IIS", "nginx", "Node.js", "MongoDB"],
+    "operating_systems": ["Windows", "Unix", "Linux", "custom"],
     "test_automation_frameworks": ["Selenium", "Playwright", "Echo", "Docusign's SAW Ruby framework", "KAF (Kahuna Automation Framework)", "custom API test/automation harnesses"],
     "frontend_and_mobile_testing": ["Angular (manual + Selenium automated testing)", "React (manual + Selenium automated testing)", "mobile application manual testing"],
     "unit_integration_testing": ["nUnit", "xUnit", "jUnit", "PHPUnit", "WTT (Microsoft internal)", "SAW (Docusign internal)"],
@@ -77,7 +78,8 @@
     "methodologies": ["Agile", "Scrum", "Kanban", "TDD", "Waterfall", "DevOps"],
     "collaboration_and_docs": ["Jira", "Confluence", "SharePoint", "MediaWiki"],
     "monitoring_and_incident_mgmt": ["PagerDuty"],
-    "skill_selection_guidance": "For SDE-leaning JDs, lead with languages, apis_and_web_servers, ci_cd_and_devops, databases_and_query_languages, version_control. For SDET-leaning JDs, lead with test_automation_frameworks, unit_integration_testing, test_management_and_planning, performance_testing. For devtools/platform/AI-adjacent JDs, also surface developer_tools_and_ides and ai_and_automation_tooling. Always include languages and ci_cd_and_devops as they apply broadly."
+    "skill_selection_guidance": "For SDE-leaning JDs, lead with languages, apis_and_web_servers, ci_cd_and_devops, databases_and_query_languages, version_control. For SDET-leaning JDs, lead with test_automation_frameworks, unit_integration_testing, test_management_and_planning, performance_testing. For devtools/platform/AI-adjacent JDs, also surface developer_tools_and_ides and ai_and_automation_tooling. Always include languages and ci_cd_and_devops as they apply broadly.",
+    "soft_skills": ["listening", "empathy", "communication", "understanding", "delegation", "collaboration"]
   },
 
   "work_experience": [
