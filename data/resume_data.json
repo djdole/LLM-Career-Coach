@@ -383,7 +383,7 @@
   ],
 
   "career_narrative_notes": {
-    "overall_arc": "Started in QA/manual testing, moved into SDET roles at Microsoft building automation frameworks (KAF, NUnit, Selenium), spent over a decade at Docusign deepening test automation and webhook expertise, then transitioned into a Software Developer (SDE) role at Docusign in 2024 building production webhook tooling and leading a security certificate migration.",
+    "overall_arc": "Started in QA/manual testing. Moved to developement at multiple companies. Joined SDET roles at Microsoft building automation frameworks (KAF, NUnit, Selenium), spent over a decade at Docusign deepening test automation and webhook expertise, then transitioned into a Software Developer (SDE) role at Docusign in 2024 building production webhook tooling and leading a security certificate migration. Building devops flows, and hardening quality and development processes.",
     "strongest_differentiators": [
       "Deep, unusual specialization in webhook systems: design, testing, HMAC authentication, x509 certificate migration, multi-language sample code (Java/PHP/Python/C#/Ruby/Node.js).",
       "15+ years of continuous experience across three well-known tech employers (Docusign, Microsoft, Amazon).",
