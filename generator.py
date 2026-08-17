@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Generates baseline (no-specific-JD) SDE and SDET resumes, plus a cover
-letter, from data/resume_data.json, in pdf/docx/txt/md/json formats.
+letter, from resume_data.json, in pdf/docx/txt/md/json formats.
 
 Uses a self-hosted LiteLLM proxy (in front of Ollama, per that stack's
 docker-compose.yml) rather than a paid hosted API, so this never spends
@@ -9,14 +9,13 @@ API credits and never fails due to account balance.
 
 Tailoring a resume to a *specific* job posting is a different task (it
 requires selecting/adapting content to a JD) and stays a separate,
-manual, chat-based workflow -- see data/resume_data.json's own
+manual, chat-based workflow -- see resume_data.json's own
 generation_workflow_for_llm for that path. This script does not do that.
 
 Usage:
-    python scripts/generate_resumes.py --data data/resume_data.json --out generated/
+    python generate.py
 """
 
-import argparse
 import json
 import os
 import re
@@ -24,6 +23,7 @@ import sys
 from pathlib import Path
 
 import openai
+import httpx
 from docx import Document
 from docx.shared import Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -57,6 +57,60 @@ VARIANTS = ["SDE", "SDET"]
 #                                 16384) -- lower if your GPU can't hold
 #                                 that much context for the model in use.
 MODEL = os.environ.get("LITELLM_MODEL", "qwen3.6:latest")
+
+# How long we wait for a *single* chat completion response before giving up
+# on that attempt. There's no one correct default -- it depends on your
+# model size, hardware, LITELLM_MAX_TOKENS, and OLLAMA_NUM_CTX -- so it's
+# configurable via LITELLM_TIMEOUT rather than hardcoded. Keep it
+# comfortably BELOW any reverse proxy's own read timeout in front of
+# LiteLLM (proxy_read_timeout in nginx, etc.): if the proxy's timeout is
+# shorter, IT kills the connection first, silently, and this timeout never
+# gets the chance to produce the clearer error below. 550s is a safe
+# default under nginx's commonly-recommended 600s.
+LITELLM_TIMEOUT_SECONDS = float(os.environ.get("LITELLM_TIMEOUT", "550"))
+
+# A single flat timeout number applies uniformly to the whole request,
+# which isn't quite right for this use case: just reaching LiteLLM at all
+# should fail fast (a few seconds) if it's unreachable, while actually
+# *waiting on generated tokens* legitimately needs the full
+# LITELLM_TIMEOUT_SECONDS budget for a local model generating up to
+# LITELLM_MAX_TOKENS against OLLAMA_NUM_CTX of context. httpx.Timeout lets
+# connect and read differ, so an unreachable/misconfigured proxy fails in
+# ~10s with a clear connection error instead of burning the entire
+# generation budget first only to fail for an unrelated reason. Passed to
+# every client.chat.completions.create() call below in place of a bare
+# `timeout=<seconds>`.
+LLM_REQUEST_TIMEOUT = httpx.Timeout(
+    connect=10.0,
+    read=LITELLM_TIMEOUT_SECONDS,
+    write=30.0,
+    pool=LITELLM_TIMEOUT_SECONDS,
+)
+
+# How long Ollama keeps this model loaded in VRAM after a request, before
+# unloading it. Left unset, a slow request (or a gap between the several
+# calls a full run makes) risks the model unloading between calls, making
+# the NEXT call pay a full model-load penalty on top of generation time.
+# Explicit and generous relative to how long a full run takes end to end,
+# so the model stays warm for the whole run rather than idling out mid-run.
+# Ollama accepts a duration string ("30m", "1h") or seconds as a number.
+LITELLM_KEEP_ALIVE = os.environ.get("LITELLM_KEEP_ALIVE", "30m")
+
+
+def build_llm_client() -> openai.OpenAI:
+    """
+    Builds the single OpenAI-compatible client shared by every LLM call in
+    a run. Reusing one client (and its underlying HTTP connection pool)
+    instead of building a fresh one per call site avoids repeating the
+    TCP/TLS handshake to LITELLM_BASE_URL for every one of the ~5-14
+    sequential requests a full run makes.
+    """
+    base_url = os.environ.get("LITELLM_BASE_URL")
+    api_key = os.environ.get("LITELLM_API_KEY")
+    if not base_url or not api_key:
+        print("LITELLM_BASE_URL and/or LITELLM_API_KEY are not set.", file=sys.stderr)
+        sys.exit(1)
+    return openai.OpenAI(base_url=base_url.rstrip("/") + "/v1", api_key=api_key)
 
 # Maps the knowledge base's snake_case skill category keys to display
 # labels matching the existing hand-written resumes' style, fed to the
@@ -291,14 +345,7 @@ def parse_filled_resume(text: str) -> dict:
             "summary": summary, "skills": skills, "work_experience": work_experience, "education": education}
 
 
-def call_llm_fill_resume(kb: dict, variant: str, template_text: str) -> dict:
-    base_url = os.environ.get("LITELLM_BASE_URL")
-    api_key = os.environ.get("LITELLM_API_KEY")
-    if not base_url or not api_key:
-        print("LITELLM_BASE_URL and/or LITELLM_API_KEY are not set.", file=sys.stderr)
-        sys.exit(1)
-
-    client = openai.OpenAI(base_url=base_url.rstrip("/") + "/v1", api_key=api_key)
+def call_llm_fill_resume(client: openai.OpenAI, kb: dict, variant: str, template_text: str) -> dict:
     system_prompt = build_resume_fill_prompt(kb, variant, template_text)
     messages = [
         {"role": "system", "content": system_prompt},
@@ -315,11 +362,11 @@ def call_llm_fill_resume(kb: dict, variant: str, template_text: str) -> dict:
     for attempt in range(2):
         try:
             response = client.chat.completions.create(
-                model=MODEL, max_tokens=max_output_tokens, temperature=0.3, timeout=180,
-                extra_body={"options": {"num_ctx": num_ctx}}, messages=messages,
+                model=MODEL, max_tokens=max_output_tokens, temperature=0.3, timeout=LLM_REQUEST_TIMEOUT,
+                extra_body={"options": {"num_ctx": num_ctx}, "keep_alive": LITELLM_KEEP_ALIVE}, messages=messages,
             )
         except openai.APIConnectionError as e:
-            print(f"[{variant}] Could not reach LiteLLM at {base_url}: {e}", file=sys.stderr)
+            print(f"[{variant}] Could not reach LiteLLM at {client.base_url}: {e}", file=sys.stderr)
             sys.exit(1)
         except openai.APIStatusError as e:
             print(f"[{variant}] LiteLLM returned an error (HTTP {e.status_code}): {e.message}", file=sys.stderr)
@@ -385,14 +432,7 @@ def build_cover_letter_prompt(kb: dict, variant: str) -> str:
     )
 
 
-def call_llm_cover_letter(kb: dict, variant: str) -> dict:
-    base_url = os.environ.get("LITELLM_BASE_URL")
-    api_key = os.environ.get("LITELLM_API_KEY")
-    if not base_url or not api_key:
-        print("LITELLM_BASE_URL and/or LITELLM_API_KEY are not set.", file=sys.stderr)
-        sys.exit(1)
-
-    client = openai.OpenAI(base_url=base_url.rstrip("/") + "/v1", api_key=api_key)
+def call_llm_cover_letter(client: openai.OpenAI, kb: dict, variant: str) -> dict:
     system_prompt = build_cover_letter_prompt(kb, variant)
     messages = [
         {"role": "system", "content": system_prompt},
@@ -406,17 +446,17 @@ def call_llm_cover_letter(kb: dict, variant: str) -> dict:
         try:
             try:
                 response = client.chat.completions.create(
-                    model=MODEL, max_tokens=max_output_tokens, temperature=0.3, timeout=180,
+                    model=MODEL, max_tokens=max_output_tokens, temperature=0.3, timeout=LLM_REQUEST_TIMEOUT,
                     response_format={"type": "json_object"},
-                    extra_body={"options": {"num_ctx": num_ctx}}, messages=messages,
+                    extra_body={"options": {"num_ctx": num_ctx}, "keep_alive": LITELLM_KEEP_ALIVE}, messages=messages,
                 )
             except openai.BadRequestError:
                 response = client.chat.completions.create(
-                    model=MODEL, max_tokens=max_output_tokens, temperature=0.3, timeout=180,
-                    extra_body={"options": {"num_ctx": num_ctx}}, messages=messages,
+                    model=MODEL, max_tokens=max_output_tokens, temperature=0.3, timeout=LLM_REQUEST_TIMEOUT,
+                    extra_body={"options": {"num_ctx": num_ctx}, "keep_alive": LITELLM_KEEP_ALIVE}, messages=messages,
                 )
         except openai.APIConnectionError as e:
-            print(f"[{variant}] Could not reach LiteLLM at {base_url}: {e}", file=sys.stderr)
+            print(f"[{variant}] Could not reach LiteLLM at {client.base_url}: {e}", file=sys.stderr)
             sys.exit(1)
         except openai.APIStatusError as e:
             print(f"[{variant}] LiteLLM returned an error (HTTP {e.status_code}): {e.message}", file=sys.stderr)
@@ -782,14 +822,7 @@ def validate_readme(md: str, expected_job_count: int) -> None:
         raise ValueError(f"README has {job_headers} job entries, expected {expected_job_count} (a job may have been dropped or duplicated).")
 
 
-def call_llm_readme(kb: dict, template_text: str) -> str:
-    base_url = os.environ.get("LITELLM_BASE_URL")
-    api_key = os.environ.get("LITELLM_API_KEY")
-    if not base_url or not api_key:
-        print("LITELLM_BASE_URL and/or LITELLM_API_KEY are not set.", file=sys.stderr)
-        sys.exit(1)
-
-    client = openai.OpenAI(base_url=base_url.rstrip("/") + "/v1", api_key=api_key)
+def call_llm_readme(client: openai.OpenAI, kb: dict, template_text: str) -> str:
     system_prompt = build_readme_system_prompt(kb, template_text)
     messages = [
         {"role": "system", "content": system_prompt},
@@ -806,11 +839,11 @@ def call_llm_readme(kb: dict, template_text: str) -> str:
     for attempt in range(2):
         try:
             response = client.chat.completions.create(
-                model=MODEL, max_tokens=max_output_tokens, temperature=0.3, timeout=180,
-                extra_body={"options": {"num_ctx": num_ctx}}, messages=messages,
+                model=MODEL, max_tokens=max_output_tokens, temperature=0.3, timeout=LLM_REQUEST_TIMEOUT,
+                extra_body={"options": {"num_ctx": num_ctx}, "keep_alive": LITELLM_KEEP_ALIVE}, messages=messages,
             )
         except openai.APIConnectionError as e:
-            print(f"[README] Could not reach LiteLLM at {base_url}: {e}", file=sys.stderr)
+            print(f"[README] Could not reach LiteLLM at {client.base_url}: {e}", file=sys.stderr)
             sys.exit(1)
         except openai.APIStatusError as e:
             print(f"[README] LiteLLM returned an error (HTTP {e.status_code}): {e.message}", file=sys.stderr)
@@ -834,18 +867,27 @@ def call_llm_readme(kb: dict, template_text: str) -> str:
     sys.exit(1)
 
 
-def load_settings(path: str) -> dict:
-    """Parses generator.settings: KEY="value" lines, '#' comments, blank
-    lines ignored. No new dependency (e.g. python-dotenv) added for this --
-    the format is simple enough not to need one."""
-    settings = {}
-    for line in Path(path).read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        key, _, value = line.partition("=")
-        settings[key.strip()] = value.strip().strip('"')
-    return settings
+def load_file_location_settings() -> dict:
+    """
+    File-location settings, formerly generator.settings, now read from the
+    environment (populated from .env by generate.sh, same as the LITELLM_*
+    settings) so everything configurable lives in one file. Defaults below
+    match what generator.settings used to hardcode, so an unset .env still
+    behaves exactly as before.
+    """
+    return {
+        "OUTPUT_FOLDER": os.environ.get("OUTPUT_FOLDER", "generated"),
+        "KNOWLEDGE_BASE": os.environ.get("KNOWLEDGE_BASE", "resume_data.json"),
+        "README_TEMPLATE": os.environ.get("README_TEMPLATE", "README.template.md"),
+        "README_OUTPUT": os.environ.get("README_OUTPUT", "README.md"),
+        "RESUME_TEMPLATE": os.environ.get("RESUME_TEMPLATE", "RESUME.template.md"),
+        "RESUME_NAMING_TEMPLATE": os.environ.get(
+            "RESUME_NAMING_TEMPLATE", "{FirstName} {LastName} Resume ({JobAcronym}).{Extension}"
+        ),
+        "COVERLETTER_NAMING_TEMPLATE": os.environ.get(
+            "COVERLETTER_NAMING_TEMPLATE", "{FirstName} {LastName} Cover Letter ({JobAcronym}).{Extension}"
+        ),
+    }
 
 
 def render_filename(naming_template: str, full_name: str, job_acronym: str, extension: str) -> str:
@@ -859,20 +901,20 @@ def render_filename(naming_template: str, full_name: str, job_acronym: str, exte
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--settings", default="generator.settings", help="Path to the generator.settings file")
-    args = parser.parse_args()
-
-    s = load_settings(args.settings)
+    s = load_file_location_settings()
     kb = json.loads(Path(s["KNOWLEDGE_BASE"]).read_text(encoding="utf-8"))
     out_dir = Path(s["OUTPUT_FOLDER"])
     out_dir.mkdir(parents=True, exist_ok=True)
     full_name = kb["personal_info"]["full_name"]
     resume_template_text = Path(s["RESUME_TEMPLATE"]).read_text(encoding="utf-8")
 
+    # One client (and its underlying connection pool) for every LLM call
+    # in this run, rather than a fresh one per call site.
+    client = build_llm_client()
+
     for variant in VARIANTS:
-        r = call_llm_fill_resume(kb, variant, resume_template_text)
-        cl = call_llm_cover_letter(kb, variant)
+        r = call_llm_fill_resume(client, kb, variant, resume_template_text)
+        cl = call_llm_cover_letter(client, kb, variant)
 
         def resume_path(ext: str) -> Path:
             return out_dir / render_filename(s["RESUME_NAMING_TEMPLATE"], full_name, variant, ext)
@@ -898,7 +940,7 @@ def main():
     # Separate LLM call, template-driven: fills README_TEMPLATE using
     # resume_data.json, rather than reusing the resume call above.
     template_text = Path(s["README_TEMPLATE"]).read_text(encoding="utf-8")
-    readme_markdown = call_llm_readme(kb, template_text)
+    readme_markdown = call_llm_readme(client, kb, template_text)
     readme_path = Path(s["README_OUTPUT"])
     readme_path.write_text(readme_markdown, encoding="utf-8")
     print(f"Wrote GitHub profile README to {readme_path}")

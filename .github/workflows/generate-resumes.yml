@@ -26,7 +26,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "data/resume_data.json"
+      - "resume_data.json"
   workflow_dispatch: {} # allows manually re-running from the Actions tab
 
 permissions:
@@ -51,14 +51,14 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install -r scripts/requirements.txt
+        run: pip install -r requirements.txt
 
       - name: Generate baseline outputs
         env:
           LITELLM_BASE_URL: ${{ secrets.LITELLM_BASE_URL }}
           LITELLM_API_KEY: ${{ secrets.LITELLM_API_KEY }}
           LITELLM_MODEL: ${{ vars.LITELLM_MODEL }}
-        run: python scripts/generate_resumes.py --data data/resume_data.json --out generated/
+        run: python generate.py
 
       - name: Open pull request with regenerated files
         uses: peter-evans/create-pull-request@v6
@@ -68,7 +68,7 @@ jobs:
           delete-branch: true
           title: "Auto: regenerate resumes/cover letter from resume_data.json"
           body: |
-            Triggered by a change to `data/resume_data.json`.
+            Triggered by a change to `resume_data.json`.
 
             Generated via self-hosted LiteLLM/Ollama (model: ${{ vars.LITELLM_MODEL }}).
             This PR was opened automatically and was **not** reviewed by a human yet.
