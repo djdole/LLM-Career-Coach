@@ -2,10 +2,10 @@
 
 {{PROFESSIONAL_SUMMARY}}
 
-📍 {{LOCATION}}
-📧 [{{EMAIL}}](mailto:{{EMAIL}})
-📱 {{PHONE}}
-🔗 [{{LINKEDIN_DISPLAY}}]({{LINKEDIN_URL}})
+📍 {{LOCATION}}<br>
+📧 [{{EMAIL}}](mailto:{{EMAIL}})<br>
+📱 {{PHONE}}<br>
+🔗 [{{LINKEDIN_DISPLAY}}]({{LINKEDIN_URL}})<br>
 🔗 [{{PORTFOLIO_DISPLAY}}]({{PORTFOLIO_URL}})
 
 ---
@@ -13,7 +13,7 @@
 ## 🛠️ Skills
 
 <!-- Repeat this line once per skill category, in the order given in the data. -->
-**{{CATEGORY_NAME}}:** {{COMMA_SEPARATED_SKILLS}}
+**{{CATEGORY_NAME}}:** {{COMMA_SEPARATED_SKILLS}}<br>
 
 ---
 
@@ -35,8 +35,8 @@
 ## 🎓 Education
 
 <!-- Repeat once per education entry. -->
-**{{DEGREE}}**
-{{INSTITUTION}} - {{FIELD_OF_STUDY}}
+**{{DEGREE}}**<br>
+{{INSTITUTION}} - {{FIELD_OF_STUDY}}<br>
 Graduated {{GRADUATION_DATE}}
 
 ---
@@ -49,6 +49,7 @@ Graduated {{GRADUATION_DATE}}
 ---
 
 📫 Reach out at [{{EMAIL}}](mailto:{{EMAIL}}) or connect on [LinkedIn]({{LINKEDIN_URL}}).
+
 ---
 
 [![Tests](https://github.com/djdole/djdole/actions/workflows/tests.yml/badge.svg)](https://github.com/djdole/djdole/actions/workflows/tests.yml)

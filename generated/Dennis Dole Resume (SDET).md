@@ -5,15 +5,16 @@ Dennis.Dole@djdole.net · 734-218-2358 · linkedin.com/in/djdole · profile.inde
 Software Development Engineer in Test with 22+ years of experience at Docusign, Microsoft, and Amazon, specializing in designing automated test frameworks, building internal test tooling, and debugging complex product issues across distributed systems and webhook integrations. Skilled at driving test coverage, root-causing defects, and partnering with developers and product managers throughout the SDLC. Proven track record mentoring new engineers and leading testing initiatives from planning through release.
 
 ## Core Sdet Skills
-- **Languages:** C#, Ruby, Python, Java, PHP, Node.js, Bash, PowerShell, C++
+- **Languages:** C#, Ruby, Python, Java, PHP, Node.js, Bash, PowerShell, C++, Lisp, Visual Basic, JavaScript
 - **APIs & Web Servers:** REST API design, Apache HTTPD/Tomcat, IIS, nginx, Node.js, MongoDB
+- **Operating Systems:** Windows, Unix, Linux, custom
 - **Test Automation Frameworks:** Selenium, Playwright, Echo, Docusign's SAW Ruby framework, KAF (Kahuna Automation Framework), custom API test/automation harnesses
 - **Frontend & Mobile Testing:** Angular (manual + Selenium automated testing), React (manual + Selenium automated testing), mobile application manual testing
 - **Unit & Integration Testing:** nUnit, xUnit, jUnit, PHPUnit, WTT (Microsoft internal), SAW (Docusign internal)
 - **Test Management & Planning:** MTM, TFS, test plan design, bug triage, exploratory testing (black/white box)
 - **Performance Testing:** JMeter
 - **CI/CD & DevOps:** Jenkins, Hudson, Octopus, Azure Pipelines, GitHub Actions / GitHub Workflows, Docker, Kubernetes, Ansible
-- **Databases & Query Languages:** SQL, Kusto, MongoDB
+- **Databases & Query Languages:** SQL, Kusto, MongoDB, Kusto Query Language, KQL
 - **Version Control:** Git, Mercurial, TFS, Source Depot, PVCS
 - **Debugging & Diagnostics:** Fiddler, Postman, Resharper, xDebug, rDebug
 - **Virtualization & Infra:** Docker, Kubernetes, HyperV, VirtualBox, Proxmox, WSL
@@ -22,6 +23,7 @@ Software Development Engineer in Test with 22+ years of experience at Docusign, 
 - **Methodologies:** Agile, Scrum, Kanban, TDD, Waterfall, DevOps
 - **Collaboration & Docs:** Jira, Confluence, SharePoint, MediaWiki
 - **Monitoring / Incident Mgmt:** PagerDuty
+- **Soft Skills:** listening, empathy, communication, understanding, delegation, collaboration, critical thinking, adaptability
 
 ## Work Experience
 ### Software Developer | 2024-03 - 2025-07
