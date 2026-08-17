@@ -36,7 +36,6 @@ jobs:
       - name: Run tests
         run: |
           pytest -q \
-            --cov=lib --cov=knowledge_manager --cov=tools --cov=loaders --cov=main --cov=ai_io \
             --cov-report=term-missing \
             --cov-report=xml:coverage.xml \
             --cov-report=html:htmlcov \
