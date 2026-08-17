@@ -1,4 +1,4 @@
-name: Generate resumes and cover letter
+name: Generate Files
 
 # Regenerates the baseline (no-specific-JD) SDE and SDET resumes, plus a
 # generic cover letter, whenever the knowledge base changes, and opens a
@@ -40,7 +40,7 @@ concurrency:
 jobs:
   generate:
     runs-on: ubuntu-latest # see network reachability note above before changing to self-hosted
-    timeout-minutes: 15 # fail fast instead of hanging if LiteLLM is unreachable
+    timeout-minutes: 30
     steps:
       - name: Check out repo
         uses: actions/checkout@v4
@@ -58,7 +58,7 @@ jobs:
           LITELLM_BASE_URL: ${{ secrets.LITELLM_BASE_URL }}
           LITELLM_API_KEY: ${{ secrets.LITELLM_API_KEY }}
           LITELLM_MODEL: ${{ vars.LITELLM_MODEL }}
-        run: python generate.py
+        run: python generator.py
 
       - name: Open pull request with regenerated files
         uses: peter-evans/create-pull-request@v6
