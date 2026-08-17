@@ -34,7 +34,7 @@ Software Developer with 22+ years of experience at Docusign, Microsoft, and Amaz
 - Improved the stability and reliability of internal webhook tooling relied on by automation and developer initiatives.
 - Partnered with Product Management to reproduce, triage, and resolve customer upgrade and configuration issues.
 
-### Software Design Engineer in Test (SDET) | 2013-11 - 2024-03
+### Software Design Engineer in Test | 2013-11 - 2024-03
 *Docusign, Inc. · Docusign Connect, Product Incubation Team, Docusign Print Tool (deprecated)*
 - Designed and built automated test frameworks and a custom API request communication layer using NUnit and Selenium.
 - Engineered obfuscated interfaces and test frameworks supporting webhook endpoint selection for automated and manual testing.
