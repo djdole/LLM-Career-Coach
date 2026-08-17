@@ -868,13 +868,6 @@ def call_llm_readme(client: openai.OpenAI, kb: dict, template_text: str) -> str:
 
 
 def load_file_location_settings() -> dict:
-    """
-    File-location settings, formerly generator.settings, now read from the
-    environment (populated from .env by generate.sh, same as the LITELLM_*
-    settings) so everything configurable lives in one file. Defaults below
-    match what generator.settings used to hardcode, so an unset .env still
-    behaves exactly as before.
-    """
     return {
         "OUTPUT_FOLDER": os.environ.get("OUTPUT_FOLDER", "generated"),
         "KNOWLEDGE_BASE": os.environ.get("KNOWLEDGE_BASE", "resume_data.json"),
