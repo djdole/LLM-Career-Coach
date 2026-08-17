@@ -12,14 +12,14 @@ import generator
 
 GOOD_RESUME_TEXT = (
     "Jane Doe\ncontact\n\nSUMMARY\nGreat.\n\nCORE TECHNICAL SKILLS\nLanguages: Python\n\n"
-    "WORK EXPERIENCE\nSWE | Acme Corp | 2020-01 - 2023-01\n\u25cf Did X.\n\n"
+    "WORK EXPERIENCE\nSWE | Acme Corp | 2020-01 - 2023-01\n• Did X.\n\n"
     "EDUCATION\nBS in Computer Science | State University | 2015\n"
 )
 
 GOOD_README_TEXT = (
-    "# Jane Doe\n\n## \U0001f6e0\ufe0f Skills\nStuff\n\n"
-    "## \U0001f4bc Experience\n### Acme Corp\n\n"
-    "## \U0001f393 Education\nStuff\n\n## \u2728 Career Highlights\nStuff"
+    "# Jane Doe\n\n## 🛠️ Skills\nStuff\n\n"
+    "## 💼 Experience\n### Acme Corp\n\n"
+    "## 🎓 Education\nStuff\n\n## ✨ Career Highlights\nStuff"
 )
 
 
@@ -59,8 +59,8 @@ class TestCallLlmFillResume:
 
     def test_retries_when_job_count_does_not_match(self, llm_kb):
         wrong_count_text = GOOD_RESUME_TEXT.replace(
-            "\u25cf Did X.\n\nEDUCATION",
-            "\u25cf Did X.\n\nOther Title | Other Co | 2019 - 2020\n\u25cf Did Y.\n\nEDUCATION",
+            "• Did X.\n\nEDUCATION",
+            "• Did X.\n\nOther Title | Other Co | 2019 - 2020\n• Did Y.\n\nEDUCATION",
         )
         client = MagicMock()
         client.chat.completions.create.side_effect = [
@@ -81,14 +81,18 @@ class TestCallLlmFillResume:
 
     def test_exits_on_connection_error(self, llm_kb):
         client = MagicMock()
-        client.chat.completions.create.side_effect = openai.APIConnectionError("unreachable")
+        client.chat.completions.create.side_effect = openai.APIConnectionError()
         with pytest.raises(SystemExit) as exc_info:
             generator.call_llm_fill_resume(client, llm_kb, "SDE", "template text")
         assert exc_info.value.code == 1
 
     def test_exits_on_api_status_error(self, llm_kb):
         client = MagicMock()
-        client.chat.completions.create.side_effect = openai.APIStatusError("server error", status_code=500)
+        error_response = MagicMock()
+        error_response.status_code = 500
+        client.chat.completions.create.side_effect = openai.APIStatusError(
+            "server error", response=error_response, body={}
+        )
         with pytest.raises(SystemExit) as exc_info:
             generator.call_llm_fill_resume(client, llm_kb, "SDE", "template text")
         assert exc_info.value.code == 1
@@ -104,8 +108,10 @@ class TestCallLlmCoverLetter:
 
     def test_falls_back_when_response_format_unsupported(self, llm_kb):
         client = MagicMock()
+        error_response = MagicMock()
+        error_response.status_code = 400
         client.chat.completions.create.side_effect = [
-            openai.BadRequestError("response_format not supported"),
+            openai.BadRequestError("response_format not supported", response=error_response, body={}),
             _make_response('{"body": "fallback body"}'),
         ]
         result = generator.call_llm_cover_letter(client, llm_kb, "SDE")
@@ -139,7 +145,11 @@ class TestCallLlmCoverLetter:
 
     def test_exits_on_api_status_error(self, llm_kb):
         client = MagicMock()
-        client.chat.completions.create.side_effect = openai.APIStatusError("server error", status_code=500)
+        error_response = MagicMock()
+        error_response.status_code = 500
+        client.chat.completions.create.side_effect = openai.APIStatusError(
+            "server error", response=error_response, body={}
+        )
         with pytest.raises(SystemExit) as exc_info:
             generator.call_llm_cover_letter(client, llm_kb, "SDE")
         assert exc_info.value.code == 1
@@ -171,7 +181,7 @@ class TestCallLlmReadme:
 
     def test_exits_on_connection_error(self, llm_kb):
         client = MagicMock()
-        client.chat.completions.create.side_effect = openai.APIConnectionError("unreachable")
+        client.chat.completions.create.side_effect = openai.APIConnectionError()
         with pytest.raises(SystemExit) as exc_info:
             generator.call_llm_readme(client, llm_kb, "template text")
         assert exc_info.value.code == 1
