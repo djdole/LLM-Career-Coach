@@ -31,4 +31,5 @@ else
     exit 1
 fi
 
-python3 scripts/generate_resumes.py --data data/resume_data.json --out generated/
+# python3 scripts/generate_resumes.py --data data/resume_data.json --out generated/
+python3 generator.py

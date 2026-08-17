@@ -1,0 +1,10 @@
+# File-location settings for generator.py. KEY="value" format, one per line.
+# Lines starting with # are comments.
+
+OUTPUT_FOLDER="generated"
+KNOWLEDGE_BASE="data/resume_data.json"
+README_TEMPLATE="README.template.md"
+README_OUTPUT="README.md"
+RESUME_TEMPLATE="RESUME.template.md"
+RESUME_NAMING_TEMPLATE="{FirstName} {LastName} Resume ({JobAcronym}).{Extension}"
+COVERLETTER_NAMING_TEMPLATE="{FirstName} {LastName} Cover Letter ({JobAcronym}).{Extension}"
