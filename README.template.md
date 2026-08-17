@@ -20,9 +20,9 @@
 ## 💼 Experience
 
 <!-- Repeat this whole block once per job, in the order given in the data (most recent first). -->
-### {{JOB_TITLE}} - {{COMPANY}}
+### {{JOB_TITLE}}
+#### {{COMPANY}}  -  **{{START_MONTH_YEAR}}-{{END_MONTH_YEAR}}**
 * {{TEAM_CONTEXT_ITEM}} * {{TEAM_CONTEXT_ITEM}} * ... *
-**{{START_MONTH_YEAR}} - {{END_MONTH_YEAR}}**
 
 - {{BULLET}}
 - {{BULLET}}
