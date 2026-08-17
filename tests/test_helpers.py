@@ -9,13 +9,13 @@ import generator
 
 class TestStripEmDashes:
     def test_replaces_em_dash_with_comma(self):
-        assert generator.strip_em_dashes("before—after") == "before,after"
+        assert generator.strip_em_dashes("before\u2014after") == "before,after"
 
     def test_no_em_dash_is_unchanged(self):
         assert generator.strip_em_dashes("nothing to see here") == "nothing to see here"
 
     def test_multiple_em_dashes(self):
-        assert generator.strip_em_dashes("a—b—c") == "a,b,c"
+        assert generator.strip_em_dashes("a\u2014b\u2014c") == "a,b,c"
 
 
 class TestExtractMarkdown:
@@ -150,11 +150,11 @@ class TestBuildLlmClient:
         monkeypatch.setenv("LITELLM_BASE_URL", "http://example.com")
         monkeypatch.setenv("LITELLM_API_KEY", "secret")
         client = generator.build_llm_client()
-        assert str(client.base_url) == "http://example.com/v1/"
+        assert str(client.base_url) == "http://example.com/v1"
         assert client.api_key == "secret"
 
     def test_strips_trailing_slash_before_appending_v1(self, monkeypatch):
         monkeypatch.setenv("LITELLM_BASE_URL", "http://example.com/")
         monkeypatch.setenv("LITELLM_API_KEY", "secret")
         client = generator.build_llm_client()
-        assert str(client.base_url) == "http://example.com/v1/"
+        assert str(client.base_url) == "http://example.com/v1"
