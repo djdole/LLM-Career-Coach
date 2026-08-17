@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Generates baseline (no-specific-JD) SDE and SDET resumes, plus a cover
-letter, from data/resume_data.json, in pdf/docx/txt/md/json formats.
+letter, from resume_data.json, in pdf/docx/txt/md/json formats.
 
 Uses a self-hosted LiteLLM proxy (in front of Ollama, per that stack's
 docker-compose.yml) rather than a paid hosted API, so this never spends
@@ -9,11 +9,11 @@ API credits and never fails due to account balance.
 
 Tailoring a resume to a *specific* job posting is a different task (it
 requires selecting/adapting content to a JD) and stays a separate,
-manual, chat-based workflow -- see data/resume_data.json's own
+manual, chat-based workflow -- see resume_data.json's own
 generation_workflow_for_llm for that path. This script does not do that.
 
 Usage:
-    python scripts/generate_resumes.py --data data/resume_data.json --out generated/
+    python generate.py
 """
 
 import argparse
@@ -24,6 +24,7 @@ import sys
 from pathlib import Path
 
 import openai
+import httpx
 from docx import Document
 from docx.shared import Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -57,6 +58,35 @@ VARIANTS = ["SDE", "SDET"]
 #                                 16384) -- lower if your GPU can't hold
 #                                 that much context for the model in use.
 MODEL = os.environ.get("LITELLM_MODEL", "qwen3.6:latest")
+
+# How long we wait for a *single* chat completion response before giving up
+# on that attempt. There's no one correct default -- it depends on your
+# model size, hardware, LITELLM_MAX_TOKENS, and OLLAMA_NUM_CTX -- so it's
+# configurable via LITELLM_TIMEOUT rather than hardcoded. Keep it
+# comfortably BELOW any reverse proxy's own read timeout in front of
+# LiteLLM (proxy_read_timeout in nginx, etc.): if the proxy's timeout is
+# shorter, IT kills the connection first, silently, and this timeout never
+# gets the chance to produce the clearer error below. 550s is a safe
+# default under nginx's commonly-recommended 600s.
+LITELLM_TIMEOUT_SECONDS = float(os.environ.get("LITELLM_TIMEOUT", "550"))
+
+# A single flat timeout number applies uniformly to the whole request,
+# which isn't quite right for this use case: just reaching LiteLLM at all
+# should fail fast (a few seconds) if it's unreachable, while actually
+# *waiting on generated tokens* legitimately needs the full
+# LITELLM_TIMEOUT_SECONDS budget for a local model generating up to
+# LITELLM_MAX_TOKENS against OLLAMA_NUM_CTX of context. httpx.Timeout lets
+# connect and read differ, so an unreachable/misconfigured proxy fails in
+# ~10s with a clear connection error instead of burning the entire
+# generation budget first only to fail for an unrelated reason. Passed to
+# every client.chat.completions.create() call below in place of a bare
+# `timeout=<seconds>`.
+LLM_REQUEST_TIMEOUT = httpx.Timeout(
+    connect=10.0,
+    read=LITELLM_TIMEOUT_SECONDS,
+    write=30.0,
+    pool=LITELLM_TIMEOUT_SECONDS,
+)
 
 # Maps the knowledge base's snake_case skill category keys to display
 # labels matching the existing hand-written resumes' style, fed to the
@@ -315,7 +345,7 @@ def call_llm_fill_resume(kb: dict, variant: str, template_text: str) -> dict:
     for attempt in range(2):
         try:
             response = client.chat.completions.create(
-                model=MODEL, max_tokens=max_output_tokens, temperature=0.3, timeout=180,
+                model=MODEL, max_tokens=max_output_tokens, temperature=0.3, timeout=LLM_REQUEST_TIMEOUT,
                 extra_body={"options": {"num_ctx": num_ctx}}, messages=messages,
             )
         except openai.APIConnectionError as e:
@@ -406,13 +436,13 @@ def call_llm_cover_letter(kb: dict, variant: str) -> dict:
         try:
             try:
                 response = client.chat.completions.create(
-                    model=MODEL, max_tokens=max_output_tokens, temperature=0.3, timeout=180,
+                    model=MODEL, max_tokens=max_output_tokens, temperature=0.3, timeout=LLM_REQUEST_TIMEOUT,
                     response_format={"type": "json_object"},
                     extra_body={"options": {"num_ctx": num_ctx}}, messages=messages,
                 )
             except openai.BadRequestError:
                 response = client.chat.completions.create(
-                    model=MODEL, max_tokens=max_output_tokens, temperature=0.3, timeout=180,
+                    model=MODEL, max_tokens=max_output_tokens, temperature=0.3, timeout=LLM_REQUEST_TIMEOUT,
                     extra_body={"options": {"num_ctx": num_ctx}}, messages=messages,
                 )
         except openai.APIConnectionError as e:
@@ -806,7 +836,7 @@ def call_llm_readme(kb: dict, template_text: str) -> str:
     for attempt in range(2):
         try:
             response = client.chat.completions.create(
-                model=MODEL, max_tokens=max_output_tokens, temperature=0.3, timeout=180,
+                model=MODEL, max_tokens=max_output_tokens, temperature=0.3, timeout=LLM_REQUEST_TIMEOUT,
                 extra_body={"options": {"num_ctx": num_ctx}}, messages=messages,
             )
         except openai.APIConnectionError as e:
