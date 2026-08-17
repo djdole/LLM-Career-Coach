@@ -55,7 +55,7 @@ Docker stack, so nothing needs to be exposed to the internet at all.
 
 | Variable name | Value |
 |---|---|
-| `LITELLM_MODEL` | `ollama/${MODEL_NAME}`, using the actual value of `MODEL_NAME` from your stack's `.env` (e.g. `ollama/llama3.1:70b`) |
+| `LITELLM_MODEL` | `ollama/${MODEL_NAME}`, using the actual value of `MODEL_NAME` from your stack's `.env` (e.g. `qwen3.6:latest`) |
 
 > **Keep this in sync manually** with `MODEL_NAME` in the Docker stack's
 > `.env` -- nothing links them automatically. A mismatch is the most

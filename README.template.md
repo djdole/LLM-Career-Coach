@@ -2,18 +2,18 @@
 
 {{PROFESSIONAL_SUMMARY}}
 
-📍 {{LOCATION}}<br>
-📧 [{{EMAIL}}](mailto:{{EMAIL}})<br>
-📱 {{PHONE}}<br>
-🔗 [{{LINKEDIN_DISPLAY}}]({{LINKEDIN_URL}})<br>
-🔗 [{{PORTFOLIO_DISPLAY}}]({{PORTFOLIO_URL}})<br>
+📍 {{LOCATION}}
+📧 [{{EMAIL}}](mailto:{{EMAIL}})
+📱 {{PHONE}}
+🔗 [{{LINKEDIN_DISPLAY}}]({{LINKEDIN_URL}})
+🔗 [{{PORTFOLIO_DISPLAY}}]({{PORTFOLIO_URL}})
+
 ---
 
 ## 🛠️ Skills
 
-<!-- Repeat this line once per skill category, each on a separate line, in the order given in the data. Only use ascii characters. -->
-**{{CATEGORY_NAME}}:** {{COMMA_SEPARATED_SKILLS}}<br>
-
+<!-- Repeat this line once per skill category, in the order given in the data. -->
+**{{CATEGORY_NAME}}:** {{COMMA_SEPARATED_SKILLS}}
 
 ---
 
@@ -21,8 +21,8 @@
 
 <!-- Repeat this whole block once per job, in the order given in the data (most recent first). -->
 ### {{JOB_TITLE}} - {{COMPANY}}
-**{{START_MONTH_YEAR}} - {{END_MONTH_YEAR}}**
 * {{TEAM_CONTEXT_ITEM}} * {{TEAM_CONTEXT_ITEM}} * ... *
+**{{START_MONTH_YEAR}} - {{END_MONTH_YEAR}}**
 
 - {{BULLET}}
 - {{BULLET}}

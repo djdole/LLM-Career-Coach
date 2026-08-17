@@ -50,13 +50,13 @@ VARIANTS = ["SDE", "SDET"]
 #              LITELLM_API_KEY    same value as LITELLM_MASTER_KEY in that
 #                                 stack's .env
 #   Variables: LITELLM_MODEL      the model string LiteLLM proxies to, e.g.
-#                                 "ollama/llama3.1:70b" -- NOT sensitive,
+#                                 "qwen3.6:latest" -- NOT sensitive,
 #                                 so it's a repo Variable rather than a
 #                                 Secret.
 #   Optional:  OLLAMA_NUM_CTX     context window size override (default
 #                                 16384) -- lower if your GPU can't hold
 #                                 that much context for the model in use.
-MODEL = os.environ.get("LITELLM_MODEL", "ollama/llama3.1:70b")
+MODEL = os.environ.get("LITELLM_MODEL", "qwen3.6:latest")
 
 # Maps the knowledge base's snake_case skill category keys to display
 # labels matching the existing hand-written resumes' style, fed to the
@@ -176,59 +176,176 @@ def build_baseline_context(kb: dict, variant: str) -> dict:
     }
 
 
-def build_system_prompt(kb: dict, variant: str) -> str:
-    """
-    Schema is placed AFTER the source data and includes a filled-in
-    example (not just types), since smaller/local models otherwise tend to
-    echo the nearest JSON shape they've seen instead of the requested one.
-    """
+def build_resume_fill_prompt(kb: dict, variant: str, template_text: str) -> str:
+    """Fills RESUME_TEMPLATE using the trimmed baseline context -- same
+    spirit as build_readme_system_prompt, adapted for the resume's
+    pipe-delimited, code-parsed structure."""
     context = build_baseline_context(kb, variant)
     return (
-        f"You are generating a BASELINE {variant} resume (no specific job "
-        "description provided) and a cover letter, for the candidate "
-        "described below. Use the summary, skills, and skills_heading "
-        "exactly as given, all work_experience bullets in the order given, "
-        "and cover_letter_generic_template for the cover letter (lightly "
-        "adapt it, keep 'Dear Hiring Manager'). Follow output_rules "
-        "exactly, especially never_fabricate and never_use_em_dash.\n\n"
-        "=== CANDIDATE DATA (read this for content only; its field names "
-        "like team_context, date_range, and cover_letter_generic_template "
-        "belong to THIS input and must NOT appear in your answer) ===\n"
+        f"You are filling in a plain-text resume TEMPLATE for a BASELINE "
+        f"{variant} resume (no specific job description provided), using "
+        "the candidate data below. Preserve the template's exact structure "
+        "and formatting -- section header text (SUMMARY, WORK EXPERIENCE, "
+        "EDUCATION), the bullet character, and especially the exact ' | ' "
+        "(space-pipe-space) delimiters on the job-header and education "
+        "lines, since those are parsed by code afterward and must be exact. "
+        "Only replace the {{PLACEHOLDER}} tokens with real content. Follow "
+        "the template's HTML-comment instructions for repeating blocks (one "
+        "skills line per category, one Experience block per job, one "
+        "Education line per entry). Omit the team-context line entirely "
+        "for a job with no team_context. Follow output_rules exactly, "
+        "especially never_fabricate and never_use_em_dash.\n\n"
+        "=== TEMPLATE ===\n" + template_text + "\n\n"
+        "=== CANDIDATE DATA (read for content only; do not include field "
+        "names like team_context or date_range in your answer) ===\n"
         + json.dumps(context, indent=2)
         + "\n\n=== YOUR TASK ===\n"
-        "Using only the content above, produce ONE JSON object with EXACTLY "
-        "these top-level keys: \"resume\" and \"cover_letter\". Nothing else. "
-        "No prose before or after it, no markdown code fences, no headings, "
-        "no explanation of what you did.\n\n"
-        "Here is a SHAPE EXAMPLE with placeholder values, showing the exact "
-        "keys your answer must use (do not copy these placeholder values, "
-        "replace them with real content from the candidate data above):\n"
-        "{\n"
-        '  "resume": {\n'
-        '    "name": "Full Name",\n'
-        '    "contact_line": "email \u00b7 phone \u00b7 linkedin \u00b7 portfolio",\n'
-        '    "skills_heading": "CORE TECHNICAL SKILLS",\n'
-        '    "summary": "2-4 sentence professional summary",\n'
-        '    "skills": [{"category": "Languages", "items": ["Python", "Go"]}],\n'
-        '    "work_experience": [\n'
-        "      {\n"
-        '        "title": "Job Title", "company": "Company Name",\n'
-        '        "date_range": "2020 - 2023", "team_context": "Team X",\n'
-        '        "bullets": ["Accomplishment one.", "Accomplishment two."]\n'
-        "      }\n"
-        "    ],\n"
-        '    "education": [{"degree": "B.S. Computer Science", "institution": "Some University", "date": "2010"}]\n'
-        "  },\n"
-        '  "cover_letter": {"body": "Full cover letter text, paragraphs separated by a blank line."}\n'
-        "}\n\n"
-        "Respond with ONLY that JSON object. Your entire response must start "
-        "with { and end with }."
+        "Output ONLY the final, completed document -- no commentary, no "
+        "markdown code fences around the whole thing, no leftover "
+        "{{PLACEHOLDER}} tokens or HTML comments from the template."
     )
 
 
-REQUIRED_RESUME_KEYS = {"name", "contact_line", "summary", "skills", "work_experience", "education"}
-REQUIRED_JOB_KEYS = {"title", "company", "date_range", "bullets"}
-REQUIRED_EDUCATION_KEYS = {"degree", "institution", "date"}
+def parse_filled_resume(text: str) -> dict:
+    """Parses a filled RESUME_TEMPLATE (see build_resume_fill_prompt) back
+    into the structured dict the existing renderers expect. Raises
+    ValueError on any structural mismatch, which the caller uses to
+    trigger a corrective retry rather than crash deep inside rendering."""
+    lines = text.strip("\n").split("\n")
+    i = 0
+
+    def skip_blank():
+        nonlocal i
+        while i < len(lines) and lines[i].strip() == "":
+            i += 1
+
+    if len(lines) < 2:
+        raise ValueError("Output too short to contain name/contact lines.")
+    name = lines[i].strip(); i += 1
+    contact_line = lines[i].strip(); i += 1
+
+    skip_blank()
+    if i >= len(lines) or lines[i].strip() != "SUMMARY":
+        raise ValueError(f"Expected 'SUMMARY' header, got: {lines[i].strip() if i < len(lines) else 'EOF'!r}")
+    i += 1
+    skip_blank()
+    summary_lines = []
+    while i < len(lines) and lines[i].strip() != "":
+        summary_lines.append(lines[i].strip())
+        i += 1
+    summary = " ".join(summary_lines)
+
+    skip_blank()
+    if i >= len(lines):
+        raise ValueError("Output ended before a skills_heading line.")
+    skills_heading = lines[i].strip(); i += 1
+    skills = []
+    while i < len(lines) and lines[i].strip() and lines[i].strip() != "WORK EXPERIENCE":
+        m = re.match(r"^(.+?):\s*(.+)$", lines[i].strip())
+        if not m:
+            raise ValueError(f"Could not parse skills line: {lines[i]!r}")
+        category, items_str = m.groups()
+        skills.append({"category": category, "items": [x.strip() for x in items_str.split(",") if x.strip()]})
+        i += 1
+    skip_blank()
+    if i >= len(lines) or lines[i].strip() != "WORK EXPERIENCE":
+        raise ValueError(f"Expected 'WORK EXPERIENCE' header, got: {lines[i].strip() if i < len(lines) else 'EOF'!r}")
+    i += 1
+    skip_blank()
+
+    work_experience = []
+    while i < len(lines) and lines[i].strip() and lines[i].strip() != "EDUCATION":
+        header = lines[i].strip(); i += 1
+        parts = [p.strip() for p in header.split("|")]
+        if len(parts) != 3:
+            raise ValueError(f"Job header line not in 'Title | Company | Dates' shape: {header!r}")
+        title, company, date_range = parts
+        team_context = ""
+        if i < len(lines) and lines[i].strip() and not lines[i].strip().startswith(BULLET_CHAR):
+            team_context = lines[i].strip()
+            i += 1
+        bullets = []
+        while i < len(lines) and lines[i].strip().startswith(BULLET_CHAR):
+            bullets.append(lines[i].strip()[1:].strip())
+            i += 1
+        if not bullets:
+            raise ValueError(f"Job '{title}' has no bullets.")
+        work_experience.append({"title": title, "company": company, "date_range": date_range,
+                                 "team_context": team_context, "bullets": bullets})
+        skip_blank()
+
+    if i >= len(lines) or lines[i].strip() != "EDUCATION":
+        raise ValueError(f"Expected 'EDUCATION' header, got: {lines[i].strip() if i < len(lines) else 'EOF'!r}")
+    i += 1
+    skip_blank()
+    education = []
+    while i < len(lines) and lines[i].strip():
+        parts = [p.strip() for p in lines[i].split("|")]
+        if len(parts) != 3:
+            raise ValueError(f"Education line not in 'Degree | Institution | Date' shape: {lines[i]!r}")
+        degree, institution, date = parts
+        education.append({"degree": degree, "institution": institution, "date": date})
+        i += 1
+
+    return {"name": name, "contact_line": contact_line, "skills_heading": skills_heading,
+            "summary": summary, "skills": skills, "work_experience": work_experience, "education": education}
+
+
+def call_llm_fill_resume(kb: dict, variant: str, template_text: str) -> dict:
+    base_url = os.environ.get("LITELLM_BASE_URL")
+    api_key = os.environ.get("LITELLM_API_KEY")
+    if not base_url or not api_key:
+        print("LITELLM_BASE_URL and/or LITELLM_API_KEY are not set.", file=sys.stderr)
+        sys.exit(1)
+
+    client = openai.OpenAI(base_url=base_url.rstrip("/") + "/v1", api_key=api_key)
+    system_prompt = build_resume_fill_prompt(kb, variant, template_text)
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": "Fill in the template now."},
+    ]
+    max_output_tokens = int(os.environ.get("LITELLM_MAX_TOKENS", "10000"))
+    num_ctx = int(os.environ.get("OLLAMA_NUM_CTX", "16384"))
+    expected_job_count = len(kb["work_experience"])
+
+    est_input_tokens = len(system_prompt) // 4
+    print(f"[{variant}] Resume prompt size estimate: ~{est_input_tokens} input tokens.", file=sys.stderr)
+
+    last_error = None
+    for attempt in range(2):
+        try:
+            response = client.chat.completions.create(
+                model=MODEL, max_tokens=max_output_tokens, temperature=0.3, timeout=180,
+                extra_body={"options": {"num_ctx": num_ctx}}, messages=messages,
+            )
+        except openai.APIConnectionError as e:
+            print(f"[{variant}] Could not reach LiteLLM at {base_url}: {e}", file=sys.stderr)
+            sys.exit(1)
+        except openai.APIStatusError as e:
+            print(f"[{variant}] LiteLLM returned an error (HTTP {e.status_code}): {e.message}", file=sys.stderr)
+            sys.exit(1)
+
+        raw = response.choices[0].message.content or ""
+        text = extract_markdown(raw)
+        try:
+            parsed = parse_filled_resume(text)
+            if len(parsed["work_experience"]) != expected_job_count:
+                raise ValueError(f"Got {len(parsed['work_experience'])} jobs, expected {expected_job_count}.")
+            return parsed
+        except ValueError as e:
+            last_error = e
+            print(f"[{variant}] Attempt {attempt + 1}: malformed resume output ({e}). Raw:\n{raw}\n", file=sys.stderr)
+            messages.append({"role": "assistant", "content": raw})
+            messages.append({
+                "role": "user",
+                "content": f"That response was invalid: {e}. Output ONLY the corrected, complete filled-in template, following all the same rules.",
+            })
+
+    print(f"[{variant}] Model failed to produce a valid filled resume after 2 attempts. Last error: {last_error}", file=sys.stderr)
+    sys.exit(1)
+
+
+REQUIRED_COVER_LETTER_KEYS = {"body"}
 
 
 def extract_json_object(raw: str) -> str:
@@ -248,109 +365,79 @@ def extract_json_object(raw: str) -> str:
     raise ValueError("No balanced closing '}' found in model output.")
 
 
-def validate_content(content: dict) -> None:
-    """Checks both top-level keys AND the nested shape of each
-    work_experience/education entry -- the renderers assume every entry
-    has these fields, so a model response that's missing one needs to be
-    caught HERE (and retried) rather than crashing deep inside rendering."""
-    if not isinstance(content, dict) or "resume" not in content or "cover_letter" not in content:
-        raise ValueError("Missing top-level 'resume' and/or 'cover_letter' keys.")
-    resume = content["resume"]
-    missing = REQUIRED_RESUME_KEYS - set(resume.keys())
-    if missing:
-        raise ValueError(f"resume is missing required keys: {missing}")
-    for i, job in enumerate(resume["work_experience"]):
-        job_missing = REQUIRED_JOB_KEYS - set(job.keys())
-        if job_missing:
-            raise ValueError(f"work_experience[{i}] is missing required keys: {job_missing}")
-    for i, ed in enumerate(resume["education"]):
-        ed_missing = REQUIRED_EDUCATION_KEYS - set(ed.keys())
-        if ed_missing:
-            raise ValueError(f"education[{i}] is missing required keys: {ed_missing}")
-    if "body" not in content["cover_letter"]:
-        raise ValueError("cover_letter is missing required key: 'body'")
+def build_cover_letter_prompt(kb: dict, variant: str) -> str:
+    context = build_baseline_context(kb, variant)
+    return (
+        "You are producing a BASELINE cover letter (no specific job "
+        "description provided), for the candidate described below. Use "
+        "cover_letter_generic_template as the cover letter (lightly adapt "
+        "it, keep 'Dear Hiring Manager'). Follow output_rules exactly, "
+        "especially never_fabricate and never_use_em_dash.\n\n"
+        "=== CANDIDATE DATA ===\n" + json.dumps({
+            "output_rules": context["output_rules"],
+            "cover_letter_generic_template": context["cover_letter_generic_template"],
+        }, indent=2)
+        + "\n\n=== YOUR TASK ===\n"
+        'Respond with ONLY a JSON object of the shape {"body": "full cover '
+        'letter text, paragraphs separated by a blank line"}. No prose '
+        "before or after it, no markdown code fences. Your entire response "
+        "must start with { and end with }."
+    )
 
 
-def call_llm(kb: dict, variant: str) -> dict:
+def call_llm_cover_letter(kb: dict, variant: str) -> dict:
     base_url = os.environ.get("LITELLM_BASE_URL")
     api_key = os.environ.get("LITELLM_API_KEY")
     if not base_url or not api_key:
-        print(
-            "LITELLM_BASE_URL and/or LITELLM_API_KEY are not set. "
-            "Set them as repo secrets (Settings -> Secrets and variables -> "
-            "Actions) before running this workflow. LITELLM_API_KEY should "
-            "match LITELLM_MASTER_KEY in that stack's .env.",
-            file=sys.stderr,
-        )
+        print("LITELLM_BASE_URL and/or LITELLM_API_KEY are not set.", file=sys.stderr)
         sys.exit(1)
 
     client = openai.OpenAI(base_url=base_url.rstrip("/") + "/v1", api_key=api_key)
-    system_prompt = build_system_prompt(kb, variant)
+    system_prompt = build_cover_letter_prompt(kb, variant)
     messages = [
         {"role": "system", "content": system_prompt},
-        {"role": "user", "content": f"Generate the baseline {variant} resume and cover letter JSON now."},
+        {"role": "user", "content": "Generate the cover letter JSON now."},
     ]
-
-    est_input_tokens = len(system_prompt) // 4
-    print(f"[{variant}] Prompt size estimate: ~{est_input_tokens} input tokens.", file=sys.stderr)
-
     max_output_tokens = int(os.environ.get("LITELLM_MAX_TOKENS", "10000"))
     num_ctx = int(os.environ.get("OLLAMA_NUM_CTX", "16384"))
 
     last_error = None
-    for attempt in range(2):  # one retry with a corrective follow-up if the first reply is malformed
+    for attempt in range(2):
         try:
             try:
                 response = client.chat.completions.create(
                     model=MODEL, max_tokens=max_output_tokens, temperature=0.3, timeout=180,
                     response_format={"type": "json_object"},
-                    extra_body={"options": {"num_ctx": num_ctx}},
-                    messages=messages,
+                    extra_body={"options": {"num_ctx": num_ctx}}, messages=messages,
                 )
             except openai.BadRequestError:
                 response = client.chat.completions.create(
                     model=MODEL, max_tokens=max_output_tokens, temperature=0.3, timeout=180,
-                    extra_body={"options": {"num_ctx": num_ctx}},
-                    messages=messages,
+                    extra_body={"options": {"num_ctx": num_ctx}}, messages=messages,
                 )
         except openai.APIConnectionError as e:
-            print(
-                f"Could not reach LiteLLM at {base_url}. Is the stack running and "
-                "reachable from this runner? (Hosted GitHub runners cannot reach "
-                "a private home LAN instance unless it's tunneled/exposed, or "
-                "unless this workflow runs on a self-hosted runner on the same "
-                f"network.) Underlying error: {e}",
-                file=sys.stderr,
-            )
+            print(f"[{variant}] Could not reach LiteLLM at {base_url}: {e}", file=sys.stderr)
             sys.exit(1)
         except openai.APIStatusError as e:
-            print(
-                f"LiteLLM returned an error (HTTP {e.status_code}): {e.message}. "
-                "Check LITELLM_API_KEY matches LITELLM_MASTER_KEY and that "
-                "LITELLM_MODEL matches the --model argument LiteLLM was started with.",
-                file=sys.stderr,
-            )
+            print(f"[{variant}] LiteLLM returned an error (HTTP {e.status_code}): {e.message}", file=sys.stderr)
             sys.exit(1)
 
         raw = response.choices[0].message.content or ""
         try:
-            content = json.loads(extract_json_object(raw))
-            validate_content(content)
-            return content
+            cl = json.loads(extract_json_object(raw))
+            if REQUIRED_COVER_LETTER_KEYS - set(cl.keys()):
+                raise ValueError("cover letter is missing required key: 'body'")
+            return cl
         except (ValueError, json.JSONDecodeError) as e:
             last_error = e
-            print(f"[{variant}] Attempt {attempt + 1}: malformed output ({e}). Raw:\n{raw}\n", file=sys.stderr)
+            print(f"[{variant}] Attempt {attempt + 1}: malformed cover letter output ({e}). Raw:\n{raw}\n", file=sys.stderr)
             messages.append({"role": "assistant", "content": raw})
             messages.append({
                 "role": "user",
-                "content": (
-                    f"That response was invalid: {e}. Respond again with ONLY the "
-                    "JSON object described earlier -- no prose, no markdown fences, "
-                    "no commentary, and use exactly the keys resume/cover_letter."
-                ),
+                "content": f"That response was invalid: {e}. Respond again with ONLY the JSON object described earlier.",
             })
 
-    print(f"[{variant}] Model failed to produce valid JSON after 2 attempts. Last error: {last_error}", file=sys.stderr)
+    print(f"[{variant}] Model failed to produce a valid cover letter after 2 attempts. Last error: {last_error}", file=sys.stderr)
     sys.exit(1)
 
 
@@ -747,49 +834,76 @@ def call_llm_readme(kb: dict, template_text: str) -> str:
     sys.exit(1)
 
 
+def load_settings(path: str) -> dict:
+    """Parses generator.settings: KEY="value" lines, '#' comments, blank
+    lines ignored. No new dependency (e.g. python-dotenv) added for this --
+    the format is simple enough not to need one."""
+    settings = {}
+    for line in Path(path).read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        key, _, value = line.partition("=")
+        settings[key.strip()] = value.strip().strip('"')
+    return settings
+
+
+def render_filename(naming_template: str, full_name: str, job_acronym: str, extension: str) -> str:
+    """Fills a naming template like '{FirstName} {LastName} Resume
+    ({JobAcronym}).{Extension}' using the candidate's full name (first and
+    last token; a middle name/initial is dropped, matching the existing
+    file-naming convention) and the given variant/extension."""
+    parts = full_name.split()
+    first_name, last_name = parts[0], parts[-1]
+    return naming_template.format(FirstName=first_name, LastName=last_name, JobAcronym=job_acronym, Extension=extension)
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data", required=True, help="Path to resume_data.json")
-    parser.add_argument("--out", required=True, help="Output directory (e.g. generated/)")
-    parser.add_argument("--readme-out", default="README.md", help="Path for the GitHub profile README.md (default: repo root)")
-    parser.add_argument("--readme-template", default="data/readme_template.md", help="Path to the README structure template")
+    parser.add_argument("--settings", default="generator.settings", help="Path to the generator.settings file")
     args = parser.parse_args()
 
-    kb = json.loads(Path(args.data).read_text(encoding="utf-8"))
-    out_dir = Path(args.out)
+    s = load_settings(args.settings)
+    kb = json.loads(Path(s["KNOWLEDGE_BASE"]).read_text(encoding="utf-8"))
+    out_dir = Path(s["OUTPUT_FOLDER"])
     out_dir.mkdir(parents=True, exist_ok=True)
+    full_name = kb["personal_info"]["full_name"]
+    resume_template_text = Path(s["RESUME_TEMPLATE"]).read_text(encoding="utf-8")
 
     for variant in VARIANTS:
-        content = call_llm(kb, variant)
-        r = content["resume"]
-        cl = content["cover_letter"]
+        r = call_llm_fill_resume(kb, variant, resume_template_text)
+        cl = call_llm_cover_letter(kb, variant)
 
-        base = out_dir / f"Dennis Dole Resume ({variant})"
-        (base.with_suffix(".json")).write_text(json.dumps(r, indent=2), encoding="utf-8")
-        (base.with_suffix(".txt")).write_text(render_resume_txt(r), encoding="utf-8")
-        (base.with_suffix(".md")).write_text(render_resume_md(r), encoding="utf-8")
+        def resume_path(ext: str) -> Path:
+            return out_dir / render_filename(s["RESUME_NAMING_TEMPLATE"], full_name, variant, ext)
 
-        pages, body_pt = render_resume_pdf(r, base.with_suffix(".pdf"))
+        def cl_path(ext: str) -> Path:
+            return out_dir / render_filename(s["COVERLETTER_NAMING_TEMPLATE"], full_name, variant, ext)
+
+        resume_path("json").write_text(json.dumps(r, indent=2), encoding="utf-8")
+        resume_path("txt").write_text(render_resume_txt(r), encoding="utf-8")
+        resume_path("md").write_text(render_resume_md(r), encoding="utf-8")
+
+        pages, body_pt = render_resume_pdf(r, resume_path("pdf"))
         if pages > 2:
             print(f"WARNING: {variant} resume rendered at {pages} pages even at the smallest tier ({body_pt}pt).")
         else:
             print(f"{variant} resume: {pages} page(s) at {body_pt}pt.")
-        render_resume_docx(r, base.with_suffix(".docx"), body_pt=body_pt)
+        render_resume_docx(r, resume_path("docx"), body_pt=body_pt)
 
-        cl_base = out_dir / f"Dennis Dole Cover Letter ({variant})"
-        (cl_base.with_suffix(".txt")).write_text(render_cover_letter_txt(cl), encoding="utf-8")
-        render_cover_letter_docx(cl, cl_base.with_suffix(".docx"))
-        render_cover_letter_pdf(cl, cl_base.with_suffix(".pdf"))
+        cl_path("txt").write_text(render_cover_letter_txt(cl), encoding="utf-8")
+        render_cover_letter_docx(cl, cl_path("docx"))
+        render_cover_letter_pdf(cl, cl_path("pdf"))
 
-    # Separate LLM call, template-driven: fills data/readme_template.md
-    # using resume_data.json, rather than reusing the resume call above.
-    template_text = Path(args.readme_template).read_text(encoding="utf-8")
+    # Separate LLM call, template-driven: fills README_TEMPLATE using
+    # resume_data.json, rather than reusing the resume call above.
+    template_text = Path(s["README_TEMPLATE"]).read_text(encoding="utf-8")
     readme_markdown = call_llm_readme(kb, template_text)
-    readme_path = Path(args.readme_out)
+    readme_path = Path(s["README_OUTPUT"])
     readme_path.write_text(readme_markdown, encoding="utf-8")
     print(f"Wrote GitHub profile README to {readme_path}")
 
-    print(f"Wrote {len(VARIANTS)} resume variant(s) + 1 cover letter (5 formats each) to {out_dir}/")
+    print(f"Wrote {len(VARIANTS)} resume variant(s) (5 formats) + cover letters (3 formats) to {out_dir}/")
 
 
 if __name__ == "__main__":
