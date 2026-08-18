@@ -37,8 +37,8 @@ Software Developer with 22+ years of experience at Docusign, Microsoft, and Amaz
 ## 💼 Experience
 
 ### Software Developer
-#### Docusign, Inc.  -  **2024-03 - 2025-07**
-* Docusign Connect * Connect Test Listener (webhook) * Ruby Webhook Test Interface * x509 Certificate Management *
+#### Docusign, Inc.  -  **2024-03-2025-07**
+* Docusign Connect, Connect Test Listener (webhook), Ruby Webhook Test Interface, x509 Certificate Management *
 
 - Designed, implemented, and maintained the Connect Team APIListener webhook tool, a production service used for automated end-to-end validation of webhook delivery.
 - Built and maintained a Ruby-based webhook testing application enabling fast, safe switching of targeted webhook endpoints, while preserving operational functionality across internal Docusign systems.
@@ -47,8 +47,8 @@ Software Developer with 22+ years of experience at Docusign, Microsoft, and Amaz
 - Partnered with Product Management to reproduce, triage, and resolve customer upgrade and configuration issues.
 
 ### Software Design Engineer in Test (SDET)
-#### Docusign, Inc.  -  **2013-11 - 2024-03**
-* Docusign Connect * Product Incubation Team * Docusign Print Tool (deprecated) *
+#### Docusign, Inc.  -  **2013-11-2024-03**
+* Docusign Connect, Product Incubation Team, Docusign Print Tool (deprecated) *
 
 - Designed and built automated test frameworks and a custom API request communication layer using NUnit and Selenium.
 - Engineered obfuscated interfaces and test frameworks supporting webhook endpoint selection for automated and manual testing.
@@ -64,29 +64,29 @@ Software Developer with 22+ years of experience at Docusign, Microsoft, and Amaz
 - Conducted manual mobile application testing for approximately six months, verifying functionality and user experience across mobile platforms.
 
 ### SDET2
-#### Microsoft Engineering Excellence  -  **2012-01 - 2013-06**
-* Team Foundation Server * Microsoft Test Manager * C# *
+#### Microsoft Engineering Excellence  -  **2012-01-2013-06**
+* Team Foundation Server, Microsoft Test Manager, C# *
 
 - Designed and implemented automated tests for Quality Essentials v3 Client and Server.
 - Collaborated with developers, PMs, and leads to ensure quality testing of existing and new features.
 
 ### SDET2
-#### Amazon  -  **2011-11 - 2012-01**
-* Linux * Eclipse * Hudson * Ant * TestNG * Java * Selenium *
+#### Amazon  -  **2011-11-2012-01**
+* Linux, Eclipse, Hudson, Ant, TestNG, Java, Selenium *
 
 - Automated manual test cases to improve execution efficiency and coverage.
 
 ### SDET
-#### Microsoft Live  -  **2011-04 - 2011-10**
-* C# * SQL * WTT * Kahuna Automation Framework (KAF) * NUnit * Source Depot * HyperV * Octopus *
+#### Microsoft Live  -  **2011-04-2011-10**
+* C#, SQL, WTT, Kahuna Automation Framework (KAF), NUnit, Source Depot, HyperV, Octopus *
 
 - Designed and implemented a KAF-based test automation framework to execute Build Verification Tests (BVTs) for the BaR team.
 - Owned test features end-to-end, collaborating with developers and product managers to plan and execute strategy.
 - Tested and documented issues across current and related product features.
 
 ### SDET
-#### Microsoft Health Solutions Group  -  **2008-02 - 2010-11**
-* C# * SQL * WTT * Echo * KAF * NUnit * iMacros * REST * XML * HyperV *
+#### Microsoft Health Solutions Group  -  **2008-02-2010-11**
+* C#, SQL, WTT, Echo, KAF, NUnit, iMacros, REST, XML, HyperV *
 
 - Designed, updated, and maintained test plans for owned and shared product features.
 - Built and maintained web-app automation to increase test case execution efficiency.
@@ -95,15 +95,15 @@ Software Developer with 22+ years of experience at Docusign, Microsoft, and Amaz
 - Partnered with management, developers, UX, and operations to ensure product quality met release standards.
 
 ### Software Engineer
-#### Cosworth Tech Inc. / MAHLE Powertrain LLC  -  **2006-03 - 2008-02**
-* Borland JBuilder * Java * Swing * Borland C++ * Oracle SQL * PVCS/Serena *
+#### Cosworth Tech Inc. / MAHLE Powertrain LLC  -  **2006-03-2008-02**
+* Borland JBuilder, Java, Swing, Borland C++, Oracle SQL, PVCS/Serena *
 
 - Designed, developed, and debugged desktop applications using Borland C++ and Java, resolving defects tracked in Team Track.
 - Automated Excel-based reporting integrated with a SQL trouble-ticket tracking system for contract customers.
 
 ### Quality Assurance Engineer
-#### Cosworth Tech Inc. / MAHLE Powertrain LLC  -  **2005-03 - 2006-08**
-* Excel * iMacros * Visual Basic * Team Track *
+#### Cosworth Tech Inc. / MAHLE Powertrain LLC  -  **2005-03-2006-08**
+* Excel, iMacros, Visual Basic, Team Track *
 
 - Developed and maintained system and regression test plans for existing and new software applications.
 - Performed software validation across multiple projects to ensure product quality prior to release.
@@ -131,11 +131,3 @@ Graduated 2004
 ---
 
 📫 Reach out at [Dennis.Dole@djdole.net](mailto:Dennis.Dole@djdole.net) or connect on [LinkedIn](https://linkedin.com/in/djdole).
-
----
-
-[![Tests](https://github.com/djdole/djdole/actions/workflows/tests.yml/badge.svg)](https://github.com/djdole/djdole/actions/workflows/tests.yml)
-[![Coverage](https://raw.githubusercontent.com/djdole/djdole/main/badges/coverage-badge.svg)](https://github.com/djdole/djdole/actions/workflows/tests.yml)
-[![Tests Passing](https://raw.githubusercontent.com/djdole/djdole/main/badges/tests-badge.svg)](https://github.com/djdole/djdole/actions/workflows/tests.yml)
-
----
