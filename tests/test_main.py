@@ -81,3 +81,53 @@ class TestMain:
         generator.main()
         assert (main_env / "custom_output" / "Jane Doe Resume (SDE).json").exists()
         assert not (main_env / "generated").exists()
+
+
+class TestMainGenerateFlag:
+    def test_no_flag_generates_everything(self, main_env, stub_llm_calls):
+        generator.main([])
+        out_dir = main_env / "generated"
+        assert (out_dir / "Jane Doe Resume (SDE).json").exists()
+        assert (out_dir / "Jane Doe Cover Letter (SDE).txt").exists()
+        assert (main_env / "README.md").exists()
+
+    def test_bare_flag_generates_nothing(self, main_env, stub_llm_calls):
+        generator.main(["--generate"])
+        assert not (main_env / "generated").exists()
+        assert not (main_env / "README.md").exists()
+
+    def test_single_value_generates_only_that_target(self, main_env, stub_llm_calls):
+        generator.main(["--generate", "resume"])
+        out_dir = main_env / "generated"
+        assert (out_dir / "Jane Doe Resume (SDE).json").exists()
+        assert not (out_dir / "Jane Doe Cover Letter (SDE).txt").exists()
+        assert not (main_env / "README.md").exists()
+
+    def test_comma_separated_values(self, main_env, stub_llm_calls):
+        generator.main(["--generate", "resume,coverletter"])
+        out_dir = main_env / "generated"
+        assert (out_dir / "Jane Doe Resume (SDE).json").exists()
+        assert (out_dir / "Jane Doe Cover Letter (SDE).txt").exists()
+        assert not (main_env / "README.md").exists()
+
+    def test_cover_letter_underscore_spelling_accepted(self, main_env, stub_llm_calls):
+        generator.main(["--generate", "cover_letter"])
+        out_dir = main_env / "generated"
+        assert (out_dir / "Jane Doe Cover Letter (SDE).txt").exists()
+        assert not (out_dir / "Jane Doe Resume (SDE).json").exists()
+
+    def test_repeated_flag_unions_targets(self, main_env, stub_llm_calls):
+        generator.main(["--generate", "resume", "--generate", "coverletter", "--generate", "readme"])
+        out_dir = main_env / "generated"
+        assert (out_dir / "Jane Doe Resume (SDE).json").exists()
+        assert (out_dir / "Jane Doe Cover Letter (SDE).txt").exists()
+        assert (main_env / "README.md").exists()
+
+    def test_readme_only_does_not_create_output_dir(self, main_env, stub_llm_calls):
+        generator.main(["--generate", "readme"])
+        assert (main_env / "README.md").exists()
+        assert not (main_env / "generated").exists()
+
+    def test_unknown_value_exits(self, main_env, stub_llm_calls):
+        with pytest.raises(SystemExit):
+            generator.main(["--generate", "bogus"])
