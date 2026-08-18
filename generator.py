@@ -14,8 +14,22 @@ generation_workflow_for_llm for that path. This script does not do that.
 
 Usage:
     python generate.py
+    python generate.py --generate resume
+    python generate.py --generate resume,cover_letter
+    python generate.py --generate resume --generate readme
+
+--generate controls WHAT gets built this run:
+    * Omitted entirely: resumes, cover letters, and the README are all
+      generated (the original, default behavior).
+    * Supplied with no value (e.g. a trailing `--generate` with nothing
+      after it): nothing is generated.
+    * Otherwise, its value is a comma-separated list of "resume",
+      "cover_letter" (or "coverletter"), and/or "readme", and may be
+      passed multiple times -- the targets from every occurrence are
+      combined.
 """
 
+import argparse
 import json
 import os
 import re
@@ -35,6 +49,73 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, 
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
 VARIANTS = ["SDE", "SDET"]
+
+# Canonical --generate targets, and the set used whenever the flag is
+# omitted entirely.
+ALL_TARGETS = {"resume", "cover_letter", "readme"}
+
+# Maps a normalized (lowercased, with "_"/"-" stripped) --generate token to
+# its canonical target name. Both "cover_letter" and "coverletter" collapse
+# to the same normalized key ("coverletter"), so either spelling works.
+GENERATE_ALIASES = {
+    "resume": "resume",
+    "coverletter": "cover_letter",
+    "readme": "readme",
+}
+
+
+def build_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description="Generates resumes, cover letters, and/or a GitHub "
+        "profile README from resume_data.json."
+    )
+    parser.add_argument(
+        "--generate",
+        action="append",
+        nargs="?",
+        const="",
+        default=None,
+        metavar="resume,cover_letter,readme",
+        help="What to generate this run: a comma-separated list of "
+        "resume, cover_letter, and/or readme (may also be repeated, e.g. "
+        "--generate resume --generate readme). Omit entirely to generate "
+        "all three (the default). Supply with no value to generate "
+        "nothing.",
+    )
+    return parser
+
+
+def parse_generate_targets(raw_values: list) -> set:
+    """
+    Turns the raw list argparse collected for a repeatable, optional-value
+    --generate flag into the set of canonical targets ("resume",
+    "cover_letter", "readme") for this run.
+
+    raw_values is one string per --generate occurrence: "" if that
+    occurrence had no value, otherwise its (possibly comma-separated)
+    value. Occurrences and comma-separated items within them are all
+    unioned together, so e.g. ["resume", "cover_letter,readme"] and
+    ["resume,cover_letter,readme"] are equivalent. An occurrence with no
+    value contributes nothing, so a lone bare --generate (raw_values ==
+    [""]) yields an empty set -- callers should treat that as "generate
+    nothing" rather than falling back to ALL_TARGETS.
+    """
+    targets = set()
+    for raw in raw_values:
+        for token in raw.split(","):
+            normalized = token.strip().lower().replace("-", "").replace("_", "")
+            if not normalized:
+                continue
+            canonical = GENERATE_ALIASES.get(normalized)
+            if canonical is None:
+                valid = ", ".join(sorted(ALL_TARGETS))
+                print(
+                    f"Unknown --generate value: {token.strip()!r}. Valid values: {valid}.",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            targets.add(canonical)
+    return targets
 
 # Points at a self-hosted LiteLLM proxy instead of the Anthropic API. This
 # stack runs LiteLLM in front of Ollama specifically as an OpenAI-compatible
@@ -893,53 +974,84 @@ def render_filename(naming_template: str, full_name: str, job_acronym: str, exte
     return naming_template.format(FirstName=first_name, LastName=last_name, JobAcronym=job_acronym, Extension=extension)
 
 
-def main():
+def main(argv=None):
+    parser = build_arg_parser()
+    # argv is None (the default) whenever main() is called directly rather
+    # than via the __main__ block below -- e.g. from tests -- in which
+    # case there are no CLI args to parse (as opposed to argparse's own
+    # default of falling back to sys.argv, which would pick up whatever
+    # unrelated args the calling process -- e.g. pytest -- was invoked
+    # with).
+    args = parser.parse_args(argv if argv is not None else [])
+
+    if args.generate is None:
+        targets = set(ALL_TARGETS)
+    else:
+        targets = parse_generate_targets(args.generate)
+        if not targets:
+            print("--generate was supplied with no value(s); nothing to generate.")
+            return
+
     s = load_file_location_settings()
     kb = json.loads(Path(s["KNOWLEDGE_BASE"]).read_text(encoding="utf-8"))
-    out_dir = Path(s["OUTPUT_FOLDER"])
-    out_dir.mkdir(parents=True, exist_ok=True)
     full_name = kb["personal_info"]["full_name"]
-    resume_template_text = Path(s["RESUME_TEMPLATE"]).read_text(encoding="utf-8")
 
     # One client (and its underlying connection pool) for every LLM call
     # in this run, rather than a fresh one per call site.
     client = build_llm_client()
 
-    for variant in VARIANTS:
-        r = call_llm_fill_resume(client, kb, variant, resume_template_text)
-        cl = call_llm_cover_letter(client, kb, variant)
+    if "resume" in targets or "cover_letter" in targets:
+        out_dir = Path(s["OUTPUT_FOLDER"])
+        out_dir.mkdir(parents=True, exist_ok=True)
+        resume_template_text = (
+            Path(s["RESUME_TEMPLATE"]).read_text(encoding="utf-8") if "resume" in targets else None
+        )
 
-        def resume_path(ext: str) -> Path:
-            return out_dir / render_filename(s["RESUME_NAMING_TEMPLATE"], full_name, variant, ext)
+        for variant in VARIANTS:
+            def resume_path(ext: str) -> Path:
+                return out_dir / render_filename(s["RESUME_NAMING_TEMPLATE"], full_name, variant, ext)
 
-        def cl_path(ext: str) -> Path:
-            return out_dir / render_filename(s["COVERLETTER_NAMING_TEMPLATE"], full_name, variant, ext)
+            def cl_path(ext: str) -> Path:
+                return out_dir / render_filename(s["COVERLETTER_NAMING_TEMPLATE"], full_name, variant, ext)
 
-        resume_path("json").write_text(json.dumps(r, indent=2), encoding="utf-8")
-        resume_path("txt").write_text(render_resume_txt(r), encoding="utf-8")
-        resume_path("md").write_text(render_resume_md(r), encoding="utf-8")
+            if "resume" in targets:
+                r = call_llm_fill_resume(client, kb, variant, resume_template_text)
 
-        pages, body_pt = render_resume_pdf(r, resume_path("pdf"))
-        if pages > 2:
-            print(f"WARNING: {variant} resume rendered at {pages} pages even at the smallest tier ({body_pt}pt).")
-        else:
-            print(f"{variant} resume: {pages} page(s) at {body_pt}pt.")
-        render_resume_docx(r, resume_path("docx"), body_pt=body_pt)
+                resume_path("json").write_text(json.dumps(r, indent=2), encoding="utf-8")
+                resume_path("txt").write_text(render_resume_txt(r), encoding="utf-8")
+                resume_path("md").write_text(render_resume_md(r), encoding="utf-8")
 
-        cl_path("txt").write_text(render_cover_letter_txt(cl), encoding="utf-8")
-        render_cover_letter_docx(cl, cl_path("docx"))
-        render_cover_letter_pdf(cl, cl_path("pdf"))
+                pages, body_pt = render_resume_pdf(r, resume_path("pdf"))
+                if pages > 2:
+                    print(f"WARNING: {variant} resume rendered at {pages} pages even at the smallest tier ({body_pt}pt).")
+                else:
+                    print(f"{variant} resume: {pages} page(s) at {body_pt}pt.")
+                render_resume_docx(r, resume_path("docx"), body_pt=body_pt)
 
-    # Separate LLM call, template-driven: fills README_TEMPLATE using
-    # resume_data.json, rather than reusing the resume call above.
-    template_text = Path(s["README_TEMPLATE"]).read_text(encoding="utf-8")
-    readme_markdown = call_llm_readme(client, kb, template_text)
-    readme_path = Path(s["README_OUTPUT"])
-    readme_path.write_text(readme_markdown, encoding="utf-8")
-    print(f"Wrote GitHub profile README to {readme_path}")
+            if "cover_letter" in targets:
+                cl = call_llm_cover_letter(client, kb, variant)
 
-    print(f"Wrote {len(VARIANTS)} resume variant(s) (5 formats) + cover letters (3 formats) to {out_dir}/")
+                cl_path("txt").write_text(render_cover_letter_txt(cl), encoding="utf-8")
+                render_cover_letter_docx(cl, cl_path("docx"))
+                render_cover_letter_pdf(cl, cl_path("pdf"))
+
+    if "readme" in targets:
+        # Separate LLM call, template-driven: fills README_TEMPLATE using
+        # resume_data.json, rather than reusing the resume call above.
+        template_text = Path(s["README_TEMPLATE"]).read_text(encoding="utf-8")
+        readme_markdown = call_llm_readme(client, kb, template_text)
+        readme_path = Path(s["README_OUTPUT"])
+        readme_path.write_text(readme_markdown, encoding="utf-8")
+        print(f"Wrote GitHub profile README to {readme_path}")
+
+    summary_parts = []
+    if "resume" in targets:
+        summary_parts.append(f"{len(VARIANTS)} resume variant(s) (5 formats)")
+    if "cover_letter" in targets:
+        summary_parts.append("cover letters (3 formats)")
+    if summary_parts:
+        print(f"Wrote {' + '.join(summary_parts)} to {s['OUTPUT_FOLDER']}/")
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])
