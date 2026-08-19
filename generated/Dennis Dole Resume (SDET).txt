@@ -1,5 +1,5 @@
 Dennis Jay Dole
-Dennis.Dole@djdole.net · 734-218-2358 · linkedin.com/in/djdole · profile.indeed.com/p/dennisd-9lrkjhr
+Dennis.Dole@djdole.net · 734-218-2358 · https://www.linkedin.com/in/djdole/ · https://github.com/djdole
 
 SUMMARY
 Software Development Engineer in Test with 22+ years of experience at Docusign, Microsoft, and Amazon, specializing in designing automated test frameworks, building internal test tooling, and debugging complex product issues across distributed systems and webhook integrations. Skilled at driving test coverage, root-causing defects, and partnering with developers and product managers throughout the SDLC. Proven track record mentoring new engineers and leading testing initiatives from planning through release.

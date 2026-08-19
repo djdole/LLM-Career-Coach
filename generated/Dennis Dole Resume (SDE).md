@@ -1,5 +1,5 @@
 # Dennis Jay Dole
-Dennis.Dole@djdole.net · 734-218-2358 · linkedin.com/in/djdole · profile.indeed.com/p/dennisd-9lrkjhr
+Dennis.Dole@djdole.net · 734-218-2358 · https://www.linkedin.com/in/djdole/ · https://github.com/djdole
 
 ## Summary
 Software Developer with 22+ years of experience at Docusign, Microsoft, and Amazon building automated test frameworks, internal developer tooling, and webhook integration systems for distributed, production-scale software. Proficient across C#, Ruby, Python, Java, PHP, and Node.js, with a track record of designing APIs, debugging complex production issues, and leading technical migrations. Skilled at partnering with developers and product managers throughout the SDLC, and at mentoring engineers on new teams.
