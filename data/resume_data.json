@@ -20,10 +20,11 @@
   "personal_info": {
     "full_name": "Dennis Jay Dole",
     "email": "Dennis.Dole@djdole.net",
-    "phone": "734-218-2358",
-    "linkedin": "linkedin.com/in/djdole",
-    "portfolio_or_profile": "profile.indeed.com/p/dennisd-9lrkjhr",
-    "location_short": "Des Moines, WA"
+    "Phone": "734-218-2358",
+    "LinkedIn": "https://www.linkedin.com/in/djdole/",
+    "Github": "https://github.com/djdole",
+    "Portfolio": "https://github.com/djdole",
+    "location": "Des Moines, WA"
   },
 
   "education": [
