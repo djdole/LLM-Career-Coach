@@ -1202,8 +1202,7 @@ def load_file_location_settings() -> dict:
     return {
         "OUTPUT_FOLDER": os.environ.get("OUTPUT_FOLDER", "generated"),
         "KNOWLEDGE_BASE": os.environ.get("KNOWLEDGE_BASE", "data/resume_data.json"),
-        # Deliberately no default: --generate resume_data is a no-op
-        # unless DATA is explicitly set (see generate_resume_data_draft).
+        "KNOWLEDGE_BASE_DRAFT": os.environ.get("KNOWLEDGE_BASE_DRAFT", "data/resume_data.json"),
         "DATA": os.environ.get("DATA"),
         "README_TEMPLATE": os.environ.get("README_TEMPLATE", "README.template.md"),
         "README_OUTPUT": os.environ.get("README_OUTPUT", "README.md"),
