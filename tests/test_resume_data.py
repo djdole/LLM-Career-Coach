@@ -133,8 +133,7 @@ class TestGenerateResumeDataDraft:
         (data_dir / "resume_data.json").write_text(json.dumps(sample_kb), encoding="utf-8")
         settings = generator.load_file_location_settings()
         generator.generate_resume_data_draft(client=None, s=settings)
-        assert not (data_dir / "resume_data.json").exists()
-        assert (data_dir / "resume_data.json").exists()  # untouched
+        assert (data_dir / "resume_data.json").exists()
 
     def test_builds_new_draft_when_knowledge_base_missing(self, resume_data_env, monkeypatch):
         monkeypatch.setenv("DATA", "data")

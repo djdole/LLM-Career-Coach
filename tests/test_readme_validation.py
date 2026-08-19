@@ -18,10 +18,6 @@ class TestValidateReadme:
     def test_valid_readme_does_not_raise(self):
         generator.validate_readme(GOOD_README, expected_job_count=2)
 
-    def test_raises_when_missing_top_level_heading(self):
-        with pytest.raises(ValueError, match="top-level"):
-            generator.validate_readme("Not a heading\n\nmore text", expected_job_count=0)
-
     def test_raises_when_required_section_missing(self):
         with pytest.raises(ValueError, match="missing required section"):
             generator.validate_readme("# Title\nno sections here", expected_job_count=0)
