@@ -106,5 +106,4 @@ jobs:
         with:
           commit_message: "chore: update coverage and test badges [skip ci]"
           file_pattern: badges/*.svg
-          skip_dirty_check: true
           skip_fetch: true
