@@ -19,12 +19,14 @@ def main_env(tmp_path, monkeypatch, sample_kb):
     two template files main() reads, chdir'd into it, with LITELLM_* env
     vars set so build_llm_client() doesn't exit."""
     monkeypatch.chdir(tmp_path)
-    (tmp_path / "resume_data.json").write_text(json.dumps(sample_kb), encoding="utf-8")
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / "resume_data.json").write_text(json.dumps(sample_kb), encoding="utf-8")
     (tmp_path / "RESUME.template.md").write_text("dummy resume template", encoding="utf-8")
     (tmp_path / "README.template.md").write_text("dummy readme template", encoding="utf-8")
     monkeypatch.setenv("LITELLM_BASE_URL", "http://example.com")
     monkeypatch.setenv("LITELLM_API_KEY", "secret")
     monkeypatch.delenv("OUTPUT_FOLDER", raising=False)
+    monkeypatch.delenv("DATA", raising=False)
     return tmp_path
 
 
@@ -131,3 +133,20 @@ class TestMainGenerateFlag:
     def test_unknown_value_exits(self, main_env, stub_llm_calls):
         with pytest.raises(SystemExit):
             generator.main(["--generate", "bogus"])
+
+    def test_resume_data_not_included_in_default_run(self, main_env, monkeypatch, stub_llm_calls):
+        called = []
+        monkeypatch.setattr(generator, "generate_resume_data_draft", lambda client, s: called.append(True))
+        generator.main([])
+        assert called == []
+
+    def test_resume_data_flag_invokes_workflow_without_requiring_knowledge_base(self, main_env, monkeypatch, stub_llm_calls):
+        # Knowledge base file that main_env's fixture wrote is removed here
+        # to prove --generate resume_data alone doesn't require it to
+        # exist (unlike resume/cover_letter/readme).
+        (main_env / "data" / "resume_data.json").unlink()
+        called = []
+        monkeypatch.setattr(generator, "generate_resume_data_draft", lambda client, s: called.append(s))
+        generator.main(["--generate", "resume_data"])
+        assert len(called) == 1
+        assert called[0]["KNOWLEDGE_BASE"] == "data/resume_data.json"
