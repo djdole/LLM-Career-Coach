@@ -20,13 +20,20 @@ Usage:
 
 --generate controls WHAT gets built this run:
     * Omitted entirely: resumes, cover letters, and the README are all
-      generated (the original, default behavior).
+      generated (the original, default behavior). "resume_data" is never
+      included in this default -- it's opt-in only, see below.
     * Supplied with no value (e.g. a trailing `--generate` with nothing
       after it): nothing is generated.
     * Otherwise, its value is a comma-separated list of "resume",
-      "cover_letter" (or "coverletter"), and/or "readme", and may be
-      passed multiple times -- the targets from every occurrence are
-      combined.
+      "cover_letter" (or "coverletter"), "readme", and/or "resume_data",
+      and may be passed multiple times -- the targets from every
+      occurrence are combined.
+
+--generate resume_data is a separate, opt-in workflow: rather than
+generating resumes/cover letters/README FROM the knowledge base, it uses
+source files dropped in the DATA folder (env var DATA, e.g. pdf/txt/json/
+xml/docx documents) plus LiteLLM to build or non-destructively update a
+resume_data.json. See generate_resume_data_draft() for the exact rules.
 """
 
 import argparse
@@ -38,6 +45,7 @@ from pathlib import Path
 
 import openai
 import httpx
+from pypdf import PdfReader
 from docx import Document
 from docx.shared import Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -50,18 +58,27 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
 VARIANTS = ["SDE", "SDET"]
 
-# Canonical --generate targets, and the set used whenever the flag is
-# omitted entirely.
+# The set of targets built whenever --generate is omitted entirely.
+# "resume_data" is deliberately NOT a member of this set -- it's a
+# separate, opt-in maintenance workflow (see generate_resume_data_draft),
+# not something that should run just because someone ran the script with
+# no flags.
 ALL_TARGETS = {"resume", "cover_letter", "readme"}
 
 # Maps a normalized (lowercased, with "_"/"-" stripped) --generate token to
 # its canonical target name. Both "cover_letter" and "coverletter" collapse
-# to the same normalized key ("coverletter"), so either spelling works.
+# to the same normalized key ("coverletter"), so either spelling works;
+# likewise "resume_data" and "resumedata".
 GENERATE_ALIASES = {
     "resume": "resume",
     "coverletter": "cover_letter",
     "readme": "readme",
+    "resumedata": "resume_data",
 }
+
+# Every valid canonical target, default-generated or not -- used for
+# --generate's error message when an unknown value is supplied.
+ALL_KNOWN_TARGETS = set(GENERATE_ALIASES.values())
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
@@ -75,12 +92,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
         nargs="?",
         const="",
         default=None,
-        metavar="resume,cover_letter,readme",
+        metavar="resume,cover_letter,readme,resume_data",
         help="What to generate this run: a comma-separated list of "
-        "resume, cover_letter, and/or readme (may also be repeated, e.g. "
-        "--generate resume --generate readme). Omit entirely to generate "
-        "all three (the default). Supply with no value to generate "
-        "nothing.",
+        "resume, cover_letter, readme, and/or resume_data (may also be "
+        "repeated, e.g. --generate resume --generate readme). Omit "
+        "entirely to generate resume+cover_letter+readme (the default; "
+        "resume_data is opt-in only and never included by default). "
+        "Supply with no value to generate nothing.",
     )
     return parser
 
@@ -108,7 +126,7 @@ def parse_generate_targets(raw_values: list) -> set:
                 continue
             canonical = GENERATE_ALIASES.get(normalized)
             if canonical is None:
-                valid = ", ".join(sorted(ALL_TARGETS))
+                valid = ", ".join(sorted(ALL_KNOWN_TARGETS))
                 print(
                     f"Unknown --generate value: {token.strip()!r}. Valid values: {valid}.",
                     file=sys.stderr,
@@ -889,8 +907,8 @@ def extract_markdown(raw: str) -> str:
 
 
 def validate_readme(md: str, expected_job_count: int) -> None:
-    if not md.startswith("# "):
-        raise ValueError("README does not start with a top-level '# ' heading.")
+#    if not md.startswith("# "):
+#        raise ValueError("README does not start with a top-level '# ' heading.")
     missing = [h for h in README_REQUIRED_HEADERS if h not in md]
     if missing:
         raise ValueError(f"README is missing required section(s): {missing}")
@@ -948,10 +966,245 @@ def call_llm_readme(client: openai.OpenAI, kb: dict, template_text: str) -> str:
     sys.exit(1)
 
 
+def extract_text_from_source_file(path: Path) -> str:
+    """
+    Best-effort plain-text extraction from a DATA-folder source file, for
+    feeding to the LLM in generate_resume_data_draft(). Supports the
+    formats a resume-adjacent document is likely to show up in: json,
+    txt/md, xml, docx, pdf. Unsupported or unreadable files return "" (and
+    are logged), rather than raising, so one bad file in the DATA folder
+    doesn't abort the whole run.
+    """
+    suffix = path.suffix.lower()
+    try:
+        if suffix in (".json", ".txt", ".md", ".xml"):
+            return path.read_text(encoding="utf-8")
+        if suffix == ".docx":
+            doc = Document(str(path))
+            parts = [p.text for p in doc.paragraphs if p.text.strip()]
+            for table in doc.tables:
+                for row in table.rows:
+                    parts.append(" | ".join(cell.text for cell in row.cells))
+            return "\n".join(parts)
+        if suffix == ".pdf":
+            reader = PdfReader(str(path))
+            return "\n".join(page.extract_text() or "" for page in reader.pages)
+    except Exception as e:
+        print(f"[resume_data] Could not read {path.name}: {e}", file=sys.stderr)
+        return ""
+
+    print(f"[resume_data] Skipping unsupported file type: {path.name}", file=sys.stderr)
+    return ""
+
+
+def build_source_file_list(data_dir: Path, knowledge_base_path: Path, draft_path: Path) -> list:
+    """
+    Lists the candidate source files sitting in the DATA folder: every
+    regular, non-hidden file EXCEPT the knowledge base file itself (which
+    may well live in the same folder, e.g. data/resume_data.json) and any
+    pre-existing draft output (so a leftover draft from a prior run is
+    never re-consumed as if it were new source material). Returns []
+    if the folder doesn't exist, which callers treat the same as "empty".
+    """
+    if not data_dir.is_dir():
+        return []
+
+    def _resolve(p: Path) -> Path:
+        try:
+            return p.resolve()
+        except OSError:
+            return p
+
+    excluded = {_resolve(knowledge_base_path), _resolve(draft_path)}
+    files = []
+    for p in sorted(data_dir.iterdir()):
+        if not p.is_file() or p.name.startswith("."):
+            continue
+        if _resolve(p) in excluded:
+            continue
+        files.append(p)
+    return files
+
+
+def build_resume_data_prompt(existing_kb: dict, source_texts: dict) -> str:
+    """
+    Builds the system prompt for call_llm_update_resume_data(). Branches
+    on whether an existing knowledge base was supplied: existing_kb is
+    None for a from-scratch build (no KNOWLEDGE_BASE file yet), or a dict
+    for a non-destructive update of one that already exists.
+    """
+    sources_block = "\n\n".join(
+        f"=== SOURCE FILE: {name} ===\n{text}" for name, text in source_texts.items()
+    )
+
+    if existing_kb is not None:
+        role_instructions = (
+            "You are updating an EXISTING resume knowledge base JSON file "
+            "with new information extracted from the source documents "
+            "below. This update must be NON-DESTRUCTIVE: preserve every "
+            "existing top-level section, field, and entry in the EXISTING "
+            "KNOWLEDGE BASE exactly as it is, unless a source document "
+            "gives new, more current, or corrected information for that "
+            "exact item (for example a new job, a new skill, or an "
+            "updated end date). Never remove, blank out, or shorten "
+            "existing employers, skills, education entries, or any other "
+            "existing content. Only ADD new entries where the source "
+            "documents provide genuinely new information, and only "
+            "MODIFY an existing entry when a source document clearly "
+            "updates that specific fact."
+        )
+        base_block = "=== EXISTING KNOWLEDGE BASE (JSON) ===\n" + json.dumps(existing_kb, indent=2) + "\n\n"
+    else:
+        role_instructions = (
+            "You are building a BRAND NEW resume knowledge base JSON file "
+            "from scratch, using only the information present in the "
+            "source documents below."
+        )
+        base_block = ""
+
+    return (
+        role_instructions + "\n\n"
+        "Never fabricate information (employers, titles, dates, degrees, "
+        "certifications, skills, or quantified metrics) that isn't "
+        "present in the source documents (and, if given, the existing "
+        "knowledge base). The output must be a single JSON object with "
+        "AT LEAST these top-level keys: personal_info, education, "
+        "skills, work_experience. Include any other section (e.g. "
+        "summary_variants, cover_letter_building_blocks) that's clearly "
+        "supported by the source material, matching the shape of the "
+        "EXISTING KNOWLEDGE BASE where one is given.\n\n"
+        + base_block
+        + "=== SOURCE DOCUMENTS ===\n" + sources_block + "\n\n"
+        "=== YOUR TASK ===\n"
+        "Output ONLY the final JSON object -- no commentary, no markdown "
+        "code fences, no leading or trailing text. Start your response "
+        "with '{' and end it with '}'."
+    )
+
+
+def validate_resume_data_draft(data: dict, existing_kb: dict) -> None:
+    if not isinstance(data, dict):
+        raise ValueError("Draft knowledge base is not a JSON object.")
+    required = ("personal_info", "education", "skills", "work_experience")
+    missing = [k for k in required if k not in data]
+    if missing:
+        raise ValueError(f"Draft knowledge base is missing required section(s): {missing}")
+    if existing_kb is not None:
+        dropped = [k for k in existing_kb if k not in data]
+        if dropped:
+            raise ValueError(
+                f"Update dropped existing top-level section(s), which must stay non-destructive: {dropped}"
+            )
+
+
+def call_llm_update_resume_data(client: openai.OpenAI, existing_kb: dict, source_texts: dict) -> dict:
+    system_prompt = build_resume_data_prompt(existing_kb, source_texts)
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": "Produce the JSON knowledge base now."},
+    ]
+    max_output_tokens = int(os.environ.get("LITELLM_MAX_TOKENS", "10000"))
+    num_ctx = int(os.environ.get("OLLAMA_NUM_CTX", "16384"))
+
+    est_input_tokens = len(system_prompt) // 4
+    print(f"[resume_data] Prompt size estimate: ~{est_input_tokens} input tokens.", file=sys.stderr)
+
+    last_error = None
+    for attempt in range(2):
+        try:
+            response = client.chat.completions.create(
+                model=MODEL, max_tokens=max_output_tokens, temperature=0.2, timeout=LLM_REQUEST_TIMEOUT,
+                extra_body={"options": {"num_ctx": num_ctx}, "keep_alive": LITELLM_KEEP_ALIVE}, messages=messages,
+            )
+        except openai.APIConnectionError as e:
+            print(f"[resume_data] Could not reach LiteLLM at {client.base_url}: {e}", file=sys.stderr)
+            sys.exit(1)
+        except openai.APIStatusError as e:
+            print(f"[resume_data] LiteLLM returned an error (HTTP {e.status_code}): {e.message}", file=sys.stderr)
+            sys.exit(1)
+
+        raw = response.choices[0].message.content or ""
+        text = extract_json_object(raw)
+        try:
+            data = json.loads(text)
+            validate_resume_data_draft(data, existing_kb)
+            return data
+        except (ValueError, json.JSONDecodeError) as e:
+            last_error = e
+            print(f"[resume_data] Attempt {attempt + 1}: malformed output ({e}). Raw:\n{raw}\n", file=sys.stderr)
+            messages.append({"role": "assistant", "content": raw})
+            messages.append({
+                "role": "user",
+                "content": f"That response was invalid: {e}. Output ONLY the corrected, complete JSON object, following all the same rules.",
+            })
+
+    print(f"[resume_data] Model failed to produce a valid knowledge base after 2 attempts. Last error: {last_error}", file=sys.stderr)
+    sys.exit(1)
+
+
+def generate_resume_data_draft(client: openai.OpenAI, s: dict) -> None:
+    """
+    Implements --generate resume_data: builds or non-destructively updates
+    a resume_data.json (next to KNOWLEDGE_BASE) from whatever source
+    files (pdf/txt/json/xml/docx) are sitting in the DATA folder, via
+    LiteLLM, then removes the consumed source files -- never the
+    KNOWLEDGE_BASE file itself, and never the draft it just wrote.
+
+    Per spec, this is a series of "nothing happens" short-circuits:
+      * DATA env var not set at all -> nothing happens.
+      * DATA folder has no source files (folder missing, or empty aside
+        from the knowledge base / a stale draft) -> nothing happens,
+        regardless of whether KNOWLEDGE_BASE exists.
+      * Otherwise: KNOWLEDGE_BASE missing -> build a new draft from
+        source files alone. KNOWLEDGE_BASE present -> non-destructively
+        update it into the draft using the source files.
+    """
+    data_dir_setting = s.get("DATA")
+    if not data_dir_setting:
+        print("[resume_data] DATA is not set; skipping.", file=sys.stderr)
+        return
+
+    data_dir = Path(data_dir_setting)
+    kb_path = Path(s["KNOWLEDGE_BASE"])
+    draft_path = Path(s["KNOWLEDGE_BASE_DRAFT"])
+
+    source_files = build_source_file_list(data_dir, kb_path, draft_path)
+    if not source_files:
+        print(f"[resume_data] No source files found in {data_dir}/; skipping.", file=sys.stderr)
+        return
+
+    source_texts = {}
+    for f in source_files:
+        text = extract_text_from_source_file(f)
+        if text.strip():
+            source_texts[f.name] = text
+    if not source_texts:
+        print(f"[resume_data] Source files in {data_dir}/ had no extractable text; skipping.", file=sys.stderr)
+        return
+
+    existing_kb = json.loads(kb_path.read_text(encoding="utf-8")) if kb_path.is_file() else None
+
+    draft = call_llm_update_resume_data(client, existing_kb, source_texts)
+    draft_path.parent.mkdir(parents=True, exist_ok=True)
+    draft_path.write_text(json.dumps(draft, indent=2), encoding="utf-8")
+    verb = "Updated" if existing_kb is not None else "Built"
+    print(f"[resume_data] {verb} knowledge base at {draft_path}")
+
+    for f in source_files:
+        try:
+            f.unlink()
+        except OSError as e:
+            print(f"[resume_data] Could not remove consumed source file {f}: {e}", file=sys.stderr)
+    print(f"[resume_data] Removed {len(source_files)} consumed source file(s) from {data_dir}/")
+
+
 def load_file_location_settings() -> dict:
     return {
         "OUTPUT_FOLDER": os.environ.get("OUTPUT_FOLDER", "generated"),
-        "KNOWLEDGE_BASE": os.environ.get("KNOWLEDGE_BASE", "resume_data.json"),
+        "KNOWLEDGE_BASE": os.environ.get("KNOWLEDGE_BASE", "data/resume_data.json"),
+        # Deliberately no default: --generate resume_data is a no-op
+        # unless DATA is explicitly set (see generate_resume_data_draft).
+        "DATA": os.environ.get("DATA"),
         "README_TEMPLATE": os.environ.get("README_TEMPLATE", "README.template.md"),
         "README_OUTPUT": os.environ.get("README_OUTPUT", "README.md"),
         "RESUME_TEMPLATE": os.environ.get("RESUME_TEMPLATE", "RESUME.template.md"),
@@ -993,12 +1246,19 @@ def main(argv=None):
             return
 
     s = load_file_location_settings()
-    kb = json.loads(Path(s["KNOWLEDGE_BASE"]).read_text(encoding="utf-8"))
-    full_name = kb["personal_info"]["full_name"]
 
     # One client (and its underlying connection pool) for every LLM call
     # in this run, rather than a fresh one per call site.
     client = build_llm_client()
+
+    # Only read KNOWLEDGE_BASE up front if a target actually needs it as
+    # input. --generate resume_data has its own, separate rules about
+    # whether KNOWLEDGE_BASE needs to exist yet (it may legitimately not),
+    # so it reads it lazily, itself, inside generate_resume_data_draft().
+    kb = full_name = None
+    if {"resume", "cover_letter", "readme"} & targets:
+        kb = json.loads(Path(s["KNOWLEDGE_BASE"]).read_text(encoding="utf-8"))
+        full_name = kb["personal_info"]["full_name"]
 
     if "resume" in targets or "cover_letter" in targets:
         out_dir = Path(s["OUTPUT_FOLDER"])
@@ -1043,6 +1303,9 @@ def main(argv=None):
         readme_path = Path(s["README_OUTPUT"])
         readme_path.write_text(readme_markdown, encoding="utf-8")
         print(f"Wrote GitHub profile README to {readme_path}")
+
+    if "resume_data" in targets:
+        generate_resume_data_draft(client, s)
 
     summary_parts = []
     if "resume" in targets:

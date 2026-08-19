@@ -17,7 +17,6 @@ if [ ! -f "$ENV_FILE" ]; then
     exit 1
 fi
 
-
 # Check if the .env file exists
 if [ -f "$ENV_FILE" ]; then
     # 1. Automatically export all variables defined or sourced next
@@ -31,4 +30,33 @@ else
     exit 1
 fi
 
-python3 generator.py
+# 1. Auto-reparation step: Verify system dependencies before building venv
+if [ ! -f "/usr/share/doc/python3.14/README.venv" ] && [ ! -d "/usr/lib/python3/dist-packages/ensurepip" ]; then
+    echo "System components missing. Attempting automatic installation..."
+    sudo apt update && sudo apt install python3-full -y
+fi
+
+# 2. Create the virtual environment if it does not exist or is broken
+if [ ! -d "venv" ] || [ ! -f "venv/bin/activate" ]; then
+    echo "Initializing fresh virtual environment..."
+    rm -rf venv
+    python3 -m venv venv
+    
+    # Second-pass fallback if the first apt attempt was bypassed or failed
+    if [ ! -f "venv/bin/activate" ]; then
+        echo "Venv failed. Retrying system package installation..."
+        sudo apt update && sudo apt install python3-full -y
+        rm -rf venv
+        python3 -m venv venv
+    fi
+fi
+
+# 3. Activate the virtual environment
+source venv/bin/activate
+
+# 4. Upgrade pip and install dependencies using the explicit venv path
+./venv/bin/pip install --upgrade pip
+./venv/bin/pip install -r requirements-test.txt
+
+# 5. Run your python application using the explicit venv path
+./venv/bin/python generator.py "$@"

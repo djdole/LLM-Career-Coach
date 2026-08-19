@@ -110,13 +110,14 @@ class TestComputeJobColumnWidths:
 class TestLoadFileLocationSettings:
     def test_defaults_when_env_unset(self, monkeypatch):
         for key in (
-            "OUTPUT_FOLDER", "KNOWLEDGE_BASE", "README_TEMPLATE", "README_OUTPUT",
+            "OUTPUT_FOLDER", "KNOWLEDGE_BASE", "DATA", "README_TEMPLATE", "README_OUTPUT",
             "RESUME_TEMPLATE", "RESUME_NAMING_TEMPLATE", "COVERLETTER_NAMING_TEMPLATE",
         ):
             monkeypatch.delenv(key, raising=False)
         settings = generator.load_file_location_settings()
         assert settings["OUTPUT_FOLDER"] == "generated"
-        assert settings["KNOWLEDGE_BASE"] == "resume_data.json"
+        assert settings["KNOWLEDGE_BASE"] == "data/resume_data.json"
+        assert settings["DATA"] is None
         assert settings["README_TEMPLATE"] == "README.template.md"
         assert settings["README_OUTPUT"] == "README.md"
         assert settings["RESUME_TEMPLATE"] == "RESUME.template.md"
