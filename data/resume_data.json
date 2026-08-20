@@ -61,7 +61,7 @@
   },
 
   "skills": {
-    "languages": ["C#", "Ruby", "Python", "Java", "PHP", "Node.js", "Bash", "PowerShell", "C++", "Lisp", "Visual Basic", "JavaScript"],
+    "languages": ["polyglot", "C#", "Ruby", "Python", "Java", "PHP", "Node.js", "Bash", "PowerShell", "C++", "Lisp", "Visual Basic", "JavaScript"],
     "apis_and_web_servers": ["REST API design", "Apache HTTPD/Tomcat", "IIS", "nginx", "Node.js", "MongoDB"],
     "operating_systems": ["Windows", "Unix", "Linux", "custom"],
     "test_automation_frameworks": ["Selenium", "Playwright", "Echo", "Docusign's SAW Ruby framework", "KAF (Kahuna Automation Framework)", "custom API test/automation harnesses"],
@@ -102,13 +102,13 @@
           "id": "docusign_dev_2",
           "text": "Built and maintained a Ruby-based webhook testing application enabling fast, safe switching of targeted webhook endpoints, while preserving operational functionality across internal Docusign systems.",
           "themes": ["developer tooling", "internal tooling", "reliability"],
-          "skills": ["Ruby", "webhooks", "internal tooling"]
+          "skills": ["Ruby", "webhooks", "internal tooling", "REST", "interfaces"]
         },
         {
           "id": "docusign_dev_2_sdet_variant",
           "text": "Built and maintained a Ruby-based webhook testing interface enabling fast switching of targeted webhook endpoints for QA and automation, while preserving operational functionality across internal Docusign resources.",
           "themes": ["test tooling", "QA enablement"],
-          "skills": ["Ruby", "webhooks", "QA tooling"]
+          "skills": ["Ruby", "webhooks", "QA tooling", "REST"]
         },
         {
           "id": "docusign_dev_3",
@@ -365,7 +365,7 @@
       "team_context": "Excel, iMacros, Visual Basic, Team Track",
       "start_date": "2005-03",
       "end_date": "2006-08",
-      "technologies": ["Excel", "iMacros", "Visual Basic", "Team Track"],
+      "technologies": ["Excel", "iMacros", "Visual Basic", "Team Track", "SQL"],
       "bullets": [
         {
           "id": "cosworth_qa_1",
@@ -400,7 +400,7 @@
 
   "cover_letter_building_blocks": {
     "opening_hook_options": [
-      "With over 15 years building automated test frameworks, developer tooling, and webhook integration systems at Docusign, Microsoft, and Amazon, I bring a rare combination of deep testing expertise and hands-on production software development to the [ROLE TITLE] role at [COMPANY].",
+      "With over 15 years building automated test frameworks, developer tooling, and webhook integration systems at Docusign, Microsoft, and Amazon, I bring a rare combination of deep testing expertise and hands-on production polyglot software development to the [ROLE TITLE] role at [COMPANY].",
       "I've spent my career at the intersection of software quality and software development -- from designing test automation frameworks at Microsoft to building production webhook services at Docusign -- and I'm excited about bringing that experience to [COMPANY]'s [ROLE TITLE] team."
     ],
     "body_paragraph_themes": {
