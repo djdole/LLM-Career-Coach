@@ -18,7 +18,7 @@ Software Developer with 22+ years of experience at Docusign, Microsoft, and Amaz
 
 ## 🛠️ Skills
 
-**Languages:** C#, Ruby, Python, Java, PHP, Node.js, Bash, PowerShell, C++, Lisp, Visual Basic, JavaScript<br>
+**Languages:** polyglot, C#, Ruby, Python, Java, PHP, Node.js, Bash, PowerShell, C++, Lisp, Visual Basic, JavaScript<br>
 **APIs & Web Servers:** REST API design, Apache HTTPD/Tomcat, IIS, nginx, Node.js, MongoDB<br>
 **Operating Systems:** Windows, Unix, Linux, custom<br>
 **Test Automation Frameworks:** Selenium, Playwright, Echo, Docusign's SAW Ruby framework, KAF (Kahuna Automation Framework), custom API test/automation harnesses<br>
@@ -43,7 +43,7 @@ Software Developer with 22+ years of experience at Docusign, Microsoft, and Amaz
 ## 💼 Experience
 
 ### Software Developer
-#### Docusign, Inc.  -  **2024-03-2025-07**
+#### Docusign, Inc.  -  **2024-03 - 2025-07**
 * Docusign Connect * Connect Test Listener (webhook) * Ruby Webhook Test Interface * x509 Certificate Management *
 
 - Designed, implemented, and maintained the Connect Team APIListener webhook tool, a production service used for automated end-to-end validation of webhook delivery.
@@ -53,7 +53,7 @@ Software Developer with 22+ years of experience at Docusign, Microsoft, and Amaz
 - Partnered with Product Management to reproduce, triage, and resolve customer upgrade and configuration issues.
 
 ### Software Design Engineer in Test (SDET)
-#### Docusign, Inc.  -  **2013-11-2024-03**
+#### Docusign, Inc.  -  **2013-11 - 2024-03**
 * Docusign Connect * Product Incubation Team * Docusign Print Tool (deprecated) *
 
 - Designed and built automated test frameworks and a custom API request communication layer using NUnit and Selenium.
@@ -70,20 +70,20 @@ Software Developer with 22+ years of experience at Docusign, Microsoft, and Amaz
 - Conducted manual mobile application testing for approximately six months, verifying functionality and user experience across mobile platforms.
 
 ### SDET2
-#### Microsoft Engineering Excellence  -  **2012-01-2013-06**
+#### Microsoft Engineering Excellence  -  **2012-01 - 2013-06**
 * Team Foundation Server * Microsoft Test Manager * C# *
 
 - Designed and implemented automated tests for Quality Essentials v3 Client and Server.
 - Collaborated with developers, PMs, and leads to ensure quality testing of existing and new features.
 
 ### SDET2
-#### Amazon  -  **2011-11-2012-01**
+#### Amazon  -  **2011-11 - 2012-01**
 * Linux * Eclipse * Hudson * Ant * TestNG * Java * Selenium *
 
 - Automated manual test cases to improve execution efficiency and coverage.
 
 ### SDET
-#### Microsoft Live  -  **2011-04-2011-10**
+#### Microsoft Live  -  **2011-04 - 2011-10**
 * C# * SQL * WTT * Kahuna Automation Framework (KAF) * NUnit * Source Depot * HyperV * Octopus *
 
 - Designed and implemented a KAF-based test automation framework to execute Build Verification Tests (BVTs) for the BaR team.
@@ -91,7 +91,7 @@ Software Developer with 22+ years of experience at Docusign, Microsoft, and Amaz
 - Tested and documented issues across current and related product features.
 
 ### SDET
-#### Microsoft Health Solutions Group  -  **2008-02-2010-11**
+#### Microsoft Health Solutions Group  -  **2008-02 - 2010-11**
 * C# * SQL * WTT * Echo * KAF * NUnit * iMacros * REST * XML * HyperV *
 
 - Designed, updated, and maintained test plans for owned and shared product features.
@@ -101,14 +101,14 @@ Software Developer with 22+ years of experience at Docusign, Microsoft, and Amaz
 - Partnered with management, developers, UX, and operations to ensure product quality met release standards.
 
 ### Software Engineer
-#### Cosworth Tech Inc. / MAHLE Powertrain LLC  -  **2006-03-2008-02**
+#### Cosworth Tech Inc. / MAHLE Powertrain LLC  -  **2006-03 - 2008-02**
 * Borland JBuilder * Java * Swing * Borland C++ * Oracle SQL * PVCS/Serena *
 
 - Designed, developed, and debugged desktop applications using Borland C++ and Java, resolving defects tracked in Team Track.
 - Automated Excel-based reporting integrated with a SQL trouble-ticket tracking system for contract customers.
 
 ### Quality Assurance Engineer
-#### Cosworth Tech Inc. / MAHLE Powertrain LLC  -  **2005-03-2006-08**
+#### Cosworth Tech Inc. / MAHLE Powertrain LLC  -  **2005-03 - 2006-08**
 * Excel * iMacros * Visual Basic * Team Track *
 
 - Developed and maintained system and regression test plans for existing and new software applications.
