@@ -23,6 +23,11 @@ def readme_template_text(repo_root) -> str:
     return (repo_root / "README.template.md").read_text(encoding="utf-8")
 
 
+@pytest.fixture
+def analysis_prompt_template_text(repo_root) -> str:
+    return (repo_root / "ANALYSIS_PROMPT.template.txt").read_text(encoding="utf-8")
+
+
 def _base_kb() -> dict:
     """A small, hand-built knowledge base with the same shape as
     resume_data.json, deliberately covering a few edge cases:
@@ -146,3 +151,24 @@ def sample_resume_dict() -> dict:
 @pytest.fixture
 def sample_cover_letter_dict() -> dict:
     return {"body": "Dear Hiring Manager,\n\nI am great\u2014truly.\n\nSincerely,\nJane"}
+
+
+@pytest.fixture
+def sample_job_fit_analysis_dict() -> dict:
+    """A job-fit analysis dict in the shape validate_job_fit_analysis() /
+    call_llm_analyze_fit() expect."""
+    return {
+        "fit_percentage": 72,
+        "fit_summary": "Strong overlap in languages and testing background, but the posting wants cloud orchestration experience not reflected in the candidate data.",
+        "matched_qualifications": ["Python", "Test automation"],
+        "missing_qualifications": ["Kubernetes"],
+        "upskill_resources": [
+            {
+                "missing_item": "Kubernetes",
+                "resource_name": "Kubernetes Basics",
+                "resource_type": "course",
+                "resource_url": "https://kubernetes.io/docs/tutorials/kubernetes-basics/",
+                "is_free": True,
+            }
+        ],
+    }
