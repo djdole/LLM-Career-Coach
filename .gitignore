@@ -16,3 +16,7 @@ venv/
 
 # Docker secrets
 .env.docker
+
+# Misc files.
+job_description.txt
+generated/*Job Fit Analysis.*

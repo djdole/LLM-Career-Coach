@@ -16,13 +16,16 @@ import generator
 @pytest.fixture
 def main_env(tmp_path, monkeypatch, sample_kb):
     """Sets up a scratch working directory with resume_data.json and the
-    two template files main() reads, chdir'd into it, with LITELLM_* env
+    template files main() reads, chdir'd into it, with LITELLM_* env
     vars set so build_llm_client() doesn't exit."""
     monkeypatch.chdir(tmp_path)
     (tmp_path / "data").mkdir()
     (tmp_path / "data" / "resume_data.json").write_text(json.dumps(sample_kb), encoding="utf-8")
     (tmp_path / "RESUME.template.md").write_text("dummy resume template", encoding="utf-8")
     (tmp_path / "README.template.md").write_text("dummy readme template", encoding="utf-8")
+    (tmp_path / "ANALYSIS_PROMPT.template.txt").write_text(
+        "Rules: $output_rules\nData: $candidate_data\nJD: $job_description", encoding="utf-8"
+    )
     monkeypatch.setenv("LITELLM_BASE_URL", "http://example.com")
     monkeypatch.setenv("LITELLM_API_KEY", "secret")
     monkeypatch.delenv("OUTPUT_FOLDER", raising=False)
@@ -40,6 +43,19 @@ def stub_llm_calls(monkeypatch, sample_resume_dict, sample_cover_letter_dict):
     monkeypatch.setattr(generator, "call_llm_cover_letter", lambda client, kb, variant: sample_cover_letter_dict)
     monkeypatch.setattr(generator, "call_llm_readme", lambda client, kb, template: readme_markdown)
     return readme_markdown
+
+
+@pytest.fixture
+def stub_analyze_call(monkeypatch, sample_job_fit_analysis_dict):
+    """Replaces call_llm_analyze_fit with a stub returning fixed,
+    already-valid data, so main()'s --analyze file-writing logic is what's
+    under test here."""
+    monkeypatch.setattr(
+        generator,
+        "call_llm_analyze_fit",
+        lambda client, kb, job_description, prompt_template_text: sample_job_fit_analysis_dict,
+    )
+    return sample_job_fit_analysis_dict
 
 
 class TestMain:
@@ -150,3 +166,62 @@ class TestMainGenerateFlag:
         generator.main(["--generate", "resume_data"])
         assert len(called) == 1
         assert called[0]["KNOWLEDGE_BASE"] == "data/resume_data.json"
+
+
+class TestMainAnalyzeFlag:
+    def test_not_run_when_flag_absent(self, main_env, stub_llm_calls, monkeypatch):
+        called = []
+        monkeypatch.setattr(generator, "call_llm_analyze_fit", lambda client, kb, jd, template: called.append(jd))
+        generator.main([])
+        assert called == []
+
+    def test_bare_analyze_does_not_also_run_default_generate_targets(self, main_env, stub_analyze_call):
+        # --analyze alone (no --generate) should do ONLY the analysis, not
+        # also silently fall back to --generate's "omitted means generate
+        # everything" default.
+        generator.main(["--analyze", "Need a Python developer."])
+        out_dir = main_env / "generated"
+        assert not (out_dir / "Jane Doe Resume (SDE).json").exists()
+        assert not (out_dir / "Jane Doe Cover Letter (SDE).txt").exists()
+        assert (out_dir / "Jane Doe Job Fit Analysis.md").exists()
+
+    def test_bare_flag_with_no_value_errors(self, main_env):
+        # --analyze's value IS the job description, so it's a required
+        # argument to the flag itself: argparse errors with exit code 2
+        # if it's omitted.
+        with pytest.raises(SystemExit) as exc_info:
+            generator.main(["--analyze"])
+        assert exc_info.value.code == 2
+
+    def test_generate_analyze_is_not_a_valid_generate_value(self, main_env, stub_llm_calls):
+        # analyze is triggered by its own --analyze flag now, not as a
+        # --generate target -- "--generate analyze" should be rejected
+        # the same as any other unknown --generate value.
+        with pytest.raises(SystemExit):
+            generator.main(["--generate", "analyze"])
+
+    def test_writes_markdown_report(self, main_env, stub_analyze_call):
+        generator.main(["--analyze", "Need a Python developer."])
+        out_dir = main_env / "generated"
+        md_path = out_dir / "Jane Doe Job Fit Analysis.md"
+        assert md_path.exists()
+        assert "72%" in md_path.read_text(encoding="utf-8")
+
+    def test_analyze_value_can_be_a_file_path(self, main_env, stub_analyze_call, monkeypatch):
+        jd_file = main_env / "jd.txt"
+        jd_file.write_text("Need a Rust developer.", encoding="utf-8")
+        captured = {}
+
+        def fake_analyze(client, kb, job_description, prompt_template_text):
+            captured["jd"] = job_description
+            return stub_analyze_call
+
+        monkeypatch.setattr(generator, "call_llm_analyze_fit", fake_analyze)
+        generator.main(["--analyze", str(jd_file)])
+        assert captured["jd"] == "Need a Rust developer."
+
+    def test_does_not_generate_resume_or_cover_letter(self, main_env, stub_analyze_call):
+        generator.main(["--analyze", "Need a Python developer."])
+        out_dir = main_env / "generated"
+        assert not (out_dir / "Jane Doe Resume (SDE).json").exists()
+        assert not (out_dir / "Jane Doe Cover Letter (SDE).txt").exists()

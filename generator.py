@@ -17,11 +17,18 @@ Usage:
     python generate.py --generate resume
     python generate.py --generate resume,cover_letter
     python generate.py --generate resume --generate readme
+    python generate.py --analyze "paste JD text here"
+    python generate.py --analyze path/to/job_posting.pdf
+    python generate.py --analyze https://example.com/careers/some-job
+    python generate.py --generate resume --analyze jd.txt
 
 --generate controls WHAT gets built this run:
     * Omitted entirely: resumes, cover letters, and the README are all
-      generated (the original, default behavior). "resume_data" is never
-      included in this default -- it's opt-in only, see below.
+      generated (the original, default behavior) -- UNLESS --analyze was
+      given and --generate was not, in which case nothing from --generate
+      runs and this invocation does ONLY the analysis (see --analyze
+      below). "resume_data" is never included in this default -- it's
+      opt-in only, see below.
     * Supplied with no value (e.g. a trailing `--generate` with nothing
       after it): nothing is generated.
     * Otherwise, its value is a comma-separated list of "resume",
@@ -34,13 +41,29 @@ generating resumes/cover letters/README FROM the knowledge base, it uses
 source files dropped in the DATA folder (env var DATA, e.g. pdf/txt/json/
 xml/docx documents) plus LiteLLM to build or non-destructively update a
 resume_data.json. See generate_resume_data_draft() for the exact rules.
+
+--analyze is its own separate flag, independent of --generate: its value
+IS the job description -- literal JD text, a path to a local file
+(pdf/docx/txt/md/json/xml), or a URL to fetch it from -- see
+resolve_job_description() for exactly how that value is interpreted. It
+uses that plus data/resume_data.json and LiteLLM to estimate percentage
+fit for that specific posting (0-100%), list the skills/qualifications
+the JD calls for that aren't present in the knowledge base, and suggest
+(preferably free) resources -- tutorials, courses, books -- to close each
+gap. --analyze can be combined with --generate in the same invocation to
+do both; see call_llm_analyze_fit() for details. Its LLM prompt is loaded
+from ANALYSIS_PROMPT_TEMPLATE (default: ANALYSIS_PROMPT.template.txt) and
+filled in with the actual data by build_job_fit_prompt().
 """
 
 import argparse
+import html
 import json
 import os
 import re
+import string
 import sys
+import urllib.parse
 from pathlib import Path
 
 import openai
@@ -68,7 +91,9 @@ ALL_TARGETS = {"resume", "cover_letter", "readme"}
 # Maps a normalized (lowercased, with "_"/"-" stripped) --generate token to
 # its canonical target name. Both "cover_letter" and "coverletter" collapse
 # to the same normalized key ("coverletter"), so either spelling works;
-# likewise "resume_data" and "resumedata".
+# likewise "resume_data" and "resumedata". Job-fit analysis is NOT one of
+# these -- it's triggered by the separate --analyze flag, not --generate
+# (see build_arg_parser and main).
 GENERATE_ALIASES = {
     "resume": "resume",
     "coverletter": "cover_letter",
@@ -84,7 +109,8 @@ ALL_KNOWN_TARGETS = set(GENERATE_ALIASES.values())
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Generates resumes, cover letters, and/or a GitHub "
-        "profile README from resume_data.json."
+        "profile README from resume_data.json (--generate), and/or runs "
+        "a job-fit analysis against a job description (--analyze)."
     )
     parser.add_argument(
         "--generate",
@@ -98,7 +124,21 @@ def build_arg_parser() -> argparse.ArgumentParser:
         "repeated, e.g. --generate resume --generate readme). Omit "
         "entirely to generate resume+cover_letter+readme (the default; "
         "resume_data is opt-in only and never included by default). "
-        "Supply with no value to generate nothing.",
+        "Supply with no value to generate nothing. Unrelated to "
+        "--analyze below, which is its own separate flag.",
+    )
+    parser.add_argument(
+        "--analyze",
+        default=None,
+        metavar="JOB_DESCRIPTION",
+        help="Run a job-fit analysis instead of/in addition to "
+        "--generate. Its value IS the job description to evaluate fit "
+        "against -- literal text, a path to a local file (pdf/docx/txt/"
+        "md/json/xml), or a URL to fetch it from. Uses that plus "
+        "data/resume_data.json to estimate percentage fit (0-100), list "
+        "missing skills/qualifications, and suggest (preferably free) "
+        "resources to close each gap. Independent of --generate -- pass "
+        "both to do both in one run.",
     )
     return parser
 
@@ -1198,6 +1238,292 @@ def generate_resume_data_draft(client: openai.OpenAI, s: dict) -> None:
     print(f"[resume_data] Removed {len(source_files)} consumed source file(s) from {data_dir}/")
 
 
+# --- --analyze: job-fit analysis against a job description ----------------
+
+# Every key the model's JSON response must contain for
+# validate_job_fit_analysis() to accept it. "matched_qualifications" is
+# intentionally NOT required -- it's useful context for the reader but,
+# unlike the other three, isn't something the feature spec asked for, so
+# a model that omits it shouldn't burn a retry.
+REQUIRED_ANALYSIS_KEYS = {"fit_percentage", "fit_summary", "missing_qualifications", "upskill_resources"}
+
+# Keys each entry of upskill_resources must have. resource_url and is_free
+# are deliberately NOT required: a model that (correctly) doesn't know a
+# real URL for a given resource should say so via resource_name alone
+# rather than being forced to invent one to pass validation (see
+# never_fabricate in output_rules, and build_job_fit_prompt below).
+REQUIRED_RESOURCE_KEYS = {"missing_item", "resource_name"}
+
+
+def _strip_html(markup: str) -> str:
+    """
+    Reduces an HTML document to plain text for _fetch_job_description_
+    from_url: drops <script>/<style> blocks entirely, strips remaining
+    tags, unescapes entities, and collapses excess whitespace. Not a
+    real HTML parser -- just enough to pull readable text out of a job
+    posting page without adding a new dependency (the project's
+    requirements.txt has no HTML parser; beautifulsoup4 is test-only,
+    see requirements-test.txt).
+    """
+    markup = re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", " ", markup)
+    text = re.sub(r"(?s)<[^>]+>", " ", markup)
+    text = html.unescape(text)
+    text = re.sub(r"[ \t]+", " ", text)
+    text = re.sub(r"\n\s*\n+", "\n\n", text)
+    return text.strip()
+
+
+def _fetch_job_description_from_url(url: str) -> str:
+    """
+    Best-effort fetch of job description text from a URL, for --analyze.
+    If the response looks like HTML, it's reduced to plain text via
+    _strip_html; otherwise the response body is used as-is (e.g. an API
+    endpoint returning the posting as plain text or JSON). Raises
+    ValueError, folding in the underlying error, on any connection,
+    timeout, or non-2xx-status failure.
+    """
+    try:
+        response = httpx.get(
+            url, timeout=30.0, follow_redirects=True,
+            headers={"User-Agent": "Mozilla/5.0 (compatible; djdole-generator/1.0)"},
+        )
+        response.raise_for_status()
+    except httpx.HTTPError as e:
+        raise ValueError(f"Could not fetch job description from {url!r}: {e}") from e
+
+    body = response.text
+    content_type = response.headers.get("content-type", "")
+    if "html" in content_type.lower() or "<html" in body[:1000].lower():
+        return _strip_html(body)
+    return body.strip()
+
+
+def resolve_job_description(raw: str) -> str:
+    """
+    Turns --analyze's raw CLI value into job description text. raw is
+    interpreted, in order:
+      1. A URL (http:// or https:// scheme) -- fetched, and reduced to
+         plain text if it looks like HTML (see
+         _fetch_job_description_from_url).
+      2. A path to an existing local file -- its text is extracted
+         (reusing extract_text_from_source_file, so pdf/docx/txt/md/json/
+         xml all work, same as a DATA-folder source file).
+      3. Otherwise, raw itself: the job description text pasted directly
+         on the command line.
+    Raises ValueError if the result is empty (an unreachable/erroring
+    URL, an existing-but-empty-or-unreadable file, or an all-whitespace
+    literal value).
+    """
+    if urllib.parse.urlparse(raw).scheme in ("http", "https"):
+        text = _fetch_job_description_from_url(raw)
+        if not text:
+            raise ValueError(f"--analyze URL {raw!r} returned no extractable text.")
+        return text
+
+    path = Path(raw)
+    if path.is_file():
+        text = extract_text_from_source_file(path)
+        if not text.strip():
+            raise ValueError(f"--analyze file {raw!r} had no extractable text.")
+        return text.strip()
+
+    text = raw.strip()
+    if not text:
+        raise ValueError("--analyze's job description value was empty.")
+    return text
+
+
+def build_job_fit_context(kb: dict) -> dict:
+    """
+    Trims the full knowledge base down to what the job-fit analysis needs:
+    unlike build_baseline_context (which is scoped to ONE resume variant),
+    this pulls skills and work-experience bullets across BOTH variants,
+    since the model needs the candidate's full skill set to judge fit
+    against an arbitrary job description, not just what one resume
+    variant would show.
+    """
+    skills = [
+        {"category": CATEGORY_LABELS.get(k, k.replace("_", " ").title()), "items": v}
+        for k, v in kb["skills"].items() if isinstance(v, list)
+    ]
+    work_experience = [
+        {
+            "titles": job["title_by_variant"],
+            "company": job["company"],
+            "date_range": f"{job['start_date']} - {job['end_date']}",
+            "technologies": job.get("technologies", []),
+            "bullets": [b["text"] for b in job["bullets"] if not b["id"].endswith(("_alt", "_variant"))],
+        }
+        for job in kb["work_experience"]
+    ]
+    education = [
+        {"degree": ed["degree"], "institution": ed["institution"], "date": ed["graduation date"]}
+        for ed in kb["education"]
+    ]
+    return {
+        "summaries": kb["summary_variants"],
+        "education": education,
+        "skills": skills,
+        "work_experience": work_experience,
+    }
+
+
+def build_job_fit_prompt(kb: dict, job_description: str, prompt_template_text: str) -> str:
+    """
+    Fills prompt_template_text (the contents of ANALYSIS_PROMPT_TEMPLATE,
+    e.g. ANALYSIS_PROMPT.template.txt -- a string.Template using
+    $output_rules/$candidate_data/$job_description placeholders) in with
+    this run's actual data. string.Template (not str.format) is used
+    deliberately: the template's JSON schema example is full of literal
+    { } characters that would otherwise all need doubling up to escape
+    them from str.format.
+    """
+    context = build_job_fit_context(kb)
+    rules = kb["meta"]["output_rules"]
+    template = string.Template(prompt_template_text)
+    return template.substitute(
+        output_rules=json.dumps({"never_fabricate": rules["never_fabricate"]}, indent=2),
+        candidate_data=json.dumps(context, indent=2),
+        job_description=job_description,
+    )
+
+
+def validate_job_fit_analysis(data: dict) -> None:
+    """Raises ValueError on any structural problem in the model's job-fit
+    JSON, which call_llm_analyze_fit uses to trigger a corrective retry."""
+    if not isinstance(data, dict):
+        raise ValueError(f"Expected a JSON object, got {type(data).__name__}.")
+    missing_keys = REQUIRED_ANALYSIS_KEYS - set(data.keys())
+    if missing_keys:
+        raise ValueError(f"Missing required key(s): {sorted(missing_keys)}")
+
+    pct = data["fit_percentage"]
+    if isinstance(pct, bool) or not isinstance(pct, (int, float)):
+        raise ValueError(f"fit_percentage must be a number, got {pct!r}.")
+    if not (0 <= pct <= 100):
+        raise ValueError(f"fit_percentage must be between 0 and 100, got {pct!r}.")
+
+    if not isinstance(data["fit_summary"], str) or not data["fit_summary"].strip():
+        raise ValueError("fit_summary must be a non-empty string.")
+
+    if not isinstance(data["missing_qualifications"], list) or not all(
+        isinstance(x, str) for x in data["missing_qualifications"]
+    ):
+        raise ValueError("missing_qualifications must be a list of strings.")
+
+    if "matched_qualifications" in data and (
+        not isinstance(data["matched_qualifications"], list)
+        or not all(isinstance(x, str) for x in data["matched_qualifications"])
+    ):
+        raise ValueError("matched_qualifications must be a list of strings.")
+
+    resources = data["upskill_resources"]
+    if not isinstance(resources, list):
+        raise ValueError("upskill_resources must be a list.")
+    for i, res in enumerate(resources):
+        if not isinstance(res, dict):
+            raise ValueError(f"upskill_resources[{i}] must be an object, got {type(res).__name__}.")
+        missing = REQUIRED_RESOURCE_KEYS - set(res.keys())
+        if missing:
+            raise ValueError(f"upskill_resources[{i}] is missing required key(s): {sorted(missing)}")
+
+
+def call_llm_analyze_fit(client: openai.OpenAI, kb: dict, job_description: str, prompt_template_text: str) -> dict:
+    system_prompt = build_job_fit_prompt(kb, job_description, prompt_template_text)
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": "Analyze the fit now."},
+    ]
+    max_output_tokens = int(os.environ.get("LITELLM_MAX_TOKENS", "10000"))
+    num_ctx = int(os.environ.get("OLLAMA_NUM_CTX", "16384"))
+
+    est_input_tokens = len(system_prompt) // 4
+    print(f"[analyze] Prompt size estimate: ~{est_input_tokens} input tokens.", file=sys.stderr)
+
+    last_error = None
+    for attempt in range(2):
+        try:
+            try:
+                response = client.chat.completions.create(
+                    model=MODEL, max_tokens=max_output_tokens, temperature=0.3, timeout=LLM_REQUEST_TIMEOUT,
+                    response_format={"type": "json_object"},
+                    extra_body={"options": {"num_ctx": num_ctx}, "keep_alive": LITELLM_KEEP_ALIVE}, messages=messages,
+                )
+            except openai.BadRequestError:
+                response = client.chat.completions.create(
+                    model=MODEL, max_tokens=max_output_tokens, temperature=0.3, timeout=LLM_REQUEST_TIMEOUT,
+                    extra_body={"options": {"num_ctx": num_ctx}, "keep_alive": LITELLM_KEEP_ALIVE}, messages=messages,
+                )
+        except openai.APIConnectionError as e:
+            print(f"[analyze] Could not reach LiteLLM at {client.base_url}: {e}", file=sys.stderr)
+            sys.exit(1)
+        except openai.APIStatusError as e:
+            print(f"[analyze] LiteLLM returned an error (HTTP {e.status_code}): {e.message}", file=sys.stderr)
+            sys.exit(1)
+
+        raw = response.choices[0].message.content or ""
+        try:
+            analysis = json.loads(extract_json_object(raw))
+            validate_job_fit_analysis(analysis)
+            return analysis
+        except (ValueError, json.JSONDecodeError) as e:
+            last_error = e
+            print(f"[analyze] Attempt {attempt + 1}: malformed analysis output ({e}). Raw:\n{raw}\n", file=sys.stderr)
+            messages.append({"role": "assistant", "content": raw})
+            messages.append({
+                "role": "user",
+                "content": f"That response was invalid: {e}. Respond again with ONLY the JSON object described earlier.",
+            })
+
+    print(f"[analyze] Model failed to produce a valid analysis after 2 attempts. Last error: {last_error}", file=sys.stderr)
+    sys.exit(1)
+
+
+def render_job_fit_analysis_md(analysis: dict, job_description: str) -> str:
+    """Renders call_llm_analyze_fit()'s parsed dict as a human-readable
+    markdown report."""
+    lines = [
+        "# Job Fit Analysis",
+        "",
+        f"**Fit score: {analysis['fit_percentage']}%**",
+        "",
+        "## Summary",
+        "",
+        analysis["fit_summary"],
+        "",
+    ]
+
+    matched = analysis.get("matched_qualifications") or []
+    if matched:
+        lines += ["## Matched Qualifications", ""]
+        lines += [f"- {m}" for m in matched]
+        lines.append("")
+
+    missing = analysis["missing_qualifications"]
+    lines += ["## Missing Skills / Qualifications", ""]
+    if missing:
+        lines += [f"- {m}" for m in missing]
+    else:
+        lines.append("None found -- the candidate data covers every requirement identified in the job description.")
+    lines.append("")
+
+    resources = analysis["upskill_resources"]
+    lines += ["## Suggested Resources to Close the Gaps", ""]
+    if resources:
+        for r in resources:
+            free_tag = " (Free)" if r.get("is_free") else ""
+            type_tag = f" [{r['resource_type']}]" if r.get("resource_type") else ""
+            name = r["resource_name"]
+            if r.get("resource_url"):
+                name = f"[{name}]({r['resource_url']})"
+            lines.append(f"- **{r['missing_item']}**: {name}{type_tag}{free_tag}")
+    else:
+        lines.append("No resources suggested.")
+    lines.append("")
+
+    return "\n".join(lines) + "\n"
+
+
 def load_file_location_settings() -> dict:
     return {
         "OUTPUT_FOLDER": os.environ.get("OUTPUT_FOLDER", "generated"),
@@ -1213,6 +1539,10 @@ def load_file_location_settings() -> dict:
         "COVERLETTER_NAMING_TEMPLATE": os.environ.get(
             "COVERLETTER_NAMING_TEMPLATE", "{FirstName} {LastName} Cover Letter ({JobAcronym}).{Extension}"
         ),
+        "ANALYSIS_NAMING_TEMPLATE": os.environ.get(
+            "ANALYSIS_NAMING_TEMPLATE", "{FirstName} {LastName} Job Fit Analysis.{Extension}"
+        ),
+        "ANALYSIS_PROMPT_TEMPLATE": os.environ.get("ANALYSIS_PROMPT_TEMPLATE", "ANALYSIS_PROMPT.template.txt"),
     }
 
 
@@ -1236,11 +1566,19 @@ def main(argv=None):
     # with).
     args = parser.parse_args(argv if argv is not None else [])
 
+    # --generate's "omitted entirely" default (generate everything) is
+    # meant for the tool's primary, no-flags-at-all workflow. --analyze is
+    # a separate, deliberately-opted-into action -- someone running
+    # `--analyze "..."` on its own wants ONLY the analysis, not to also
+    # silently kick off a full resume/cover_letter/readme run. So that
+    # default only applies when --analyze wasn't requested; an explicit
+    # --generate (even alongside --analyze) always takes precedence over
+    # both of those.
     if args.generate is None:
-        targets = set(ALL_TARGETS)
+        targets = set() if args.analyze else set(ALL_TARGETS)
     else:
         targets = parse_generate_targets(args.generate)
-        if not targets:
+        if not targets and not args.analyze:
             print("--generate was supplied with no value(s); nothing to generate.")
             return
 
@@ -1255,7 +1593,7 @@ def main(argv=None):
     # whether KNOWLEDGE_BASE needs to exist yet (it may legitimately not),
     # so it reads it lazily, itself, inside generate_resume_data_draft().
     kb = full_name = None
-    if {"resume", "cover_letter", "readme"} & targets:
+    if {"resume", "cover_letter", "readme"} & targets or args.analyze:
         kb = json.loads(Path(s["KNOWLEDGE_BASE"]).read_text(encoding="utf-8"))
         full_name = kb["personal_info"]["full_name"]
 
@@ -1305,6 +1643,23 @@ def main(argv=None):
 
     if "resume_data" in targets:
         generate_resume_data_draft(client, s)
+
+    if args.analyze:
+        try:
+            job_description = resolve_job_description(args.analyze)
+        except ValueError as e:
+            print(f"[analyze] {e}", file=sys.stderr)
+            sys.exit(1)
+
+        prompt_template_text = Path(s["ANALYSIS_PROMPT_TEMPLATE"]).read_text(encoding="utf-8")
+        analysis = call_llm_analyze_fit(client, kb, job_description, prompt_template_text)
+
+        out_dir = Path(s["OUTPUT_FOLDER"])
+        out_dir.mkdir(parents=True, exist_ok=True)
+        analysis_md_path = out_dir / render_filename(s["ANALYSIS_NAMING_TEMPLATE"], full_name, "", "md")
+        rendered_job_fit_analysis_report = render_job_fit_analysis_md(analysis, job_description)
+        analysis_md_path.write_text(rendered_job_fit_analysis_report, encoding="utf-8")
+        print(rendered_job_fit_analysis_report)
 
     summary_parts = []
     if "resume" in targets:

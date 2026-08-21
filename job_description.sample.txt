@@ -1,0 +1,48 @@
+Senior Backend Engineer - Cloud Platform Team
+Nimbus Freight Technologies
+Location: Remote (US) | Full-time
+
+About the Role
+
+Nimbus Freight Technologies builds the logistics platform that powers routing, tracking, and billing for mid-size freight carriers across North America. We're looking for a Senior Backend Engineer to join our Cloud Platform team and help us scale our services as we onboard larger carriers and expand into new regions.
+
+You'll own core services that process tens of millions of shipment events per day, work closely with product and SRE teams, and mentor mid-level engineers on the team.
+
+What You'll Do
+
+- Design, build, and operate distributed backend services in Python and Go
+- Lead migration of legacy monolith components to containerized microservices
+- Own service reliability: define SLOs, build dashboards, and participate in an on-call rotation
+- Collaborate with data engineering on event streaming pipelines (Kafka)
+- Review code, mentor junior and mid-level engineers, and help set technical direction for the team
+- Partner with product managers to scope and estimate new features
+
+Required Qualifications
+
+- 5+ years of professional backend software engineering experience
+- Strong proficiency in Python or Go in a production environment
+- Experience designing and operating RESTful APIs and microservices
+- Solid understanding of relational databases (PostgreSQL preferred) and SQL query optimization
+- Experience with containerization and orchestration using Docker and Kubernetes
+- Familiarity with CI/CD pipelines and infrastructure-as-code (Terraform preferred)
+- Excellent written and verbal communication skills, with experience working on distributed/remote teams
+
+Preferred Qualifications
+
+- Experience with event-driven architectures and message brokers (Kafka, RabbitMQ, or similar)
+- Hands-on experience with a major cloud provider (AWS preferred; GCP or Azure acceptable)
+- Familiarity with GraphQL API design
+- Experience with observability tooling (Prometheus, Grafana, Datadog, or similar)
+- Prior experience in logistics, supply chain, or fintech domains
+- Contributions to open-source projects
+
+What We Offer
+
+- Competitive salary and equity
+- Fully remote work with quarterly team offsites
+- Comprehensive health, dental, and vision coverage
+- 401(k) match
+- $2,000 annual learning and development stipend
+- Flexible PTO
+
+Nimbus Freight Technologies is an equal opportunity employer. We celebrate diversity and are committed to creating an inclusive environment for all employees.
