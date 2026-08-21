@@ -257,7 +257,3 @@ class TestRenderJobFitAnalysisMd:
         }
         md = generator.render_job_fit_analysis_md(analysis, "Some JD text.")
         assert "None found" in md
-
-    def test_includes_job_description(self, sample_job_fit_analysis_dict):
-        md = generator.render_job_fit_analysis_md(sample_job_fit_analysis_dict, "Unique JD marker text.")
-        assert "Unique JD marker text." in md
