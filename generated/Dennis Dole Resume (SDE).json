@@ -7,7 +7,6 @@
     {
       "category": "Languages",
       "items": [
-        "polyglot",
         "C#",
         "Ruby",
         "Python",
@@ -202,7 +201,7 @@
       "title": "Software Developer",
       "company": "Docusign, Inc.",
       "date_range": "2024-03 to 2025-07",
-      "team_context": "Docusign Connect, Connect Test Listener (webhook), Ruby Webhook Test Interface, x509 Certificate Management",
+      "team_context": "Docusign Connect \u00b7 Connect Test Listener (webhook) \u00b7 Ruby Webhook Test Interface \u00b7 x509 Certificate Management",
       "bullets": [
         "Designed, implemented, and maintained the Connect Team APIListener webhook tool, a production service used for automated end-to-end validation of webhook delivery.",
         "Built and maintained a Ruby-based webhook testing application enabling fast, safe switching of targeted webhook endpoints, while preserving operational functionality across internal Docusign systems.",
@@ -215,7 +214,7 @@
       "title": "Software Design Engineer in Test (SDET)",
       "company": "Docusign, Inc.",
       "date_range": "2013-11 to 2024-03",
-      "team_context": "Docusign Connect, Product Incubation Team, Docusign Print Tool (deprecated)",
+      "team_context": "Docusign Connect \u00b7 Product Incubation Team \u00b7 Docusign Print Tool (deprecated)",
       "bullets": [
         "Designed and built automated test frameworks and a custom API request communication layer using NUnit and Selenium.",
         "Engineered obfuscated interfaces and test frameworks supporting webhook endpoint selection for automated and manual testing.",
@@ -235,7 +234,7 @@
       "title": "SDET2",
       "company": "Microsoft Engineering Excellence",
       "date_range": "2012-01 to 2013-06",
-      "team_context": "Team Foundation Server, Microsoft Test Manager, C#",
+      "team_context": "Team Foundation Server \u00b7 Microsoft Test Manager \u00b7 C#",
       "bullets": [
         "Designed and implemented automated tests for Quality Essentials v3 Client and Server.",
         "Collaborated with developers, PMs, and leads to ensure quality testing of existing and new features."
@@ -245,7 +244,7 @@
       "title": "SDET2",
       "company": "Amazon",
       "date_range": "2011-11 to 2012-01",
-      "team_context": "Linux, Eclipse, Hudson, Ant, TestNG, Java, Selenium",
+      "team_context": "Linux \u00b7 Eclipse \u00b7 Hudson \u00b7 Ant \u00b7 TestNG \u00b7 Java \u00b7 Selenium",
       "bullets": [
         "Automated manual test cases to improve execution efficiency and coverage."
       ]
@@ -254,7 +253,7 @@
       "title": "SDET",
       "company": "Microsoft Live",
       "date_range": "2011-04 to 2011-10",
-      "team_context": "C#, SQL, WTT, Kahuna Automation Framework (KAF), NUnit, Source Depot, HyperV, Octopus",
+      "team_context": "C# \u00b7 SQL \u00b7 WTT \u00b7 Kahuna Automation Framework (KAF) \u00b7 NUnit \u00b7 Source Depot \u00b7 HyperV \u00b7 Octopus",
       "bullets": [
         "Designed and implemented a KAF-based test automation framework to execute Build Verification Tests (BVTs) for the BaR team.",
         "Owned test features end-to-end, collaborating with developers and product managers to plan and execute strategy.",
@@ -265,7 +264,7 @@
       "title": "SDET",
       "company": "Microsoft Health Solutions Group",
       "date_range": "2008-02 to 2010-11",
-      "team_context": "C#, SQL, WTT, Echo, KAF, NUnit, iMacros, REST, XML, HyperV",
+      "team_context": "C# \u00b7 SQL \u00b7 WTT \u00b7 Echo \u00b7 KAF \u00b7 NUnit \u00b7 iMacros \u00b7 REST \u00b7 XML \u00b7 HyperV",
       "bullets": [
         "Designed, updated, and maintained test plans for owned and shared product features.",
         "Built and maintained web-app automation to increase test case execution efficiency.",
@@ -278,7 +277,7 @@
       "title": "Software Engineer",
       "company": "Cosworth Tech Inc. / MAHLE Powertrain LLC",
       "date_range": "2006-03 to 2008-02",
-      "team_context": "Borland JBuilder, Java, Swing, Borland C++, Oracle SQL, PVCS/Serena",
+      "team_context": "Borland JBuilder \u00b7 Java \u00b7 Swing \u00b7 Borland C++ \u00b7 Oracle SQL \u00b7 PVCS/Serena",
       "bullets": [
         "Designed, developed, and debugged desktop applications using Borland C++ and Java, resolving defects tracked in Team Track.",
         "Automated Excel-based reporting integrated with a SQL trouble-ticket tracking system for contract customers."
@@ -288,7 +287,7 @@
       "title": "Quality Assurance Engineer",
       "company": "Cosworth Tech Inc. / MAHLE Powertrain LLC",
       "date_range": "2005-03 to 2006-08",
-      "team_context": "Excel, iMacros, Visual Basic, Team Track",
+      "team_context": "Excel \u00b7 iMacros \u00b7 Visual Basic \u00b7 Team Track",
       "bullets": [
         "Developed and maintained system and regression test plans for existing and new software applications.",
         "Performed software validation across multiple projects to ensure product quality prior to release."
