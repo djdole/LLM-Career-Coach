@@ -51,7 +51,7 @@ Graduated {{GRADUATION_DATE}}
 
 ## ✨ Career Highlights
 
-<!-- Repeat once per item in career_narrative_notes.strongest_differentiators, VERBATIM -- do not reword, shorten, or reorder these. -->
+<!-- Repeat once per item in career_narrative_notes.strongest_differentiators, VERBATIM - do not reword, shorten, or reorder these. -->
 - {{HIGHLIGHT_TEXT}}
 
 ---

@@ -156,12 +156,20 @@ def sample_cover_letter_dict() -> dict:
 @pytest.fixture
 def sample_job_fit_analysis_dict() -> dict:
     """A job-fit analysis dict in the shape validate_job_fit_analysis() /
-    call_llm_analyze_fit() expect."""
+    call_llm_analyze_fit() expect, with a single fit assessment (the
+    common case: the job description didn't separate its qualifications
+    into distinct lists)."""
     return {
-        "fit_percentage": 72,
-        "fit_summary": "Strong overlap in languages and testing background, but the posting wants cloud orchestration experience not reflected in the candidate data.",
-        "matched_qualifications": ["Python", "Test automation"],
-        "missing_qualifications": ["Kubernetes"],
+        "fit_assessments": [
+            {
+                "list_label": "Overall Qualifications",
+                "fit_percentage": 72,
+                "assessment_summary": "Strong overlap in languages and testing background, but the posting wants cloud orchestration experience not reflected in the candidate data.",
+                "matched_qualifications": ["Python", "Test automation"],
+                "missing_qualifications": ["Kubernetes"],
+            }
+        ],
+        "overall_summary": "Strong overlap in languages and testing background, but the posting wants cloud orchestration experience not reflected in the candidate data.",
         "upskill_resources": [
             {
                 "missing_item": "Kubernetes",
@@ -170,5 +178,54 @@ def sample_job_fit_analysis_dict() -> dict:
                 "resource_url": "https://kubernetes.io/docs/tutorials/kubernetes-basics/",
                 "is_free": True,
             }
+        ],
+    }
+
+
+@pytest.fixture
+def sample_job_fit_analysis_multi_dict() -> dict:
+    """A job-fit analysis dict with more than one fit assessment: the
+    case where the job description separates required vs. preferred
+    qualifications into distinct lists."""
+    return {
+        "fit_assessments": [
+            {
+                "list_label": "Required Qualifications",
+                "fit_percentage": 90,
+                "assessment_summary": "Meets nearly every required qualification.",
+                "matched_qualifications": ["Python", "REST APIs"],
+                "missing_qualifications": ["PostgreSQL"],
+            },
+            {
+                "list_label": "Preferred Qualifications",
+                "fit_percentage": 40,
+                "assessment_summary": "Missing most of the preferred cloud and orchestration skills.",
+                "matched_qualifications": ["Test automation"],
+                "missing_qualifications": ["Kubernetes", "Terraform"],
+            },
+        ],
+        "overall_summary": "Strong match on required qualifications, but several preferred skills are missing.",
+        "upskill_resources": [
+            {
+                "missing_item": "PostgreSQL",
+                "resource_name": "PostgreSQL Tutorial",
+                "resource_type": "documentation",
+                "resource_url": "https://www.postgresql.org/docs/current/tutorial.html",
+                "is_free": True,
+            },
+            {
+                "missing_item": "Kubernetes",
+                "resource_name": "Kubernetes Basics",
+                "resource_type": "course",
+                "resource_url": "https://kubernetes.io/docs/tutorials/kubernetes-basics/",
+                "is_free": True,
+            },
+            {
+                "missing_item": "Terraform",
+                "resource_name": "Terraform: Get Started",
+                "resource_type": "tutorial",
+                "resource_url": "https://developer.hashicorp.com/terraform/tutorials",
+                "is_free": True,
+            },
         ],
     }
