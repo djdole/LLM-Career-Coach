@@ -2,7 +2,7 @@
 call_llm_cover_letter, call_llm_readme) and build_llm_client are stubbed
 out, so these tests exercise everything main() does around them --
 reading the knowledge base and templates, creating the output directory,
-naming files, and calling every renderer -- without making a network
+naming files, and calling every renderer - without making a network
 call."""
 
 import json
@@ -195,7 +195,7 @@ class TestMainAnalyzeFlag:
 
     def test_generate_analyze_is_not_a_valid_generate_value(self, main_env, stub_llm_calls):
         # analyze is triggered by its own --analyze flag now, not as a
-        # --generate target -- "--generate analyze" should be rejected
+        # --generate target - "--generate analyze" should be rejected
         # the same as any other unknown --generate value.
         with pytest.raises(SystemExit):
             generator.main(["--generate", "analyze"])

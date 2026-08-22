@@ -10,16 +10,16 @@ name: Generate Files
 # docker-compose.yml) instead of a paid API, so this workflow never spends
 # API credits and never fails due to account balance/credits.
 #
-# NETWORK REACHABILITY -- read before enabling:
+# NETWORK REACHABILITY - read before enabling:
 # `runs-on: ubuntu-latest` below uses GitHub's hosted runners, which live
 # on the public internet. They can only reach your LiteLLM instance if it's
 # exposed via something like a Cloudflare Tunnel, Tailscale Funnel, or a
 # reverse proxy with auth in front of it (set LITELLM_BASE_URL to that
-# public address, pointing at ${LITELLM_PORT} -- NOT Open WebUI's UI port).
+# public address, pointing at ${LITELLM_PORT} - NOT Open WebUI's UI port).
 # If you'd rather not expose it at all, install a self-hosted GitHub
 # Actions runner on the same network as that stack (Settings -> Actions ->
 # Runners -> New self-hosted runner) and change `runs-on: ubuntu-latest` to
-# `runs-on: self-hosted` below -- then LITELLM_BASE_URL can just be a plain
+# `runs-on: self-hosted` below - then LITELLM_BASE_URL can just be a plain
 # LAN address (e.g. http://192.168.x.x:4000).
 
 on:
@@ -73,5 +73,5 @@ jobs:
             Generated via self-hosted LiteLLM/Ollama (model: ${{ vars.LITELLM_MODEL }}).
             This PR was opened automatically and was **not** reviewed by a human yet.
             Please read the diff in `generated/` before merging: local-model output
-            can drift more than a hosted model's -- worth a closer skim than usual.
+            can drift more than a hosted model's - worth a closer skim than usual.
           labels: automated-pr

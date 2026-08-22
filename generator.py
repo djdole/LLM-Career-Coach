@@ -9,7 +9,7 @@ API credits and never fails due to account balance.
 
 Tailoring a resume to a *specific* job posting is a different task (it
 requires selecting/adapting content to a JD) and stays a separate,
-manual, chat-based workflow -- see resume_data.json's own
+manual, chat-based workflow - see resume_data.json's own
 generation_workflow_for_llm for that path. This script does not do that.
 
 Usage:
@@ -24,16 +24,16 @@ Usage:
 
 --generate controls WHAT gets built this run:
     * Omitted entirely: resumes, cover letters, and the README are all
-      generated (the original, default behavior) -- UNLESS --analyze was
+      generated (the original, default behavior) - UNLESS --analyze was
       given and --generate was not, in which case nothing from --generate
       runs and this invocation does ONLY the analysis (see --analyze
-      below). "resume_data" is never included in this default -- it's
+      below). "resume_data" is never included in this default - it's
       opt-in only, see below.
     * Supplied with no value (e.g. a trailing `--generate` with nothing
       after it): nothing is generated.
     * Otherwise, its value is a comma-separated list of "resume",
       "cover_letter" (or "coverletter"), "readme", and/or "resume_data",
-      and may be passed multiple times -- the targets from every
+      and may be passed multiple times - the targets from every
       occurrence are combined.
 
 --generate resume_data is a separate, opt-in workflow: rather than
@@ -43,17 +43,17 @@ xml/docx documents) plus LiteLLM to build or non-destructively update a
 resume_data.json. See generate_resume_data_draft() for the exact rules.
 
 --analyze is its own separate flag, independent of --generate: its value
-IS the job description -- literal JD text, a path to a local file
-(pdf/docx/txt/md/json/xml), or a URL to fetch it from -- see
+IS the job description - literal JD text, a path to a local file
+(pdf/docx/txt/md/json/xml), or a URL to fetch it from - see
 resolve_job_description() for exactly how that value is interpreted. It
 uses that plus data/resume_data.json and LiteLLM to estimate percentage
 fit for that specific posting (0-100%), list the skills/qualifications
 the JD calls for that aren't present in the knowledge base, and suggest
-(preferably free) resources -- tutorials, courses, books -- to close each
+(preferably free) resources - tutorials, courses, books - to close each
 gap. If the job description separates its qualifications into more than
 one distinct list (e.g. "Required Qualifications" vs "Preferred
 Qualifications"), a separate fit_percentage is produced per list instead
-of one overall number -- see the "fit_assessments" array in
+of one overall number - see the "fit_assessments" array in
 ANALYSIS_PROMPT_TEMPLATE and validate_job_fit_analysis(). --analyze can
 be combined with --generate in the same invocation to do both; see
 call_llm_analyze_fit() for details. Its LLM prompt is loaded from
@@ -87,7 +87,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 VARIANTS = ["SDE", "SDET"]
 
 # The set of targets built whenever --generate is omitted entirely.
-# "resume_data" is deliberately NOT a member of this set -- it's a
+# "resume_data" is deliberately NOT a member of this set - it's a
 # separate, opt-in maintenance workflow (see generate_resume_data_draft),
 # not something that should run just because someone ran the script with
 # no flags.
@@ -97,7 +97,7 @@ ALL_TARGETS = {"resume", "cover_letter", "readme"}
 # its canonical target name. Both "cover_letter" and "coverletter" collapse
 # to the same normalized key ("coverletter"), so either spelling works;
 # likewise "resume_data" and "resumedata". Job-fit analysis is NOT one of
-# these -- it's triggered by the separate --analyze flag, not --generate
+# these - it's triggered by the separate --analyze flag, not --generate
 # (see build_arg_parser and main).
 GENERATE_ALIASES = {
     "resume": "resume",
@@ -106,7 +106,7 @@ GENERATE_ALIASES = {
     "resumedata": "resume_data",
 }
 
-# Every valid canonical target, default-generated or not -- used for
+# Every valid canonical target, default-generated or not - used for
 # --generate's error message when an unknown value is supplied.
 ALL_KNOWN_TARGETS = set(GENERATE_ALIASES.values())
 
@@ -138,11 +138,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
         metavar="JOB_DESCRIPTION",
         help="Run a job-fit analysis instead of/in addition to "
         "--generate. Its value IS the job description to evaluate fit "
-        "against -- literal text, a path to a local file (pdf/docx/txt/"
+        "against - literal text, a path to a local file (pdf/docx/txt/"
         "md/json/xml), or a URL to fetch it from. Uses that plus "
         "data/resume_data.json to estimate percentage fit (0-100), list "
         "missing skills/qualifications, and suggest (preferably free) "
-        "resources to close each gap. Independent of --generate -- pass "
+        "resources to close each gap. Independent of --generate - pass "
         "both to do both in one run.",
     )
     return parser
@@ -160,7 +160,7 @@ def parse_generate_targets(raw_values: list) -> set:
     unioned together, so e.g. ["resume", "cover_letter,readme"] and
     ["resume,cover_letter,readme"] are equivalent. An occurrence with no
     value contributes nothing, so a lone bare --generate (raw_values ==
-    [""]) yields an empty set -- callers should treat that as "generate
+    [""]) yields an empty set - callers should treat that as "generate
     nothing" rather than falling back to ALL_TARGETS.
     """
     targets = set()
@@ -194,17 +194,17 @@ def parse_generate_targets(raw_values: list) -> set:
 #              LITELLM_API_KEY    same value as LITELLM_MASTER_KEY in that
 #                                 stack's .env
 #   Variables: LITELLM_MODEL      the model string LiteLLM proxies to, e.g.
-#                                 "qwen3.6:latest" -- NOT sensitive,
+#                                 "qwen3.6:latest" - NOT sensitive,
 #                                 so it's a repo Variable rather than a
 #                                 Secret.
 #   Optional:  OLLAMA_NUM_CTX     context window size override (default
-#                                 16384) -- lower if your GPU can't hold
+#                                 16384) - lower if your GPU can't hold
 #                                 that much context for the model in use.
 MODEL = os.environ.get("LITELLM_MODEL", "qwen3.6:latest")
 
 # How long we wait for a *single* chat completion response before giving up
-# on that attempt. There's no one correct default -- it depends on your
-# model size, hardware, LITELLM_MAX_TOKENS, and OLLAMA_NUM_CTX -- so it's
+# on that attempt. There's no one correct default - it depends on your
+# model size, hardware, LITELLM_MAX_TOKENS, and OLLAMA_NUM_CTX - so it's
 # configurable via LITELLM_TIMEOUT rather than hardcoded. Keep it
 # comfortably BELOW any reverse proxy's own read timeout in front of
 # LiteLLM (proxy_read_timeout in nginx, etc.): if the proxy's timeout is
@@ -288,7 +288,7 @@ EM_DASH = "\u2014"
 def compute_job_column_widths(work_experience: list, body_pt: float, total_pt: float, min_title_pt: float = 130) -> tuple:
     """
     Sizes the title/employer/date columns from the ACTUAL text in this
-    resume at this font size, instead of fixed percentages -- fixed splits
+    resume at this font size, instead of fixed percentages - fixed splits
     silently overflow whenever a company name (e.g. 'Cosworth Tech Inc. /
     MAHLE Powertrain LLC') is longer than whatever guess produced the
     split, forcing it to wrap mid-name. Measured with reportlab's
@@ -311,7 +311,7 @@ def compute_job_column_widths(work_experience: list, body_pt: float, total_pt: f
 
 def strip_em_dashes(text: str) -> str:
     """Belt-and-suspenders fallback behind the never_use_em_dash rule the
-    model is given -- not a substitute for the model actually following it."""
+    model is given - not a substitute for the model actually following it."""
     return text.replace(EM_DASH, ",")
 
 
@@ -323,13 +323,13 @@ def build_baseline_context(kb: dict, variant: str) -> dict:
     path needs for ONE variant (SDE or SDET), per generation_workflow_for_llm
     step 0's fallback.
 
-    Trimming matters for two reasons: (1) token budget -- the full KB is
+    Trimming matters for two reasons: (1) token budget - the full KB is
     ~10k tokens alone, likely exceeding a local model's context window
-    unless num_ctx is raised (see call_llm); (2) signal-to-noise -- the
+    unless num_ctx is raised (see call_llm); (2) signal-to-noise - the
     full KB includes JD-tailoring-only fields (bullet variants, per-bullet
     themes/skills tags, the other variant's title, cover letter JD-specific
     building blocks) that have shown up verbatim in bad output before this
-    trimming existed -- fewer irrelevant JSON shapes nearby means less for
+    trimming existed - fewer irrelevant JSON shapes nearby means less for
     a smaller model to latch onto instead of the requested schema.
 
     Skill category labels are pre-formatted here (see CATEGORY_LABELS) so
@@ -352,8 +352,8 @@ def build_baseline_context(kb: dict, variant: str) -> dict:
         for job in kb["work_experience"]
     ]
     # The raw KB uses the key "graduation date" (with a space); the output
-    # schema calls it "date". Renaming it here -- rather than relying on the
-    # model to perform that rename -- is what actually fixed education[]
+    # schema calls it "date". Renaming it here - rather than relying on the
+    # model to perform that rename - is what actually fixed education[]
     # entries coming back without a date at all.
     education = [
         {"degree": ed["degree"], "institution": ed["institution"], "date": ed["graduation date"]}
@@ -375,7 +375,7 @@ def build_baseline_context(kb: dict, variant: str) -> dict:
 
 
 def build_resume_fill_prompt(kb: dict, variant: str, template_text: str) -> str:
-    """Fills RESUME_TEMPLATE using the trimmed baseline context -- same
+    """Fills RESUME_TEMPLATE using the trimmed baseline context - same
     spirit as build_readme_system_prompt, adapted for the resume's
     pipe-delimited, code-parsed structure."""
     context = build_baseline_context(kb, variant)
@@ -383,7 +383,7 @@ def build_resume_fill_prompt(kb: dict, variant: str, template_text: str) -> str:
         f"You are filling in a plain-text resume TEMPLATE for a BASELINE "
         f"{variant} resume (no specific job description provided), using "
         "the candidate data below. Preserve the template's exact structure "
-        "and formatting -- section header text (SUMMARY, WORK EXPERIENCE, "
+        "and formatting - section header text (SUMMARY, WORK EXPERIENCE, "
         "EDUCATION), the bullet character, and especially the exact ' | ' "
         "(space-pipe-space) delimiters on the job-header and education "
         "lines, since those are parsed by code afterward and must be exact. "
@@ -398,7 +398,7 @@ def build_resume_fill_prompt(kb: dict, variant: str, template_text: str) -> str:
         "names like team_context or date_range in your answer) ===\n"
         + json.dumps(context, indent=2)
         + "\n\n=== YOUR TASK ===\n"
-        "Output ONLY the final, completed document -- no commentary, no "
+        "Output ONLY the final, completed document - no commentary, no "
         "markdown code fences around the whole thing, no leftover "
         "{{PLACEHOLDER}} tokens or HTML comments from the template."
     )
@@ -878,7 +878,7 @@ README_REQUIRED_HEADERS = ["## \U0001f6e0\ufe0f Skills", "## \U0001f4bc Experien
 
 
 def build_readme_context(kb: dict) -> dict:
-    """Trimmed context for the README call -- same spirit as
+    """Trimmed context for the README call - same spirit as
     build_baseline_context, but variant-agnostic (the profile README isn't
     SDE- or SDET-specific) and includes the extra fields the resume schema
     doesn't carry: location, each education entry's field of study, and
@@ -920,12 +920,12 @@ def build_readme_system_prompt(kb: dict, template_text: str) -> str:
         "You are filling in a Markdown TEMPLATE for a GitHub profile README, "
         "using the candidate data below. Preserve the template's exact "
         "structure, Markdown syntax, emoji, and formatting (bold, headers, "
-        "horizontal rules, bullet style) -- only replace the {{PLACEHOLDER}} "
+        "horizontal rules, bullet style) - only replace the {{PLACEHOLDER}} "
         "tokens with real content. Follow the template's HTML-comment "
         "instructions for repeating blocks (one skills line per category, "
         "one Experience block per job, one Education block per entry, one "
         "bullet per career highlight). Reproduce career_highlights items "
-        "VERBATIM -- do not reword, shorten, combine, or reorder them. Omit "
+        "VERBATIM - do not reword, shorten, combine, or reorder them. Omit "
         "the '* team context *' line entirely for a job with no "
         "team_context. Follow output_rules exactly, especially "
         "never_fabricate and never_use_em_dash.\n\n"
@@ -934,7 +934,7 @@ def build_readme_system_prompt(kb: dict, template_text: str) -> str:
         "names like team_context or graduation_date in your answer) ===\n"
         + json.dumps(context, indent=2)
         + "\n\n=== YOUR TASK ===\n"
-        "Output ONLY the final, completed Markdown document -- no commentary, "
+        "Output ONLY the final, completed Markdown document - no commentary, "
         "no markdown code fences around the whole thing, no leftover "
         "{{PLACEHOLDER}} tokens or HTML comments from the template. Start "
         "your response with the first line of the filled-in template."
@@ -1121,7 +1121,7 @@ def build_resume_data_prompt(existing_kb: dict, source_texts: dict) -> str:
         + base_block
         + "=== SOURCE DOCUMENTS ===\n" + sources_block + "\n\n"
         "=== YOUR TASK ===\n"
-        "Output ONLY the final JSON object -- no commentary, no markdown "
+        "Output ONLY the final JSON object - no commentary, no markdown "
         "code fences, no leading or trailing text. Start your response "
         "with '{' and end it with '}'."
     )
@@ -1192,7 +1192,7 @@ def generate_resume_data_draft(client: openai.OpenAI, s: dict) -> None:
     Implements --generate resume_data: builds or non-destructively updates
     a resume_data.json (next to KNOWLEDGE_BASE) from whatever source
     files (pdf/txt/json/xml/docx) are sitting in the DATA folder, via
-    LiteLLM, then removes the consumed source files -- never the
+    LiteLLM, then removes the consumed source files - never the
     KNOWLEDGE_BASE file itself, and never the draft it just wrote.
 
     Per spec, this is a series of "nothing happens" short-circuits:
@@ -1250,7 +1250,7 @@ def generate_resume_data_draft(client: openai.OpenAI, s: dict) -> None:
 REQUIRED_ANALYSIS_KEYS = {"fit_assessments", "overall_summary", "upskill_resources"}
 
 # Every key each entry of fit_assessments must contain. "matched_
-# qualifications" is intentionally NOT required -- it's useful context
+# qualifications" is intentionally NOT required - it's useful context
 # for the reader but, unlike the others, isn't something the feature spec
 # asked for, so a model that omits it shouldn't burn a retry.
 REQUIRED_ASSESSMENT_KEYS = {"list_label", "fit_percentage", "assessment_summary", "missing_qualifications"}
@@ -1268,7 +1268,7 @@ def _strip_html(markup: str) -> str:
     Reduces an HTML document to plain text for _fetch_job_description_
     from_url: drops <script>/<style> blocks entirely, strips remaining
     tags, unescapes entities, and collapses excess whitespace. Not a
-    real HTML parser -- just enough to pull readable text out of a job
+    real HTML parser - just enough to pull readable text out of a job
     posting page without adding a new dependency (the project's
     requirements.txt has no HTML parser; beautifulsoup4 is test-only,
     see requirements-test.txt).
@@ -1310,10 +1310,10 @@ def resolve_job_description(raw: str) -> str:
     """
     Turns --analyze's raw CLI value into job description text. raw is
     interpreted, in order:
-      1. A URL (http:// or https:// scheme) -- fetched, and reduced to
+      1. A URL (http:// or https:// scheme) - fetched, and reduced to
          plain text if it looks like HTML (see
          _fetch_job_description_from_url).
-      2. A path to an existing local file -- its text is extracted
+      2. A path to an existing local file - its text is extracted
          (reusing extract_text_from_source_file, so pdf/docx/txt/md/json/
          xml all work, same as a DATA-folder source file).
       3. Otherwise, raw itself: the job description text pasted directly
@@ -1379,7 +1379,7 @@ def build_job_fit_context(kb: dict) -> dict:
 def build_job_fit_prompt(kb: dict, job_description: str, prompt_template_text: str) -> str:
     """
     Fills prompt_template_text (the contents of ANALYSIS_PROMPT_TEMPLATE,
-    e.g. ANALYSIS_PROMPT.template.txt -- a string.Template using
+    e.g. ANALYSIS_PROMPT.template.txt - a string.Template using
     $output_rules/$candidate_data/$job_description placeholders) in with
     this run's actual data. string.Template (not str.format) is used
     deliberately: the template's JSON schema example is full of literal
@@ -1508,7 +1508,7 @@ def render_job_fit_analysis_md(analysis: dict) -> str:
     markdown report. analysis["fit_assessments"] always has at least one
     entry: exactly one when the job description didn't separate its
     qualifications into distinct lists (e.g. "Required" vs "Preferred"),
-    or one per list when it did -- see ANALYSIS_PROMPT_TEMPLATE. The
+    or one per list when it did - see ANALYSIS_PROMPT_TEMPLATE. The
     single-list case is rendered flat (one fit score, one summary, one
     matched/missing pair) rather than nesting it under a redundant
     per-list breakdown."""
@@ -1559,7 +1559,7 @@ def _render_matched_and_missing_md(assessment: dict, heading_level: str) -> list
     if missing:
         lines += [f"- {m}" for m in missing]
     else:
-        lines.append("None found -- the candidate data covers every requirement in this list.")
+        lines.append("None found - the candidate data covers every requirement in this list.")
     lines.append("")
     return lines
 
@@ -1599,16 +1599,16 @@ def render_filename(naming_template: str, full_name: str, job_acronym: str, exte
 def main(argv=None):
     parser = build_arg_parser()
     # argv is None (the default) whenever main() is called directly rather
-    # than via the __main__ block below -- e.g. from tests -- in which
+    # than via the __main__ block below - e.g. from tests - in which
     # case there are no CLI args to parse (as opposed to argparse's own
     # default of falling back to sys.argv, which would pick up whatever
-    # unrelated args the calling process -- e.g. pytest -- was invoked
+    # unrelated args the calling process - e.g. pytest - was invoked
     # with).
     args = parser.parse_args(argv if argv is not None else [])
 
     # --generate's "omitted entirely" default (generate everything) is
     # meant for the tool's primary, no-flags-at-all workflow. --analyze is
-    # a separate, deliberately-opted-into action -- someone running
+    # a separate, deliberately-opted-into action - someone running
     # `--analyze "..."` on its own wants ONLY the analysis, not to also
     # silently kick off a full resume/cover_letter/readme run. So that
     # default only applies when --analyze wasn't requested; an explicit
