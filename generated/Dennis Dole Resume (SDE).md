@@ -2,7 +2,7 @@
 Dennis.Dole@djdole.net · 734-218-2358 · https://www.linkedin.com/in/djdole/ · https://github.com/djdole
 
 ## Summary
-Software Developer with 22+ years of experience at Docusign, Microsoft, and Amazon building automated test frameworks, internal developer tooling, and webhook integration systems for distributed, production-scale software. Proficient across C#, Ruby, Python, Java, PHP, and Node.js, with a track record of designing APIs, debugging complex production issues, and leading technical migrations. Skilled at partnering with developers and product managers throughout the SDLC, and at mentoring engineers on new teams.
+Software Developer with years of valuable experience at Docusign, Microsoft, and Amazon building automated test frameworks, internal developer tooling, and webhook integration systems for distributed, production-scale software. Proficient across C#, Ruby, Python, Java, PHP, and Node.js, with a track record of designing APIs, debugging complex production issues, and leading technical migrations. Skilled at partnering with developers and product managers throughout the SDLC, and at mentoring engineers on new teams.
 
 ## Core Technical Skills
 - **Languages:** polyglot, C#, Ruby, Python, Java, PHP, Node.js, Bash, PowerShell, C++, Lisp, Visual Basic, JavaScript
@@ -27,7 +27,7 @@ Software Developer with 22+ years of experience at Docusign, Microsoft, and Amaz
 
 ## Work Experience
 ### Software Developer | 2024-03 to 2025-07
-*Docusign, Inc. · Docusign Connect · Connect Test Listener (webhook) · Ruby Webhook Test Interface · x509 Certificate Management*
+*Docusign, Inc. · Docusign Connect, Connect Test Listener (webhook), Ruby Webhook Test Interface, x509 Certificate Management*
 - Designed, implemented, and maintained the Connect Team APIListener webhook tool, a production service used for automated end-to-end validation of webhook delivery.
 - Built and maintained a Ruby-based webhook testing application enabling fast, safe switching of targeted webhook endpoints, while preserving operational functionality across internal Docusign systems.
 - Led a migration to a new internal x509 certificate for Docusign Connect webhook connections, coordinating certificate rotation and deployment validation with 5+ internal engineering teams.
@@ -35,7 +35,7 @@ Software Developer with 22+ years of experience at Docusign, Microsoft, and Amaz
 - Partnered with Product Management to reproduce, triage, and resolve customer upgrade and configuration issues.
 
 ### Software Design Engineer in Test (SDET) | 2013-11 to 2024-03
-*Docusign, Inc. · Docusign Connect · Product Incubation Team · Docusign Print Tool (deprecated)*
+*Docusign, Inc. · Docusign Connect, Product Incubation Team, Docusign Print Tool (deprecated)*
 - Designed and built automated test frameworks and a custom API request communication layer using NUnit and Selenium.
 - Engineered obfuscated interfaces and test frameworks supporting webhook endpoint selection for automated and manual testing.
 - Developed sample HMAC-authenticated webhook integration code and ported it to Java, PHP, Python, C#, Ruby, and Node.js for customer-facing developer documentation.
@@ -50,22 +50,22 @@ Software Developer with 22+ years of experience at Docusign, Microsoft, and Amaz
 - Conducted manual mobile application testing for approximately six months, verifying functionality and user experience across mobile platforms.
 
 ### SDET2 | 2012-01 to 2013-06
-*Microsoft Engineering Excellence · Team Foundation Server · Microsoft Test Manager · C#*
+*Microsoft Engineering Excellence · Team Foundation Server, Microsoft Test Manager, C#*
 - Designed and implemented automated tests for Quality Essentials v3 Client and Server.
 - Collaborated with developers, PMs, and leads to ensure quality testing of existing and new features.
 
 ### SDET2 | 2011-11 to 2012-01
-*Amazon · Linux · Eclipse · Hudson · Ant · TestNG · Java · Selenium*
+*Amazon · Linux, Eclipse, Hudson, Ant, TestNG, Java, Selenium*
 - Automated manual test cases to improve execution efficiency and coverage.
 
 ### SDET | 2011-04 to 2011-10
-*Microsoft Live · C# · SQL · WTT · Kahuna Automation Framework (KAF) · NUnit · Source Depot · HyperV · Octopus*
+*Microsoft Live · C#, SQL, WTT, Kahuna Automation Framework (KAF), NUnit, Source Depot, HyperV, Octopus*
 - Designed and implemented a KAF-based test automation framework to execute Build Verification Tests (BVTs) for the BaR team.
 - Owned test features end-to-end, collaborating with developers and product managers to plan and execute strategy.
 - Tested and documented issues across current and related product features.
 
 ### SDET | 2008-02 to 2010-11
-*Microsoft Health Solutions Group · C# · SQL · WTT · Echo · KAF · NUnit · iMacros · REST · XML · HyperV*
+*Microsoft Health Solutions Group · C#, SQL, WTT, Echo, KAF, NUnit, iMacros, REST, XML, HyperV*
 - Designed, updated, and maintained test plans for owned and shared product features.
 - Built and maintained web-app automation to increase test case execution efficiency.
 - Performed exploratory black- and white-box testing to proactively mitigate release risk.
@@ -73,12 +73,12 @@ Software Developer with 22+ years of experience at Docusign, Microsoft, and Amaz
 - Partnered with management, developers, UX, and operations to ensure product quality met release standards.
 
 ### Software Engineer | 2006-03 to 2008-02
-*Cosworth Tech Inc. / MAHLE Powertrain LLC · Borland JBuilder · Java · Swing · Borland C++ · Oracle SQL · PVCS/Serena*
+*Cosworth Tech Inc. / MAHLE Powertrain LLC · Borland JBuilder, Java, Swing, Borland C++, Oracle SQL, PVCS/Serena*
 - Designed, developed, and debugged desktop applications using Borland C++ and Java, resolving defects tracked in Team Track.
 - Automated Excel-based reporting integrated with a SQL trouble-ticket tracking system for contract customers.
 
 ### Quality Assurance Engineer | 2005-03 to 2006-08
-*Cosworth Tech Inc. / MAHLE Powertrain LLC · Excel · iMacros · Visual Basic · Team Track*
+*Cosworth Tech Inc. / MAHLE Powertrain LLC · Excel, iMacros, Visual Basic, Team Track*
 - Developed and maintained system and regression test plans for existing and new software applications.
 - Performed software validation across multiple projects to ensure product quality prior to release.
 
