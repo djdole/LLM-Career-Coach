@@ -50,9 +50,14 @@ uses that plus data/resume_data.json and LiteLLM to estimate percentage
 fit for that specific posting (0-100%), list the skills/qualifications
 the JD calls for that aren't present in the knowledge base, and suggest
 (preferably free) resources -- tutorials, courses, books -- to close each
-gap. --analyze can be combined with --generate in the same invocation to
-do both; see call_llm_analyze_fit() for details. Its LLM prompt is loaded
-from ANALYSIS_PROMPT_TEMPLATE (default: ANALYSIS_PROMPT.template.txt) and
+gap. If the job description separates its qualifications into more than
+one distinct list (e.g. "Required Qualifications" vs "Preferred
+Qualifications"), a separate fit_percentage is produced per list instead
+of one overall number -- see the "fit_assessments" array in
+ANALYSIS_PROMPT_TEMPLATE and validate_job_fit_analysis(). --analyze can
+be combined with --generate in the same invocation to do both; see
+call_llm_analyze_fit() for details. Its LLM prompt is loaded from
+ANALYSIS_PROMPT_TEMPLATE (default: ANALYSIS_PROMPT.template.txt) and
 filled in with the actual data by build_job_fit_prompt().
 """
 
@@ -1240,12 +1245,15 @@ def generate_resume_data_draft(client: openai.OpenAI, s: dict) -> None:
 
 # --- --analyze: job-fit analysis against a job description ----------------
 
-# Every key the model's JSON response must contain for
-# validate_job_fit_analysis() to accept it. "matched_qualifications" is
-# intentionally NOT required -- it's useful context for the reader but,
-# unlike the other three, isn't something the feature spec asked for, so
-# a model that omits it shouldn't burn a retry.
-REQUIRED_ANALYSIS_KEYS = {"fit_percentage", "fit_summary", "missing_qualifications", "upskill_resources"}
+# Every key the model's top-level JSON response must contain for
+# validate_job_fit_analysis() to accept it.
+REQUIRED_ANALYSIS_KEYS = {"fit_assessments", "overall_summary", "upskill_resources"}
+
+# Every key each entry of fit_assessments must contain. "matched_
+# qualifications" is intentionally NOT required -- it's useful context
+# for the reader but, unlike the others, isn't something the feature spec
+# asked for, so a model that omits it shouldn't burn a retry.
+REQUIRED_ASSESSMENT_KEYS = {"list_label", "fit_percentage", "assessment_summary", "missing_qualifications"}
 
 # Keys each entry of upskill_resources must have. resource_url and is_free
 # are deliberately NOT required: a model that (correctly) doesn't know a
@@ -1397,25 +1405,41 @@ def validate_job_fit_analysis(data: dict) -> None:
     if missing_keys:
         raise ValueError(f"Missing required key(s): {sorted(missing_keys)}")
 
-    pct = data["fit_percentage"]
-    if isinstance(pct, bool) or not isinstance(pct, (int, float)):
-        raise ValueError(f"fit_percentage must be a number, got {pct!r}.")
-    if not (0 <= pct <= 100):
-        raise ValueError(f"fit_percentage must be between 0 and 100, got {pct!r}.")
+    if not isinstance(data["overall_summary"], str) or not data["overall_summary"].strip():
+        raise ValueError("overall_summary must be a non-empty string.")
 
-    if not isinstance(data["fit_summary"], str) or not data["fit_summary"].strip():
-        raise ValueError("fit_summary must be a non-empty string.")
+    assessments = data["fit_assessments"]
+    if not isinstance(assessments, list) or not assessments:
+        raise ValueError("fit_assessments must be a non-empty list.")
+    for i, assessment in enumerate(assessments):
+        if not isinstance(assessment, dict):
+            raise ValueError(f"fit_assessments[{i}] must be an object, got {type(assessment).__name__}.")
+        missing = REQUIRED_ASSESSMENT_KEYS - set(assessment.keys())
+        if missing:
+            raise ValueError(f"fit_assessments[{i}] is missing required key(s): {sorted(missing)}")
 
-    if not isinstance(data["missing_qualifications"], list) or not all(
-        isinstance(x, str) for x in data["missing_qualifications"]
-    ):
-        raise ValueError("missing_qualifications must be a list of strings.")
+        if not isinstance(assessment["list_label"], str) or not assessment["list_label"].strip():
+            raise ValueError(f"fit_assessments[{i}].list_label must be a non-empty string.")
 
-    if "matched_qualifications" in data and (
-        not isinstance(data["matched_qualifications"], list)
-        or not all(isinstance(x, str) for x in data["matched_qualifications"])
-    ):
-        raise ValueError("matched_qualifications must be a list of strings.")
+        pct = assessment["fit_percentage"]
+        if isinstance(pct, bool) or not isinstance(pct, (int, float)):
+            raise ValueError(f"fit_assessments[{i}].fit_percentage must be a number, got {pct!r}.")
+        if not (0 <= pct <= 100):
+            raise ValueError(f"fit_assessments[{i}].fit_percentage must be between 0 and 100, got {pct!r}.")
+
+        if not isinstance(assessment["assessment_summary"], str) or not assessment["assessment_summary"].strip():
+            raise ValueError(f"fit_assessments[{i}].assessment_summary must be a non-empty string.")
+
+        if not isinstance(assessment["missing_qualifications"], list) or not all(
+            isinstance(x, str) for x in assessment["missing_qualifications"]
+        ):
+            raise ValueError(f"fit_assessments[{i}].missing_qualifications must be a list of strings.")
+
+        if "matched_qualifications" in assessment and (
+            not isinstance(assessment["matched_qualifications"], list)
+            or not all(isinstance(x, str) for x in assessment["matched_qualifications"])
+        ):
+            raise ValueError(f"fit_assessments[{i}].matched_qualifications must be a list of strings.")
 
     resources = data["upskill_resources"]
     if not isinstance(resources, list):
@@ -1479,33 +1503,29 @@ def call_llm_analyze_fit(client: openai.OpenAI, kb: dict, job_description: str, 
     sys.exit(1)
 
 
-def render_job_fit_analysis_md(analysis: dict, job_description: str) -> str:
+def render_job_fit_analysis_md(analysis: dict) -> str:
     """Renders call_llm_analyze_fit()'s parsed dict as a human-readable
-    markdown report."""
-    lines = [
-        "# Job Fit Analysis",
-        "",
-        f"**Fit score: {analysis['fit_percentage']}%**",
-        "",
-        "## Summary",
-        "",
-        analysis["fit_summary"],
-        "",
-    ]
+    markdown report. analysis["fit_assessments"] always has at least one
+    entry: exactly one when the job description didn't separate its
+    qualifications into distinct lists (e.g. "Required" vs "Preferred"),
+    or one per list when it did -- see ANALYSIS_PROMPT_TEMPLATE. The
+    single-list case is rendered flat (one fit score, one summary, one
+    matched/missing pair) rather than nesting it under a redundant
+    per-list breakdown."""
+    assessments = analysis["fit_assessments"]
+    lines = ["# Job Fit Analysis", ""]
 
-    matched = analysis.get("matched_qualifications") or []
-    if matched:
-        lines += ["## Matched Qualifications", ""]
-        lines += [f"- {m}" for m in matched]
-        lines.append("")
-
-    missing = analysis["missing_qualifications"]
-    lines += ["## Missing Skills / Qualifications", ""]
-    if missing:
-        lines += [f"- {m}" for m in missing]
+    if len(assessments) == 1:
+        a = assessments[0]
+        lines += [f"**Fit score: {a['fit_percentage']}%**", "", "## Summary", "", a["assessment_summary"], ""]
+        lines += _render_matched_and_missing_md(a, heading_level="##")
     else:
-        lines.append("None found -- the candidate data covers every requirement identified in the job description.")
-    lines.append("")
+        lines += ["## Fit Scores", ""]
+        lines += [f"- **{a['list_label']}**: {a['fit_percentage']}%" for a in assessments]
+        lines += ["", "## Summary", "", analysis["overall_summary"], ""]
+        for a in assessments:
+            lines += [f"## {a['list_label']}", "", f"**Fit score: {a['fit_percentage']}%**", "", a["assessment_summary"], ""]
+            lines += _render_matched_and_missing_md(a, heading_level="###")
 
     resources = analysis["upskill_resources"]
     lines += ["## Suggested Resources to Close the Gaps", ""]
@@ -1519,9 +1539,29 @@ def render_job_fit_analysis_md(analysis: dict, job_description: str) -> str:
             lines.append(f"- **{r['missing_item']}**: {name}{type_tag}{free_tag}")
     else:
         lines.append("No resources suggested.")
-    lines.append("")
 
     return "\n".join(lines) + "\n"
+
+
+def _render_matched_and_missing_md(assessment: dict, heading_level: str) -> list:
+    """Shared by render_job_fit_analysis_md's single- and multi-assessment
+    branches: renders one assessment's matched/missing qualifications as
+    markdown lines, at the given heading level ("##" or "###")."""
+    lines = []
+    matched = assessment.get("matched_qualifications") or []
+    if matched:
+        lines += [f"{heading_level} Matched Qualifications", ""]
+        lines += [f"- {m}" for m in matched]
+        lines.append("")
+
+    missing = assessment["missing_qualifications"]
+    lines += [f"{heading_level} Missing Qualifications", ""]
+    if missing:
+        lines += [f"- {m}" for m in missing]
+    else:
+        lines.append("None found -- the candidate data covers every requirement in this list.")
+    lines.append("")
+    return lines
 
 
 def load_file_location_settings() -> dict:
@@ -1654,11 +1694,11 @@ def main(argv=None):
         prompt_template_text = Path(s["ANALYSIS_PROMPT_TEMPLATE"]).read_text(encoding="utf-8")
         analysis = call_llm_analyze_fit(client, kb, job_description, prompt_template_text)
 
-        out_dir = Path(s["OUTPUT_FOLDER"])
-        out_dir.mkdir(parents=True, exist_ok=True)
-        analysis_md_path = out_dir / render_filename(s["ANALYSIS_NAMING_TEMPLATE"], full_name, "", "md")
-        rendered_job_fit_analysis_report = render_job_fit_analysis_md(analysis, job_description)
-        analysis_md_path.write_text(rendered_job_fit_analysis_report, encoding="utf-8")
+#        out_dir = Path(s["OUTPUT_FOLDER"])
+#        out_dir.mkdir(parents=True, exist_ok=True)
+#        analysis_md_path = out_dir / render_filename(s["ANALYSIS_NAMING_TEMPLATE"], full_name, "", "md")
+        rendered_job_fit_analysis_report = render_job_fit_analysis_md(analysis)
+#        analysis_md_path.write_text(rendered_job_fit_analysis_report, encoding="utf-8")
         print(rendered_job_fit_analysis_report)
 
     summary_parts = []

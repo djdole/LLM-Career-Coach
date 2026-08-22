@@ -109,19 +109,34 @@ class TestValidateJobFitAnalysis:
     def test_accepts_well_formed_analysis(self, sample_job_fit_analysis_dict):
         generator.validate_job_fit_analysis(sample_job_fit_analysis_dict)  # should not raise
 
+    def test_accepts_well_formed_multi_assessment_analysis(self, sample_job_fit_analysis_multi_dict):
+        generator.validate_job_fit_analysis(sample_job_fit_analysis_multi_dict)  # should not raise
+
     def test_accepts_empty_missing_and_resources(self):
         generator.validate_job_fit_analysis({
-            "fit_percentage": 100,
-            "fit_summary": "Perfect match.",
-            "missing_qualifications": [],
+            "fit_assessments": [
+                {
+                    "list_label": "Overall Qualifications",
+                    "fit_percentage": 100,
+                    "assessment_summary": "Perfect match.",
+                    "missing_qualifications": [],
+                }
+            ],
+            "overall_summary": "Perfect match.",
             "upskill_resources": [],
         })
 
     def test_matched_qualifications_is_optional(self):
         generator.validate_job_fit_analysis({
-            "fit_percentage": 50,
-            "fit_summary": "Partial match.",
-            "missing_qualifications": ["Rust"],
+            "fit_assessments": [
+                {
+                    "list_label": "Overall Qualifications",
+                    "fit_percentage": 50,
+                    "assessment_summary": "Partial match.",
+                    "missing_qualifications": ["Rust"],
+                }
+            ],
+            "overall_summary": "Partial match.",
             "upskill_resources": [{"missing_item": "Rust", "resource_name": "The Rust Book"}],
         })
 
@@ -131,19 +146,55 @@ class TestValidateJobFitAnalysis:
         with pytest.raises(ValueError):
             generator.validate_job_fit_analysis(sample_job_fit_analysis_dict)
 
-    @pytest.mark.parametrize("bad_pct", [-1, 101, "72", True])
-    def test_raises_on_invalid_fit_percentage(self, sample_job_fit_analysis_dict, bad_pct):
-        sample_job_fit_analysis_dict["fit_percentage"] = bad_pct
+    def test_raises_on_empty_fit_assessments(self, sample_job_fit_analysis_dict):
+        sample_job_fit_analysis_dict["fit_assessments"] = []
         with pytest.raises(ValueError):
             generator.validate_job_fit_analysis(sample_job_fit_analysis_dict)
 
-    def test_raises_on_empty_fit_summary(self, sample_job_fit_analysis_dict):
-        sample_job_fit_analysis_dict["fit_summary"] = "   "
+    def test_raises_when_fit_assessments_not_a_list(self, sample_job_fit_analysis_dict):
+        sample_job_fit_analysis_dict["fit_assessments"] = "not a list"
+        with pytest.raises(ValueError):
+            generator.validate_job_fit_analysis(sample_job_fit_analysis_dict)
+
+    @pytest.mark.parametrize("missing_key", sorted(generator.REQUIRED_ASSESSMENT_KEYS))
+    def test_raises_on_missing_assessment_key(self, sample_job_fit_analysis_dict, missing_key):
+        del sample_job_fit_analysis_dict["fit_assessments"][0][missing_key]
+        with pytest.raises(ValueError):
+            generator.validate_job_fit_analysis(sample_job_fit_analysis_dict)
+
+    @pytest.mark.parametrize("bad_pct", [-1, 101, "72", True])
+    def test_raises_on_invalid_fit_percentage(self, sample_job_fit_analysis_dict, bad_pct):
+        sample_job_fit_analysis_dict["fit_assessments"][0]["fit_percentage"] = bad_pct
+        with pytest.raises(ValueError):
+            generator.validate_job_fit_analysis(sample_job_fit_analysis_dict)
+
+    def test_raises_on_one_bad_assessment_among_several(self, sample_job_fit_analysis_multi_dict):
+        sample_job_fit_analysis_multi_dict["fit_assessments"][1]["fit_percentage"] = 150
+        with pytest.raises(ValueError):
+            generator.validate_job_fit_analysis(sample_job_fit_analysis_multi_dict)
+
+    def test_raises_on_empty_list_label(self, sample_job_fit_analysis_dict):
+        sample_job_fit_analysis_dict["fit_assessments"][0]["list_label"] = "   "
+        with pytest.raises(ValueError):
+            generator.validate_job_fit_analysis(sample_job_fit_analysis_dict)
+
+    def test_raises_on_empty_assessment_summary(self, sample_job_fit_analysis_dict):
+        sample_job_fit_analysis_dict["fit_assessments"][0]["assessment_summary"] = "   "
+        with pytest.raises(ValueError):
+            generator.validate_job_fit_analysis(sample_job_fit_analysis_dict)
+
+    def test_raises_on_empty_overall_summary(self, sample_job_fit_analysis_dict):
+        sample_job_fit_analysis_dict["overall_summary"] = "   "
         with pytest.raises(ValueError):
             generator.validate_job_fit_analysis(sample_job_fit_analysis_dict)
 
     def test_raises_when_missing_qualifications_not_a_list_of_strings(self, sample_job_fit_analysis_dict):
-        sample_job_fit_analysis_dict["missing_qualifications"] = [{"not": "a string"}]
+        sample_job_fit_analysis_dict["fit_assessments"][0]["missing_qualifications"] = [{"not": "a string"}]
+        with pytest.raises(ValueError):
+            generator.validate_job_fit_analysis(sample_job_fit_analysis_dict)
+
+    def test_raises_when_matched_qualifications_not_a_list_of_strings(self, sample_job_fit_analysis_dict):
+        sample_job_fit_analysis_dict["fit_assessments"][0]["matched_qualifications"] = [{"not": "a string"}]
         with pytest.raises(ValueError):
             generator.validate_job_fit_analysis(sample_job_fit_analysis_dict)
 
@@ -238,22 +289,54 @@ class TestCallLlmAnalyzeFit:
 
 class TestRenderJobFitAnalysisMd:
     def test_includes_fit_percentage_and_summary(self, sample_job_fit_analysis_dict):
-        md = generator.render_job_fit_analysis_md(sample_job_fit_analysis_dict, "Some JD text.")
+        md = generator.render_job_fit_analysis_md(sample_job_fit_analysis_dict)
         assert "72%" in md
-        assert sample_job_fit_analysis_dict["fit_summary"] in md
+        assert sample_job_fit_analysis_dict["overall_summary"] in md
 
     def test_includes_missing_qualifications_and_resources(self, sample_job_fit_analysis_dict):
-        md = generator.render_job_fit_analysis_md(sample_job_fit_analysis_dict, "Some JD text.")
+        md = generator.render_job_fit_analysis_md(sample_job_fit_analysis_dict)
         assert "Kubernetes" in md
         assert "Kubernetes Basics" in md
         assert "https://kubernetes.io/docs/tutorials/kubernetes-basics/" in md
 
     def test_handles_no_missing_qualifications(self):
         analysis = {
-            "fit_percentage": 100,
-            "fit_summary": "Perfect match.",
-            "missing_qualifications": [],
+            "fit_assessments": [
+                {
+                    "list_label": "Overall Qualifications",
+                    "fit_percentage": 100,
+                    "assessment_summary": "Perfect match.",
+                    "missing_qualifications": [],
+                }
+            ],
+            "overall_summary": "Perfect match.",
             "upskill_resources": [],
         }
-        md = generator.render_job_fit_analysis_md(analysis, "Some JD text.")
+        md = generator.render_job_fit_analysis_md(analysis)
         assert "None found" in md
+
+    def test_single_assessment_renders_flat_without_a_breakdown_section(self, sample_job_fit_analysis_dict):
+        md = generator.render_job_fit_analysis_md(sample_job_fit_analysis_dict)
+        assert "## Fit Scores" not in md
+        assert "## Matched Qualifications" in md
+        assert "## Missing Qualifications" in md
+        # The summary shouldn't be duplicated under a redundant per-list section.
+        assert md.count(sample_job_fit_analysis_dict["overall_summary"]) == 1
+
+    def test_multi_assessment_shows_a_score_per_list(self, sample_job_fit_analysis_multi_dict):
+        md = generator.render_job_fit_analysis_md(sample_job_fit_analysis_multi_dict)
+        assert "## Fit Scores" in md
+        assert "Required Qualifications" in md
+        assert "Preferred Qualifications" in md
+        assert "90%" in md
+        assert "40%" in md
+
+    def test_multi_assessment_includes_each_lists_own_matched_and_missing(self, sample_job_fit_analysis_multi_dict):
+        md = generator.render_job_fit_analysis_md(sample_job_fit_analysis_multi_dict)
+        assert "PostgreSQL" in md
+        assert "Terraform" in md
+        assert "REST APIs" in md
+
+    def test_multi_assessment_includes_overall_summary(self, sample_job_fit_analysis_multi_dict):
+        md = generator.render_job_fit_analysis_md(sample_job_fit_analysis_multi_dict)
+        assert sample_job_fit_analysis_multi_dict["overall_summary"] in md

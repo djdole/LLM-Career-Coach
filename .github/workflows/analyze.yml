@@ -1,0 +1,148 @@
+# Manually-triggered job-fit analysis (./generate.sh --analyze <text>).
+#
+# This workflow is restricted, in layers, to a specific GitHub user or
+# team - see .github/workflows/README-analyze-setup.md for the one-time
+# setup this requires and, importantly, for what GitHub does and does NOT
+# let you restrict here (workflow *visibility* and *run history* are tied
+# to repository read access; there is no per-workflow visibility control).
+#
+# Layers, from platform-level (strongest) to in-workflow (weakest):
+#   1. Repository access itself - the only real way to keep this fully
+#      out of view of anyone but the intended user/team.
+#   2. Settings > Actions > Policies > Workflow execution protections
+#      (actor rules), if available on your plan - stops an unauthorized
+#      actor from triggering this workflow at all, platform-side.
+#   3. The "job-fit-analysis" environment below, with required reviewers
+#      set to the same user/team - gates the job on approval and scopes
+#      the LiteLLM secrets to only be readable within that environment.
+#   4. The "authorize" job below - an in-workflow allow-list check, as a
+#      fallback for orgs/plans without (2).
+
+name: Job Fit Analysis (Restricted)
+
+run-name: "Job fit analysis requested by @${{ github.actor }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      job_description:
+        description: >-
+          Job description to analyze: paste the text directly, a path to
+          a file already in this repo, or a URL to fetch it from.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: job-fit-analysis
+  cancel-in-progress: false
+
+jobs:
+  authorize:
+    name: Verify caller is allowed
+    runs-on: ubuntu-latest
+    outputs:
+      allowed: ${{ steps.check.outputs.allowed }}
+    steps:
+      - name: Check actor against the configured allow-list
+        id: check
+        env:
+          ACTOR: ${{ github.actor }}
+          # Repository (or organization) Actions variable: a comma-separated
+          # list of exact GitHub usernames allowed to run this workflow,
+          # e.g. "octocat, some-other-user". Settings > Secrets and
+          # variables > Actions > Variables.
+          ALLOWED_USERS: ${{ vars.ANALYZE_ALLOWED_USERS }}
+          # Optional: an "org/team-slug" allowed to run this workflow
+          # instead of (or in addition to) ALLOWED_USERS.
+          ALLOWED_TEAM: ${{ vars.ANALYZE_ALLOWED_TEAM }}
+          # Required only if ALLOWED_TEAM is set: a PAT (classic, "read:org"
+          # scope, or fine-grained with "Members: Read-only") able to read
+          # team membership. The default GITHUB_TOKEN cannot do this.
+          TEAM_READ_TOKEN: ${{ secrets.ANALYZE_TEAM_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+          allowed="false"
+
+          if [ -n "${ALLOWED_USERS:-}" ]; then
+            IFS=',' read -ra USERS <<< "$ALLOWED_USERS"
+            for u in "${USERS[@]}"; do
+              u_trimmed="$(echo "$u" | xargs)"
+              if [ -n "$u_trimmed" ] && [ "$u_trimmed" = "$ACTOR" ]; then
+                allowed="true"
+              fi
+            done
+          fi
+
+          if [ "$allowed" != "true" ] && [ -n "${ALLOWED_TEAM:-}" ]; then
+            if [ -z "${TEAM_READ_TOKEN:-}" ]; then
+              echo "::warning::ANALYZE_ALLOWED_TEAM is set but the ANALYZE_TEAM_READ_TOKEN secret is missing, so team membership can't be checked. Skipping the team check."
+            else
+              org="${ALLOWED_TEAM%%/*}"
+              slug="${ALLOWED_TEAM##*/}"
+              status="$(curl -s -o /tmp/membership.json -w '%{http_code}' \
+                -H "Authorization: token ${TEAM_READ_TOKEN}" \
+                -H "Accept: application/vnd.github+json" \
+                "https://api.github.com/orgs/${org}/teams/${slug}/memberships/${ACTOR}")"
+              if [ "$status" = "200" ] && [ "$(jq -r '.state // empty' /tmp/membership.json)" = "active" ]; then
+                allowed="true"
+              fi
+            fi
+          fi
+
+          echo "allowed=$allowed" >> "$GITHUB_OUTPUT"
+          if [ "$allowed" != "true" ]; then
+            echo "::error::@$ACTOR is not on the ANALYZE_ALLOWED_USERS/ANALYZE_ALLOWED_TEAM allow-list. Denying this run."
+            exit 1
+          fi
+          echo "@$ACTOR is authorized."
+
+  analyze:
+    name: Run --analyze
+    needs: authorize
+    if: needs.authorize.outputs.allowed == 'true'
+    runs-on: ubuntu-latest
+    # Configure this environment (Settings > Environments) with required
+    # reviewers set to the same user/team as an approval gate, and store
+    # LITELLM_BASE_URL / LITELLM_API_KEY as environment secrets so they're
+    # only readable by jobs running in it.
+    environment: job-fit-analysis
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Write .env
+        # generate.sh refuses to run and instead scaffolds a fresh .env
+        # from .env.template on its first run in a clean checkout, so this
+        # writes one up front with just what --analyze needs; everything
+        # else keeps its default from .env.template.
+        env:
+          LITELLM_BASE_URL: ${{ secrets.LITELLM_BASE_URL }}
+          LITELLM_API_KEY: ${{ secrets.LITELLM_API_KEY }}
+          LITELLM_MODEL: ${{ vars.LITELLM_MODEL }}
+        run: |
+          set -euo pipefail
+          {
+            echo "LITELLM_BASE_URL=${LITELLM_BASE_URL}"
+            echo "LITELLM_API_KEY=${LITELLM_API_KEY}"
+            if [ -n "${LITELLM_MODEL:-}" ]; then
+              echo "LITELLM_MODEL=${LITELLM_MODEL}"
+            fi
+          } > .env
+
+      - name: Run job fit analysis
+        env:
+          JOB_DESCRIPTION: ${{ inputs.job_description }}
+        run: |
+          set -euo pipefail
+          chmod +x ./generate.sh
+          ./generate.sh --analyze "$JOB_DESCRIPTION"
+
+      - name: Remove .env
+        if: always()
+        run: rm -f .env

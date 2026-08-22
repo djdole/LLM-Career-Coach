@@ -11,15 +11,26 @@ $candidate_data
 $job_description
 
 === YOUR TASK ===
-Compare the job description's requirements against the candidate data and respond with ONLY a JSON object (no prose or markdown fences around it, your entire response must start with { and end with }) of this exact shape:
+First, check whether the job description separates its qualifications/skills into more than one distinct list -- for example "Required Qualifications" vs. "Preferred Qualifications", "Must-Have" vs. "Nice-to-Have", "Minimum Qualifications" vs. "Preferred Skills", or similar. Job descriptions commonly do this to distinguish hard requirements from bonus skills.
+
+- If the job description has more than one such list, produce one fit assessment per list, each scored independently against only that list's items.
+- If the job description has only one list, or doesn't separate qualifications into distinct lists at all, produce exactly one fit assessment covering the whole posting.
+
+Respond with ONLY a JSON object (no prose or markdown fences around it, your entire response must start with { and end with }) of this exact shape:
 {
-  "fit_percentage": <integer 0-100, your estimate of how well the candidate matches this specific posting>,
-  "fit_summary": "<2-4 sentences justifying that percentage>",
-  "matched_qualifications": ["<requirement from the JD the candidate data clearly satisfies>", ...],
-  "missing_qualifications": ["<skill, technology, or qualification the JD asks for that is NOT present anywhere in the candidate data>", ...],
+  "fit_assessments": [
+    {
+      "list_label": "<the name of this qualifications list as the job description phrases it, e.g. 'Required Qualifications' or 'Preferred Qualifications'; if the posting doesn't separate its qualifications into distinct lists, use 'Overall Qualifications'>",
+      "fit_percentage": <integer 0-100, your estimate of how well the candidate matches ONLY this list>,
+      "assessment_summary": "<1-3 sentences justifying that percentage>",
+      "matched_qualifications": ["<requirement from this list the candidate data clearly satisfies>", ...],
+      "missing_qualifications": ["<skill, technology, or qualification from this list that is NOT present anywhere in the candidate data>", ...]
+    }, ...
+  ],
+  "overall_summary": "<2-4 sentences summarizing overall fit across every list above>",
   "upskill_resources": [
     {
-      "missing_item": "<one entry from missing_qualifications this resource addresses>",
+      "missing_item": "<one entry from any fit assessment's missing_qualifications this resource addresses>",
       "resource_name": "<a specific, real course/tutorial/book/documentation title>",
       "resource_type": "<one of: course, tutorial, book, documentation, video>",
       "resource_url": "<a real URL if you are confident one exists, otherwise omit this field rather than invent one>",
@@ -27,5 +38,4 @@ Compare the job description's requirements against the candidate data and respon
     }, ...
   ]
 }
-missing_qualifications may be an empty list if the candidate meets every requirement; upskill_resources should then also be empty. Otherwise, prefer free resources (official docs, reputable free courses/tutorials, freely available books) where one exists for a gap, and cover every entry in missing_qualifications with at least one resource.
-If the job description contains more than one qualifications/skills list, generate a fit_percentage for each qualifications/skills list.
+A fit assessment's missing_qualifications may be an empty list if the candidate meets every requirement in that list; if every fit assessment has no missing_qualifications, upskill_resources should also be empty. Otherwise, prefer free resources (official docs, reputable free courses/tutorials, freely available books) where one exists for a gap, and cover every entry in every fit assessment's missing_qualifications with at least one resource.
