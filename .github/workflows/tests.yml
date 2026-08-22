@@ -38,8 +38,21 @@ jobs:
 
       - name: Run tests
         id: run_tests
+        # --testmon-noselect: pytest.ini defaults bare `pytest` to
+        # --testmon (only run tests affected by changed code, for fast
+        # local iteration -- see USAGE.md's "Running tests" section).
+        # CI needs the opposite guarantee: every test, every run, so
+        # coverage%, badges, and the PR comment below stay accurate and
+        # a change can't accidentally slip past testmon's dependency
+        # tracking. --testmon-noselect keeps the plugin active (so the
+        # --testmon flag baked into pytest.ini's addopts stays valid --
+        # disabling the plugin outright via `-p no:pytest-testmon`
+        # instead makes pytest error on that flag) but forces it back
+        # to running everything, the same as if testmon weren't
+        # involved at all.
         run: |
           pytest -q \
+            --testmon-noselect \
             --cov=. \
             --cov-report=term-missing \
             --cov-report=xml:coverage.xml \
