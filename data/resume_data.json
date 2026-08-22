@@ -60,7 +60,7 @@
   },
 
   "skills": {
-    "languages": ["polyglot", "C#", "Ruby", "Python", "Java", "PHP", "Node.js", "Bash", "PowerShell", "C++", "Lisp", "Visual Basic", "JavaScript"],
+    "languages": ["C#", "Ruby", "Python", "Java", "PHP", "Node.js", "Bash", "PowerShell", "C++", "Lisp", "Visual Basic", "JavaScript"],
     "apis_and_web_servers": ["REST API design", "Apache HTTPD/Tomcat", "IIS", "nginx", "Node.js", "MongoDB"],
     "operating_systems": ["Windows", "Unix", "Linux", "custom"],
     "test_automation_frameworks": ["Selenium", "Playwright", "Echo", "Docusign's SAW Ruby framework", "KAF (Kahuna Automation Framework)", "custom API test/automation harnesses"],
