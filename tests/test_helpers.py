@@ -116,7 +116,7 @@ class TestLoadFileLocationSettings:
             monkeypatch.delenv(key, raising=False)
         settings = generator.load_file_location_settings()
         assert settings["OUTPUT_FOLDER"] == "generated"
-        assert settings["KNOWLEDGE_BASE"] == "data/resume_data.json"
+        assert settings["KNOWLEDGE_BASE"] == "data/profile.json"
         assert settings["DATA"] is None
         assert settings["README_TEMPLATE"] == "README.template.md"
         assert settings["README_OUTPUT"] == "README.md"

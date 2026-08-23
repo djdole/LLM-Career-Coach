@@ -18,12 +18,12 @@ import generator
 
 @pytest.fixture
 def main_env(tmp_path, monkeypatch, sample_kb):
-    """Sets up a scratch working directory with resume_data.json and the
+    """Sets up a scratch working directory with profile.json and the
     template files main() reads, chdir'd into it, with LITELLM_* env
     vars set so build_llm_client() doesn't exit."""
     monkeypatch.chdir(tmp_path)
     (tmp_path / "data").mkdir()
-    (tmp_path / "data" / "resume_data.json").write_text(json.dumps(sample_kb), encoding="utf-8")
+    (tmp_path / "data" / "profile.json").write_text(json.dumps(sample_kb), encoding="utf-8")
     (tmp_path / "RESUME.template.md").write_text("dummy resume template", encoding="utf-8")
     (tmp_path / "README.template.md").write_text("dummy readme template", encoding="utf-8")
     (tmp_path / "ANALYSIS_PROMPT.template.txt").write_text(
@@ -166,22 +166,22 @@ class TestMainGenerateFlag:
         with pytest.raises(SystemExit):
             generator.main(["--generate", "bogus"])
 
-    def test_resume_data_not_included_in_default_run(self, main_env, monkeypatch, stub_llm_calls):
+    def test_profile_not_included_in_default_run(self, main_env, monkeypatch, stub_llm_calls):
         called = []
-        monkeypatch.setattr(generator, "generate_resume_data_draft", lambda client, s: called.append(True))
+        monkeypatch.setattr(generator, "generate_profile_draft", lambda client, s: called.append(True))
         generator.main([])
         assert called == []
 
-    def test_resume_data_flag_invokes_workflow_without_requiring_knowledge_base(self, main_env, monkeypatch, stub_llm_calls):
+    def test_profile_flag_invokes_workflow_without_requiring_knowledge_base(self, main_env, monkeypatch, stub_llm_calls):
         # Knowledge base file that main_env's fixture wrote is removed here
-        # to prove --generate resume_data alone doesn't require it to
+        # to prove --generate profile alone doesn't require it to
         # exist (unlike resume/cover_letter/readme).
-        (main_env / "data" / "resume_data.json").unlink()
+        (main_env / "data" / "profile.json").unlink()
         called = []
-        monkeypatch.setattr(generator, "generate_resume_data_draft", lambda client, s: called.append(s))
-        generator.main(["--generate", "resume_data"])
+        monkeypatch.setattr(generator, "generate_profile_draft", lambda client, s: called.append(s))
+        generator.main(["--generate", "profile"])
         assert len(called) == 1
-        assert called[0]["KNOWLEDGE_BASE"] == "data/resume_data.json"
+        assert called[0]["KNOWLEDGE_BASE"] == "data/profile.json"
 
 
 class TestMainEntryPoint:

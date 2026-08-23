@@ -1,3 +1,3 @@
-- Rename "resume_data" to "profile"
-- Move functionality "--generate resume_data" to "--generate profile"
+- Move functionality "--generate profile" to "--generate profile"
 - Add functionality: https://orcid.org/0000-0002-4442-0336 import to profile.
+- Update tests.yml to only run on "pull_request", not redundantly upon "push".

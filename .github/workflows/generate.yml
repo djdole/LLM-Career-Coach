@@ -26,7 +26,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "data/resume_data.json"
+      - "data/profile.json"
   workflow_dispatch: {} # allows manually re-running from the Actions tab
 
 permissions:
@@ -66,9 +66,9 @@ jobs:
           commit-message: "Regenerate resumes and cover letter from updated knowledge base"
           branch: auto/regenerate-resumes
           delete-branch: true
-          title: "Auto: regenerate resumes/cover letter from resume_data.json"
+          title: "Auto: regenerate resumes/cover letter from profile.json"
           body: |
-            Triggered by a change to `resume_data.json`.
+            Triggered by a change to `profile.json`.
 
             Generated via self-hosted LiteLLM/Ollama (model: ${{ vars.LITELLM_MODEL }}).
             This PR was opened automatically and was **not** reviewed by a human yet.
