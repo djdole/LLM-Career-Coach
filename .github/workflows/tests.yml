@@ -40,7 +40,7 @@ jobs:
         id: run_tests
         # --testmon-noselect: pytest.ini defaults bare `pytest` to
         # --testmon (only run tests affected by changed code, for fast
-        # local iteration -- see USAGE.md's "Running tests" section).
+        # local iteration - see USAGE.md's "Running tests" section).
         # CI needs the opposite guarantee: every test, every run, so
         # coverage%, badges, and the PR comment below stay accurate and
         # a change can't accidentally slip past testmon's dependency

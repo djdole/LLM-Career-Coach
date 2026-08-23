@@ -22,7 +22,7 @@ job_description.txt
 generated/*Job Fit Analysis.*
 
 # pytest-testmon's local test-selection database (per-machine, tracks
-# which tests exercise which lines of code as of your last run) -- see
+# which tests exercise which lines of code as of your last run) - see
 # pytest.ini and USAGE.md's "Running tests" section.
 .testmondata
 .testmondata-journal
