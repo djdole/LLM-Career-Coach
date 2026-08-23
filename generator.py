@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Generates baseline (no-specific-JD) SDE and SDET resumes, plus a cover
-letter, from resume_data.json, in pdf/docx/txt/md/json formats.
+letter, from profile.json, in pdf/docx/txt/md/json formats.
 
 Uses a self-hosted LiteLLM proxy (in front of Ollama, per that stack's
 docker-compose.yml) rather than a paid hosted API, so this never spends
@@ -9,7 +9,7 @@ API credits and never fails due to account balance.
 
 Tailoring a resume to a *specific* job posting is a different task (it
 requires selecting/adapting content to a JD) and stays a separate,
-manual, chat-based workflow - see resume_data.json's own
+manual, chat-based workflow - see profile.json's own
 generation_workflow_for_llm for that path. This script does not do that.
 
 Usage:
@@ -27,26 +27,26 @@ Usage:
       generated (the original, default behavior) - UNLESS --analyze was
       given and --generate was not, in which case nothing from --generate
       runs and this invocation does ONLY the analysis (see --analyze
-      below). "resume_data" is never included in this default - it's
+      below). "profile" is never included in this default - it's
       opt-in only, see below.
     * Supplied with no value (e.g. a trailing `--generate` with nothing
       after it): nothing is generated.
     * Otherwise, its value is a comma-separated list of "resume",
-      "cover_letter" (or "coverletter"), "readme", and/or "resume_data",
+      "cover_letter" (or "coverletter"), "readme", and/or "profile",
       and may be passed multiple times - the targets from every
       occurrence are combined.
 
---generate resume_data is a separate, opt-in workflow: rather than
+--generate profile is a separate, opt-in workflow: rather than
 generating resumes/cover letters/README FROM the knowledge base, it uses
 source files dropped in the DATA folder (env var DATA, e.g. pdf/txt/json/
 xml/docx documents) plus LiteLLM to build or non-destructively update a
-resume_data.json. See generate_resume_data_draft() for the exact rules.
+profile.json. See generate_profile_draft() for the exact rules.
 
 --analyze is its own separate flag, independent of --generate: its value
 IS the job description - literal JD text, a path to a local file
 (pdf/docx/txt/md/json/xml), or a URL to fetch it from - see
 resolve_job_description() for exactly how that value is interpreted. It
-uses that plus data/resume_data.json and LiteLLM to estimate percentage
+uses that plus data/profile.json and LiteLLM to estimate percentage
 fit for that specific posting (0-100%), list the skills/qualifications
 the JD calls for that aren't present in the knowledge base, and suggest
 (preferably free) resources - tutorials, courses, books - to close each
@@ -87,8 +87,8 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 VARIANTS = ["SDE", "SDET"]
 
 # The set of targets built whenever --generate is omitted entirely.
-# "resume_data" is deliberately NOT a member of this set - it's a
-# separate, opt-in maintenance workflow (see generate_resume_data_draft),
+# "profile" is deliberately NOT a member of this set - it's a
+# separate, opt-in maintenance workflow (see generate_profile_draft),
 # not something that should run just because someone ran the script with
 # no flags.
 ALL_TARGETS = {"resume", "cover_letter", "readme"}
@@ -96,14 +96,14 @@ ALL_TARGETS = {"resume", "cover_letter", "readme"}
 # Maps a normalized (lowercased, with "_"/"-" stripped) --generate token to
 # its canonical target name. Both "cover_letter" and "coverletter" collapse
 # to the same normalized key ("coverletter"), so either spelling works;
-# likewise "resume_data" and "resumedata". Job-fit analysis is NOT one of
+# likewise "profile" and "resumedata". Job-fit analysis is NOT one of
 # these - it's triggered by the separate --analyze flag, not --generate
 # (see build_arg_parser and main).
 GENERATE_ALIASES = {
     "resume": "resume",
     "coverletter": "cover_letter",
     "readme": "readme",
-    "resumedata": "resume_data",
+    "profile": "profile",
 }
 
 # Every valid canonical target, default-generated or not - used for
@@ -114,7 +114,7 @@ ALL_KNOWN_TARGETS = set(GENERATE_ALIASES.values())
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Generates resumes, cover letters, and/or a GitHub "
-        "profile README from resume_data.json (--generate), and/or runs "
+        "profile README from profile.json (--generate), and/or runs "
         "a job-fit analysis against a job description (--analyze)."
     )
     parser.add_argument(
@@ -123,12 +123,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
         nargs="?",
         const="",
         default=None,
-        metavar="resume,cover_letter,readme,resume_data",
+        metavar="resume,cover_letter,readme,profile",
         help="What to generate this run: a comma-separated list of "
-        "resume, cover_letter, readme, and/or resume_data (may also be "
+        "resume, cover_letter, readme, and/or profile (may also be "
         "repeated, e.g. --generate resume --generate readme). Omit "
         "entirely to generate resume+cover_letter+readme (the default; "
-        "resume_data is opt-in only and never included by default). "
+        "profile is opt-in only and never included by default). "
         "Supply with no value to generate nothing. Unrelated to "
         "--analyze below, which is its own separate flag.",
     )
@@ -140,7 +140,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
         "--generate. Its value IS the job description to evaluate fit "
         "against - literal text, a path to a local file (pdf/docx/txt/"
         "md/json/xml), or a URL to fetch it from. Uses that plus "
-        "data/resume_data.json to estimate percentage fit (0-100), list "
+        "data/profile.json to estimate percentage fit (0-100), list "
         "missing skills/qualifications, and suggest (preferably free) "
         "resources to close each gap. Independent of --generate - pass "
         "both to do both in one run.",
@@ -1014,7 +1014,7 @@ def call_llm_readme(client: openai.OpenAI, kb: dict, template_text: str) -> str:
 def extract_text_from_source_file(path: Path) -> str:
     """
     Best-effort plain-text extraction from a DATA-folder source file, for
-    feeding to the LLM in generate_resume_data_draft(). Supports the
+    feeding to the LLM in generate_profile_draft(). Supports the
     formats a resume-adjacent document is likely to show up in: json,
     txt/md, xml, docx, pdf. Unsupported or unreadable files return "" (and
     are logged), rather than raising, so one bad file in the DATA folder
@@ -1035,10 +1035,10 @@ def extract_text_from_source_file(path: Path) -> str:
             reader = PdfReader(str(path))
             return "\n".join(page.extract_text() or "" for page in reader.pages)
     except Exception as e:
-        print(f"[resume_data] Could not read {path.name}: {e}", file=sys.stderr)
+        print(f"[profile] Could not read {path.name}: {e}", file=sys.stderr)
         return ""
 
-    print(f"[resume_data] Skipping unsupported file type: {path.name}", file=sys.stderr)
+    print(f"[profile] Skipping unsupported file type: {path.name}", file=sys.stderr)
     return ""
 
 
@@ -1046,7 +1046,7 @@ def build_source_file_list(data_dir: Path, knowledge_base_path: Path, draft_path
     """
     Lists the candidate source files sitting in the DATA folder: every
     regular, non-hidden file EXCEPT the knowledge base file itself (which
-    may well live in the same folder, e.g. data/resume_data.json) and any
+    may well live in the same folder, e.g. data/profile.json) and any
     pre-existing draft output (so a leftover draft from a prior run is
     never re-consumed as if it were new source material). Returns []
     if the folder doesn't exist, which callers treat the same as "empty".
@@ -1071,9 +1071,9 @@ def build_source_file_list(data_dir: Path, knowledge_base_path: Path, draft_path
     return files
 
 
-def build_resume_data_prompt(existing_kb: dict, source_texts: dict) -> str:
+def build_profile_prompt(existing_kb: dict, source_texts: dict) -> str:
     """
-    Builds the system prompt for call_llm_update_resume_data(). Branches
+    Builds the system prompt for call_llm_update_profile(). Branches
     on whether an existing knowledge base was supplied: existing_kb is
     None for a from-scratch build (no KNOWLEDGE_BASE file yet), or a dict
     for a non-destructive update of one that already exists.
@@ -1127,7 +1127,7 @@ def build_resume_data_prompt(existing_kb: dict, source_texts: dict) -> str:
     )
 
 
-def validate_resume_data_draft(data: dict, existing_kb: dict) -> None:
+def validate_profile_draft(data: dict, existing_kb: dict) -> None:
     if not isinstance(data, dict):
         raise ValueError("Draft knowledge base is not a JSON object.")
     required = ("personal_info", "education", "skills", "work_experience")
@@ -1142,8 +1142,8 @@ def validate_resume_data_draft(data: dict, existing_kb: dict) -> None:
             )
 
 
-def call_llm_update_resume_data(client: openai.OpenAI, existing_kb: dict, source_texts: dict) -> dict:
-    system_prompt = build_resume_data_prompt(existing_kb, source_texts)
+def call_llm_update_profile(client: openai.OpenAI, existing_kb: dict, source_texts: dict) -> dict:
+    system_prompt = build_profile_prompt(existing_kb, source_texts)
     messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": "Produce the JSON knowledge base now."},
@@ -1152,7 +1152,7 @@ def call_llm_update_resume_data(client: openai.OpenAI, existing_kb: dict, source
     num_ctx = int(os.environ.get("OLLAMA_NUM_CTX", "16384"))
 
     est_input_tokens = len(system_prompt) // 4
-    print(f"[resume_data] Prompt size estimate: ~{est_input_tokens} input tokens.", file=sys.stderr)
+    print(f"[profile] Prompt size estimate: ~{est_input_tokens} input tokens.", file=sys.stderr)
 
     last_error = None
     for attempt in range(2):
@@ -1162,34 +1162,34 @@ def call_llm_update_resume_data(client: openai.OpenAI, existing_kb: dict, source
                 extra_body={"options": {"num_ctx": num_ctx}, "keep_alive": LITELLM_KEEP_ALIVE}, messages=messages,
             )
         except openai.APIConnectionError as e:
-            print(f"[resume_data] Could not reach LiteLLM at {client.base_url}: {e}", file=sys.stderr)
+            print(f"[profile] Could not reach LiteLLM at {client.base_url}: {e}", file=sys.stderr)
             sys.exit(1)
         except openai.APIStatusError as e:
-            print(f"[resume_data] LiteLLM returned an error (HTTP {e.status_code}): {e.message}", file=sys.stderr)
+            print(f"[profile] LiteLLM returned an error (HTTP {e.status_code}): {e.message}", file=sys.stderr)
             sys.exit(1)
 
         raw = response.choices[0].message.content or ""
         try:
             data = json.loads(extract_json_object(raw))
-            validate_resume_data_draft(data, existing_kb)
+            validate_profile_draft(data, existing_kb)
             return data
         except (ValueError, json.JSONDecodeError) as e:
             last_error = e
-            print(f"[resume_data] Attempt {attempt + 1}: malformed output ({e}). Raw:\n{raw}\n", file=sys.stderr)
+            print(f"[profile] Attempt {attempt + 1}: malformed output ({e}). Raw:\n{raw}\n", file=sys.stderr)
             messages.append({"role": "assistant", "content": raw})
             messages.append({
                 "role": "user",
                 "content": f"That response was invalid: {e}. Output ONLY the corrected, complete JSON object, following all the same rules.",
             })
 
-    print(f"[resume_data] Model failed to produce a valid knowledge base after 2 attempts. Last error: {last_error}", file=sys.stderr)
+    print(f"[profile] Model failed to produce a valid knowledge base after 2 attempts. Last error: {last_error}", file=sys.stderr)
     sys.exit(1)
 
 
-def generate_resume_data_draft(client: openai.OpenAI, s: dict) -> None:
+def generate_profile_draft(client: openai.OpenAI, s: dict) -> None:
     """
-    Implements --generate resume_data: builds or non-destructively updates
-    a resume_data.json (next to KNOWLEDGE_BASE) from whatever source
+    Implements --generate profile: builds or non-destructively updates
+    a profile.json (next to KNOWLEDGE_BASE) from whatever source
     files (pdf/txt/json/xml/docx) are sitting in the DATA folder, via
     LiteLLM, then removes the consumed source files - never the
     KNOWLEDGE_BASE file itself, and never the draft it just wrote.
@@ -1205,7 +1205,7 @@ def generate_resume_data_draft(client: openai.OpenAI, s: dict) -> None:
     """
     data_dir_setting = s.get("DATA")
     if not data_dir_setting:
-        print("[resume_data] DATA is not set; skipping.", file=sys.stderr)
+        print("[profile] DATA is not set; skipping.", file=sys.stderr)
         return
 
     data_dir = Path(data_dir_setting)
@@ -1214,7 +1214,7 @@ def generate_resume_data_draft(client: openai.OpenAI, s: dict) -> None:
 
     source_files = build_source_file_list(data_dir, kb_path, draft_path)
     if not source_files:
-        print(f"[resume_data] No source files found in {data_dir}/; skipping.", file=sys.stderr)
+        print(f"[profile] No source files found in {data_dir}/; skipping.", file=sys.stderr)
         return
 
     source_texts = {}
@@ -1223,23 +1223,23 @@ def generate_resume_data_draft(client: openai.OpenAI, s: dict) -> None:
         if text.strip():
             source_texts[f.name] = text
     if not source_texts:
-        print(f"[resume_data] Source files in {data_dir}/ had no extractable text; skipping.", file=sys.stderr)
+        print(f"[profile] Source files in {data_dir}/ had no extractable text; skipping.", file=sys.stderr)
         return
 
     existing_kb = json.loads(kb_path.read_text(encoding="utf-8")) if kb_path.is_file() else None
 
-    draft = call_llm_update_resume_data(client, existing_kb, source_texts)
+    draft = call_llm_update_profile(client, existing_kb, source_texts)
     draft_path.parent.mkdir(parents=True, exist_ok=True)
     draft_path.write_text(json.dumps(draft, indent=2), encoding="utf-8")
     verb = "Updated" if existing_kb is not None else "Built"
-    print(f"[resume_data] {verb} knowledge base at {draft_path}")
+    print(f"[profile] {verb} knowledge base at {draft_path}")
 
     for f in source_files:
         try:
             f.unlink()
         except OSError as e:
-            print(f"[resume_data] Could not remove consumed source file {f}: {e}", file=sys.stderr)
-    print(f"[resume_data] Removed {len(source_files)} consumed source file(s) from {data_dir}/")
+            print(f"[profile] Could not remove consumed source file {f}: {e}", file=sys.stderr)
+    print(f"[profile] Removed {len(source_files)} consumed source file(s) from {data_dir}/")
 
 
 # --- --analyze: job-fit analysis against a job description ----------------
@@ -1566,8 +1566,8 @@ def _render_matched_and_missing_md(assessment: dict, heading_level: str) -> list
 def load_file_location_settings() -> dict:
     return {
         "OUTPUT_FOLDER": os.environ.get("OUTPUT_FOLDER", "generated"),
-        "KNOWLEDGE_BASE": os.environ.get("KNOWLEDGE_BASE", "data/resume_data.json"),
-        "KNOWLEDGE_BASE_DRAFT": os.environ.get("KNOWLEDGE_BASE_DRAFT", "data/resume_data.json"),
+        "KNOWLEDGE_BASE": os.environ.get("KNOWLEDGE_BASE", "data/profile.json"),
+        "KNOWLEDGE_BASE_DRAFT": os.environ.get("KNOWLEDGE_BASE_DRAFT", "data/profile.json"),
         "DATA": os.environ.get("DATA"),
         "README_TEMPLATE": os.environ.get("README_TEMPLATE", "README.template.md"),
         "README_OUTPUT": os.environ.get("README_OUTPUT", "README.md"),
@@ -1625,9 +1625,9 @@ def main(argv=None):
     client = build_llm_client()
 
     # Only read KNOWLEDGE_BASE up front if a target actually needs it as
-    # input. --generate resume_data has its own, separate rules about
+    # input. --generate profile has its own, separate rules about
     # whether KNOWLEDGE_BASE needs to exist yet (it may legitimately not),
-    # so it reads it lazily, itself, inside generate_resume_data_draft().
+    # so it reads it lazily, itself, inside generate_profile_draft().
     kb = full_name = None
     if {"resume", "cover_letter", "readme"} & targets or args.analyze:
         kb = json.loads(Path(s["KNOWLEDGE_BASE"]).read_text(encoding="utf-8"))
@@ -1670,15 +1670,15 @@ def main(argv=None):
 
     if "readme" in targets:
         # Separate LLM call, template-driven: fills README_TEMPLATE using
-        # resume_data.json, rather than reusing the resume call above.
+        # profile.json, rather than reusing the resume call above.
         template_text = Path(s["README_TEMPLATE"]).read_text(encoding="utf-8")
         readme_markdown = call_llm_readme(client, kb, template_text)
         readme_path = Path(s["README_OUTPUT"])
         readme_path.write_text(readme_markdown, encoding="utf-8")
         print(f"Wrote GitHub profile README to {readme_path}")
 
-    if "resume_data" in targets:
-        generate_resume_data_draft(client, s)
+    if "profile" in targets:
+        generate_profile_draft(client, s)
 
     if args.analyze:
         try:

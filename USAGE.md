@@ -3,7 +3,7 @@
 ## What this is
 
 This project turns a single structured knowledge base
-(`data/resume_data.json`) into ready-to-send job application materials,
+(`data/profile.json`) into ready-to-send job application materials,
 using a self-hosted LiteLLM proxy (in front of Ollama) rather than a paid
 hosted API - generation never spends API credits and never fails due to
 account balance. Everything is driven by one script, `generator.py`:
@@ -17,13 +17,13 @@ account balance. Everything is driven by one script, `generator.py`:
   missing skills/qualifications, and suggests free resources to close
   the gaps.
 - **Knowledge-base maintenance** - an opt-in workflow that folds new
-  source documents (old resumes, notes, etc.) into `resume_data.json`
+  source documents (old resumes, notes, etc.) into `profile.json`
   itself via LiteLLM, non-destructively.
 
 Everything the resume/cover letter/README generation reads is baseline,
 not-tailored-to-a-specific-posting content. Tailoring a resume to one
 specific job posting is a separate, manual, chat-based workflow (see
-`resume_data.json`'s own `generation_workflow_for_llm` field) - this
+`profile.json`'s own `generation_workflow_for_llm` field) - this
 script does not do that. `--analyze` is the closest thing to
 posting-specific output this script produces, and it only *analyzes*
 fit against a posting, it doesn't rewrite the resume for one.
@@ -98,12 +98,12 @@ of truth `generator.py` reads at startup.
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `KNOWLEDGE_BASE` | `data/resume_data.json` | Where every generation target reads the knowledge base from. Can be a local path (original behavior) **or an http(s) URL** - e.g. a raw file URL into a private repo - to pull it from somewhere other than this checkout. |
+| `KNOWLEDGE_BASE` | `data/profile.json` | Where every generation target reads the knowledge base from. Can be a local path (original behavior) **or an http(s) URL** - e.g. a raw file URL into a private repo - to pull it from somewhere other than this checkout. |
 | `KNOWLEDGE_BASE_URL_TOKEN` | *(unset)* | Only used when `KNOWLEDGE_BASE` is a URL pointing at a private source. Sent as `Authorization: token <value>` (GitHub's convention - works for both `api.github.com` and `raw.githubusercontent.com` with a personal access token). Leave unset for a public URL. |
-| `KNOWLEDGE_BASE_DRAFT` | `data/resume_data.json` | Where `--generate resume_data` writes its output. Defaults to the *same path* as `KNOWLEDGE_BASE`, so by default a successful run overwrites the knowledge base directly - set this to a different path if you'd rather review the draft before promoting it yourself. Always a local path, even when `KNOWLEDGE_BASE` is a URL (there's no way to push a draft back to an arbitrary URL - promoting it back to that source is a manual step). |
-| `DATA` | *(unset)* | Folder `--generate resume_data` reads source documents from (pdf/txt/json/xml/docx). Not used by any other target. If unset, `--generate resume_data` is a no-op. |
+| `KNOWLEDGE_BASE_DRAFT` | `data/profile.json` | Where `--generate profile` writes its output. Defaults to the *same path* as `KNOWLEDGE_BASE`, so by default a successful run overwrites the knowledge base directly - set this to a different path if you'd rather review the draft before promoting it yourself. Always a local path, even when `KNOWLEDGE_BASE` is a URL (there's no way to push a draft back to an arbitrary URL - promoting it back to that source is a manual step). |
+| `DATA` | *(unset)* | Folder `--generate profile` reads source documents from (pdf/txt/json/xml/docx). Not used by any other target. If unset, `--generate profile` is a no-op. |
 
-**A note on "non-destructive"** for `--generate resume_data`: it means
+**A note on "non-destructive"** for `--generate profile`: it means
 the merge is *structure-preserving* - no top-level section present in
 the existing knowledge base is allowed to disappear from the draft.
 It does **not** mean your original file is left untouched on disk:
@@ -137,13 +137,13 @@ Controls what to build this run. Repeatable, with an optional value:
 | `--generate resume --generate readme` | Repeated occurrences are unioned together - equivalent to `--generate resume,readme`. |
 
 Valid values: `resume`, `cover_letter` (or `coverletter`), `readme`,
-`resume_data` (or `resumedata`). Values are case-insensitive and
+`profile` (or `resumedata`). Values are case-insensitive and
 `-`/`_` are interchangeable. An unrecognized value exits with an error
 listing the valid ones.
 
-`resume_data` is **never** included in the "omitted entirely" default --
+`profile` is **never** included in the "omitted entirely" default --
 it's a separate, opt-in maintenance workflow (see
-[Knowledge base](#knowledge-base) above and `generate_resume_data_draft()`
+[Knowledge base](#knowledge-base) above and `generate_profile_draft()`
 in `generator.py`), not something that should run just because you ran
 the script with no flags.
 
@@ -194,7 +194,7 @@ descriptions.
 | `resume` | 1 per variant (SDE, SDET) | `.json`, `.txt`, `.md`, `.pdf`, `.docx` (5) |
 | `cover_letter` | 1 per variant (SDE, SDET) | `.txt`, `.pdf`, `.docx` (3) |
 | `readme` | 1 | `.md`, written to `README_OUTPUT` (repo root by default) |
-| `resume_data` | 1 | `.json`, written to `KNOWLEDGE_BASE_DRAFT` |
+| `profile` | 1 | `.json`, written to `KNOWLEDGE_BASE_DRAFT` |
 | `analyze` | 1 | `.md`, written to `OUTPUT_FOLDER`, and also printed to stdout |
 
 ---
@@ -250,7 +250,7 @@ This repo also ships a few GitHub Actions workflows under
 locally:
 
 - **`generate.yml`** - regenerates baseline resumes/cover letter and
-  opens a PR whenever `data/resume_data.json` changes on `main`.
+  opens a PR whenever `data/profile.json` changes on `main`.
 - **`analyze.yml`** - a manually-triggered, access-restricted
   `--analyze` run; see `.github/workflows/README-analyze-setup.md` for
   what it does and doesn't restrict, and the one-time setup it needs.

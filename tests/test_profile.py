@@ -1,7 +1,7 @@
-"""Tests for the --generate resume_data workflow: build_source_file_list,
-extract_text_from_source_file, build_resume_data_prompt,
-validate_resume_data_draft, call_llm_update_resume_data (mocked client),
-and the generate_resume_data_draft orchestrator (with the LLM call itself
+"""Tests for the --generate profile workflow: build_source_file_list,
+extract_text_from_source_file, build_profile_prompt,
+validate_profile_draft, call_llm_update_profile (mocked client),
+and the generate_profile_draft orchestrator (with the LLM call itself
 stubbed)."""
 
 import json
@@ -29,23 +29,23 @@ class TestBuildSourceFileList:
     def test_excludes_knowledge_base_file(self, tmp_path):
         data_dir = tmp_path / "data"
         data_dir.mkdir()
-        kb_path = data_dir / "resume_data.json"
+        kb_path = data_dir / "profile.json"
         kb_path.write_text("{}", encoding="utf-8")
-        assert generator.build_source_file_list(data_dir, kb_path, data_dir / "resume_data.json") == []
+        assert generator.build_source_file_list(data_dir, kb_path, data_dir / "profile.json") == []
 
     def test_excludes_existing_draft_file(self, tmp_path):
         data_dir = tmp_path / "data"
         data_dir.mkdir()
-        draft_path = data_dir / "resume_data.json"
+        draft_path = data_dir / "profile.json"
         draft_path.write_text("{}", encoding="utf-8")
-        assert generator.build_source_file_list(data_dir, data_dir / "resume_data.json", draft_path) == []
+        assert generator.build_source_file_list(data_dir, data_dir / "profile.json", draft_path) == []
 
     def test_includes_other_files_only(self, tmp_path):
         data_dir = tmp_path / "data"
         data_dir.mkdir()
-        kb_path = data_dir / "resume_data.json"
+        kb_path = data_dir / "profile.json"
         kb_path.write_text("{}", encoding="utf-8")
-        draft_path = data_dir / "resume_data.json"
+        draft_path = data_dir / "profile.json"
         new_resume = data_dir / "old_resume.txt"
         new_resume.write_text("some text", encoding="utf-8")
         hidden = data_dir / ".hidden"
@@ -126,7 +126,7 @@ class TestExtractTextFromSourceFile:
         # A .docx-suffixed file that isn't actually a valid docx makes
         # python-docx raise; extract_text_from_source_file must catch
         # that (any Exception), log it, and return "" rather than
-        # propagate and abort the whole resume_data run over one bad file.
+        # propagate and abort the whole profile run over one bad file.
         p = tmp_path / "corrupt.docx"
         p.write_bytes(b"not a real docx file")
         assert generator.extract_text_from_source_file(p) == ""
@@ -136,37 +136,37 @@ class TestExtractTextFromSourceFile:
 class TestValidateResumeDataDraft:
     def test_accepts_valid_new_draft(self):
         draft = {"personal_info": {}, "education": [], "skills": {}, "work_experience": []}
-        generator.validate_resume_data_draft(draft, None)  # no exception
+        generator.validate_profile_draft(draft, None)  # no exception
 
     def test_rejects_missing_required_section(self):
         draft = {"personal_info": {}, "education": [], "skills": {}}
         with pytest.raises(ValueError, match="missing required section"):
-            generator.validate_resume_data_draft(draft, None)
+            generator.validate_profile_draft(draft, None)
 
     def test_rejects_non_dict(self):
         with pytest.raises(ValueError):
-            generator.validate_resume_data_draft(["not", "a", "dict"], None)
+            generator.validate_profile_draft(["not", "a", "dict"], None)
 
     def test_rejects_dropped_top_level_section_on_update(self, sample_kb):
         draft = {"personal_info": {}, "education": [], "skills": {}, "work_experience": []}
         with pytest.raises(ValueError, match="non-destructive"):
-            generator.validate_resume_data_draft(draft, sample_kb)
+            generator.validate_profile_draft(draft, sample_kb)
 
     def test_accepts_update_that_keeps_all_sections(self, sample_kb):
         draft = dict(sample_kb)
         draft["skills"] = {**draft["skills"], "new_category": ["Something"]}
-        generator.validate_resume_data_draft(draft, sample_kb)  # no exception
+        generator.validate_profile_draft(draft, sample_kb)  # no exception
 
 
 class TestBuildResumeDataPrompt:
     def test_from_scratch_build_has_no_existing_kb_section(self):
-        prompt = generator.build_resume_data_prompt(None, {"resume.txt": "Jane Doe, SWE"})
+        prompt = generator.build_profile_prompt(None, {"resume.txt": "Jane Doe, SWE"})
         assert "BRAND NEW resume knowledge base" in prompt
         assert "=== EXISTING KNOWLEDGE BASE" not in prompt
         assert "Jane Doe, SWE" in prompt
 
     def test_update_includes_existing_kb_and_non_destructive_instructions(self, sample_kb):
-        prompt = generator.build_resume_data_prompt(sample_kb, {"new_job.txt": "Started at Beta Corp"})
+        prompt = generator.build_profile_prompt(sample_kb, {"new_job.txt": "Started at Beta Corp"})
         assert "NON-DESTRUCTIVE" in prompt
         assert "=== EXISTING KNOWLEDGE BASE" in prompt
         assert "Started at Beta Corp" in prompt
@@ -174,7 +174,7 @@ class TestBuildResumeDataPrompt:
         assert sample_kb["personal_info"]["full_name"] in prompt
 
     def test_includes_every_source_file_under_its_own_heading(self):
-        prompt = generator.build_resume_data_prompt(None, {"a.txt": "Content A", "b.txt": "Content B"})
+        prompt = generator.build_profile_prompt(None, {"a.txt": "Content A", "b.txt": "Content B"})
         assert "=== SOURCE FILE: a.txt ===\nContent A" in prompt
         assert "=== SOURCE FILE: b.txt ===\nContent B" in prompt
 
@@ -190,14 +190,14 @@ class TestCallLlmUpdateResumeData:
         new_kb = {"personal_info": {}, "education": [], "skills": {}, "work_experience": []}
         client = MagicMock()
         client.chat.completions.create.return_value = self._make_response(json.dumps(new_kb))
-        result = generator.call_llm_update_resume_data(client, None, {"resume.txt": "Jane Doe"})
+        result = generator.call_llm_update_profile(client, None, {"resume.txt": "Jane Doe"})
         assert result == new_kb
         assert client.chat.completions.create.call_count == 1
 
     def test_updates_existing_kb_on_first_attempt(self, sample_kb):
         client = MagicMock()
         client.chat.completions.create.return_value = self._make_response(json.dumps(sample_kb))
-        result = generator.call_llm_update_resume_data(client, sample_kb, {"new_job.txt": "New role"})
+        result = generator.call_llm_update_profile(client, sample_kb, {"new_job.txt": "New role"})
         assert result == sample_kb
 
     def test_retries_on_unparsable_json_then_succeeds(self):
@@ -207,12 +207,12 @@ class TestCallLlmUpdateResumeData:
             self._make_response("not json at all"),
             self._make_response(json.dumps(new_kb)),
         ]
-        result = generator.call_llm_update_resume_data(client, None, {"resume.txt": "Jane Doe"})
+        result = generator.call_llm_update_profile(client, None, {"resume.txt": "Jane Doe"})
         assert result == new_kb
         assert client.chat.completions.create.call_count == 2
 
     def test_retries_when_draft_drops_existing_section(self, sample_kb):
-        # First response is valid JSON but fails validate_resume_data_draft
+        # First response is valid JSON but fails validate_profile_draft
         # (drops a top-level section from the existing KB) -> retry.
         bad_draft = {"personal_info": {}, "education": [], "skills": {}, "work_experience": []}
         good_draft = dict(sample_kb)
@@ -221,7 +221,7 @@ class TestCallLlmUpdateResumeData:
             self._make_response(json.dumps(bad_draft)),
             self._make_response(json.dumps(good_draft)),
         ]
-        result = generator.call_llm_update_resume_data(client, sample_kb, {"new_job.txt": "New role"})
+        result = generator.call_llm_update_profile(client, sample_kb, {"new_job.txt": "New role"})
         assert result == good_draft
         assert client.chat.completions.create.call_count == 2
 
@@ -229,7 +229,7 @@ class TestCallLlmUpdateResumeData:
         client = MagicMock()
         client.chat.completions.create.return_value = self._make_response("still not valid json")
         with pytest.raises(SystemExit) as exc_info:
-            generator.call_llm_update_resume_data(client, None, {"resume.txt": "Jane Doe"})
+            generator.call_llm_update_profile(client, None, {"resume.txt": "Jane Doe"})
         assert exc_info.value.code == 1
         assert client.chat.completions.create.call_count == 2
 
@@ -239,7 +239,7 @@ class TestCallLlmUpdateResumeData:
             request=MagicMock(), message="unreachable"
         )
         with pytest.raises(SystemExit) as exc_info:
-            generator.call_llm_update_resume_data(client, None, {"resume.txt": "Jane Doe"})
+            generator.call_llm_update_profile(client, None, {"resume.txt": "Jane Doe"})
         assert exc_info.value.code == 1
 
     def test_exits_on_api_status_error(self):
@@ -250,12 +250,12 @@ class TestCallLlmUpdateResumeData:
             body={"error": "server error"},
         )
         with pytest.raises(SystemExit) as exc_info:
-            generator.call_llm_update_resume_data(client, None, {"resume.txt": "Jane Doe"})
+            generator.call_llm_update_profile(client, None, {"resume.txt": "Jane Doe"})
         assert exc_info.value.code == 1
 
 
 @pytest.fixture
-def resume_data_env(tmp_path, monkeypatch):
+def profile_env(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("LITELLM_BASE_URL", "http://example.com")
     monkeypatch.setenv("LITELLM_API_KEY", "secret")
@@ -263,37 +263,37 @@ def resume_data_env(tmp_path, monkeypatch):
 
 
 class TestGenerateResumeDataDraft:
-    def test_noop_when_data_env_unset(self, resume_data_env, monkeypatch):
+    def test_noop_when_data_env_unset(self, profile_env, monkeypatch):
         monkeypatch.delenv("DATA", raising=False)
         settings = generator.load_file_location_settings()
-        generator.generate_resume_data_draft(client=None, s=settings)
-        assert not (resume_data_env / "data").exists()
+        generator.generate_profile_draft(client=None, s=settings)
+        assert not (profile_env / "data").exists()
 
-    def test_noop_when_data_folder_missing(self, resume_data_env, monkeypatch):
+    def test_noop_when_data_folder_missing(self, profile_env, monkeypatch):
         monkeypatch.setenv("DATA", "data")
         settings = generator.load_file_location_settings()
-        generator.generate_resume_data_draft(client=None, s=settings)
-        assert not (resume_data_env / "data" / "resume_data.json").exists()
+        generator.generate_profile_draft(client=None, s=settings)
+        assert not (profile_env / "data" / "profile.json").exists()
 
-    def test_noop_when_data_folder_empty(self, resume_data_env, monkeypatch):
+    def test_noop_when_data_folder_empty(self, profile_env, monkeypatch):
         monkeypatch.setenv("DATA", "data")
-        (resume_data_env / "data").mkdir()
+        (profile_env / "data").mkdir()
         settings = generator.load_file_location_settings()
-        generator.generate_resume_data_draft(client=None, s=settings)
-        assert not (resume_data_env / "data" / "resume_data.json").exists()
+        generator.generate_profile_draft(client=None, s=settings)
+        assert not (profile_env / "data" / "profile.json").exists()
 
-    def test_noop_when_only_knowledge_base_present(self, resume_data_env, monkeypatch, sample_kb):
+    def test_noop_when_only_knowledge_base_present(self, profile_env, monkeypatch, sample_kb):
         monkeypatch.setenv("DATA", "data")
-        data_dir = resume_data_env / "data"
+        data_dir = profile_env / "data"
         data_dir.mkdir()
-        (data_dir / "resume_data.json").write_text(json.dumps(sample_kb), encoding="utf-8")
+        (data_dir / "profile.json").write_text(json.dumps(sample_kb), encoding="utf-8")
         settings = generator.load_file_location_settings()
-        generator.generate_resume_data_draft(client=None, s=settings)
-        assert (data_dir / "resume_data.json").exists()
+        generator.generate_profile_draft(client=None, s=settings)
+        assert (data_dir / "profile.json").exists()
 
-    def test_builds_new_draft_when_knowledge_base_missing(self, resume_data_env, monkeypatch):
+    def test_builds_new_draft_when_knowledge_base_missing(self, profile_env, monkeypatch):
         monkeypatch.setenv("DATA", "data")
-        data_dir = resume_data_env / "data"
+        data_dir = profile_env / "data"
         data_dir.mkdir()
         source = data_dir / "old_resume.txt"
         source.write_text("Jane Doe, Software Engineer at Acme", encoding="utf-8")
@@ -301,21 +301,21 @@ class TestGenerateResumeDataDraft:
 
         new_kb = {"personal_info": {"full_name": "Jane Doe"}, "education": [], "skills": {}, "work_experience": []}
         monkeypatch.setattr(
-            generator, "call_llm_update_resume_data",
+            generator, "call_llm_update_profile",
             lambda client, existing_kb, source_texts: new_kb if existing_kb is None else (_ for _ in ()).throw(AssertionError("expected no existing kb")),
         )
 
-        generator.generate_resume_data_draft(client=object(), s=settings)
+        generator.generate_profile_draft(client=object(), s=settings)
 
-        draft_path = data_dir / "resume_data.json"
+        draft_path = data_dir / "profile.json"
         assert json.loads(draft_path.read_text(encoding="utf-8")) == new_kb
         assert not source.exists()  # consumed source file removed
 
-    def test_updates_draft_non_destructively_when_knowledge_base_exists(self, resume_data_env, monkeypatch, sample_kb):
+    def test_updates_draft_non_destructively_when_knowledge_base_exists(self, profile_env, monkeypatch, sample_kb):
         monkeypatch.setenv("DATA", "data")
-        data_dir = resume_data_env / "data"
+        data_dir = profile_env / "data"
         data_dir.mkdir()
-        (data_dir / "resume_data.json").write_text(json.dumps(sample_kb), encoding="utf-8")
+        (data_dir / "profile.json").write_text(json.dumps(sample_kb), encoding="utf-8")
         source = data_dir / "new_job.txt"
         source.write_text("Started a new role at Beta Corp", encoding="utf-8")
         settings = generator.load_file_location_settings()
@@ -328,34 +328,34 @@ class TestGenerateResumeDataDraft:
             captured["source_texts"] = source_texts
             return updated_kb
 
-        monkeypatch.setattr(generator, "call_llm_update_resume_data", fake_call)
+        monkeypatch.setattr(generator, "call_llm_update_profile", fake_call)
 
-        generator.generate_resume_data_draft(client=object(), s=settings)
+        generator.generate_profile_draft(client=object(), s=settings)
 
         assert captured["existing_kb"] == sample_kb
         assert "new_job.txt" in captured["source_texts"]
-        draft_path = data_dir / "resume_data.json"
+        draft_path = data_dir / "profile.json"
         assert json.loads(draft_path.read_text(encoding="utf-8")) == updated_kb
         assert not source.exists()  # consumed
-        assert (data_dir / "resume_data.json").exists()  # knowledge base itself untouched
+        assert (data_dir / "profile.json").exists()  # knowledge base itself untouched
 
-    def test_leaves_existing_draft_alone_when_no_new_sources(self, resume_data_env, monkeypatch, sample_kb):
+    def test_leaves_existing_draft_alone_when_no_new_sources(self, profile_env, monkeypatch, sample_kb):
         monkeypatch.setenv("DATA", "data")
-        data_dir = resume_data_env / "data"
+        data_dir = profile_env / "data"
         data_dir.mkdir()
-        (data_dir / "resume_data.json").write_text(json.dumps(sample_kb), encoding="utf-8")
-        stale_draft = data_dir / "resume_data.json"
+        (data_dir / "profile.json").write_text(json.dumps(sample_kb), encoding="utf-8")
+        stale_draft = data_dir / "profile.json"
         stale_draft.write_text('{"stale": true}', encoding="utf-8")
         settings = generator.load_file_location_settings()
 
-        generator.generate_resume_data_draft(client=None, s=settings)
+        generator.generate_profile_draft(client=None, s=settings)
 
         # No new source files besides the stale draft/kb -> untouched.
         assert json.loads(stale_draft.read_text(encoding="utf-8")) == {"stale": True}
 
-    def test_noop_when_source_files_have_no_extractable_text(self, resume_data_env, monkeypatch):
+    def test_noop_when_source_files_have_no_extractable_text(self, profile_env, monkeypatch):
         monkeypatch.setenv("DATA", "data")
-        data_dir = resume_data_env / "data"
+        data_dir = profile_env / "data"
         data_dir.mkdir()
         # An unsupported extension -> extract_text_from_source_file
         # returns "" -> source_texts ends up empty -> skip, don't call
@@ -365,34 +365,34 @@ class TestGenerateResumeDataDraft:
 
         called = []
         monkeypatch.setattr(
-            generator, "call_llm_update_resume_data", lambda client, existing_kb, source_texts: called.append(True)
+            generator, "call_llm_update_profile", lambda client, existing_kb, source_texts: called.append(True)
         )
-        generator.generate_resume_data_draft(client=None, s=settings)
+        generator.generate_profile_draft(client=None, s=settings)
 
         assert called == []
-        assert not (data_dir / "resume_data.json").exists()
+        assert not (data_dir / "profile.json").exists()
 
     def test_logs_but_does_not_fail_when_a_consumed_source_file_cant_be_removed(
-        self, resume_data_env, monkeypatch, capsys
+        self, profile_env, monkeypatch, capsys
     ):
         monkeypatch.setenv("DATA", "data")
-        data_dir = resume_data_env / "data"
+        data_dir = profile_env / "data"
         data_dir.mkdir()
         source = data_dir / "old_resume.txt"
         source.write_text("Jane Doe, Software Engineer at Acme", encoding="utf-8")
         settings = generator.load_file_location_settings()
 
         new_kb = {"personal_info": {"full_name": "Jane Doe"}, "education": [], "skills": {}, "work_experience": []}
-        monkeypatch.setattr(generator, "call_llm_update_resume_data", lambda client, existing_kb, source_texts: new_kb)
+        monkeypatch.setattr(generator, "call_llm_update_profile", lambda client, existing_kb, source_texts: new_kb)
 
         def flaky_unlink(self, *args, **kwargs):
             raise OSError("simulated permission error")
 
         monkeypatch.setattr(Path, "unlink", flaky_unlink)
 
-        generator.generate_resume_data_draft(client=object(), s=settings)
+        generator.generate_profile_draft(client=object(), s=settings)
 
         # The draft still gets written even though cleanup partially failed.
-        assert json.loads((data_dir / "resume_data.json").read_text(encoding="utf-8")) == new_kb
+        assert json.loads((data_dir / "profile.json").read_text(encoding="utf-8")) == new_kb
         assert source.exists()  # removal failed, so it's still there
         assert "Could not remove consumed source file" in capsys.readouterr().err

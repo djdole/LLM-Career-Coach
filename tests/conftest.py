@@ -30,7 +30,7 @@ def analysis_prompt_template_text(repo_root) -> str:
 
 def _base_kb() -> dict:
     """A small, hand-built knowledge base with the same shape as
-    resume_data.json, deliberately covering a few edge cases:
+    profile.json, deliberately covering a few edge cases:
     - one job with team_context, one without
     - one skill category present in CATEGORY_LABELS, one that isn't
       (exercises the title-case fallback)
