@@ -6,6 +6,9 @@ naming files, and calling every renderer - without making a network
 call."""
 
 import json
+import runpy
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -100,6 +103,19 @@ class TestMain:
         assert (main_env / "custom_output" / "Jane Doe Resume (SDE).json").exists()
         assert not (main_env / "generated").exists()
 
+    def test_warns_when_resume_still_exceeds_two_pages_at_smallest_tier(
+        self, main_env, stub_llm_calls, monkeypatch, capsys
+    ):
+        # render_resume_pdf returns (pages, body_pt); main() should warn,
+        # rather than silently accept it, when even the smallest font
+        # tier couldn't fit the resume in 2 pages.
+        monkeypatch.setattr(generator, "render_resume_pdf", lambda r, path, max_pages=2: (3, 8))
+        generator.main(["--generate", "resume"])
+        out = capsys.readouterr().out
+        assert "WARNING" in out
+        assert "3 pages" in out
+        assert "8pt" in out
+
 
 class TestMainGenerateFlag:
     def test_no_flag_generates_everything(self, main_env, stub_llm_calls):
@@ -168,6 +184,35 @@ class TestMainGenerateFlag:
         assert called[0]["KNOWLEDGE_BASE"] == "data/resume_data.json"
 
 
+class TestMainEntryPoint:
+    """Runs generator.py as a real subprocess -- a genuine end-to-end
+    smoke test of the CLI, but NOT what gives `if __name__ ==
+    "__main__":` line coverage: a child process's coverage.py tracing
+    isn't visible to the pytest-cov instance running in this process.
+    See test_running_as_main_invokes_main for that."""
+
+    def test_help_flag_exits_zero_via_subprocess(self):
+        result = subprocess.run(
+            [sys.executable, str(Path(generator.__file__)), "--help"],
+            capture_output=True, text=True, timeout=30,
+        )
+        assert result.returncode == 0
+        assert "--generate" in result.stdout
+        assert "--analyze" in result.stdout
+
+    def test_running_as_main_invokes_main(self, monkeypatch, capsys):
+        # runpy executes generator.py's module-level code (including the
+        # `if __name__ == "__main__":` guard) for real, IN this process
+        # and under this test's coverage tracer -- unlike the subprocess
+        # test above. --help gives a clean, expected SystemExit(0) to
+        # assert on rather than needing to fake anything.
+        monkeypatch.setattr(sys, "argv", ["generator.py", "--help"])
+        with pytest.raises(SystemExit) as exc_info:
+            runpy.run_path(generator.__file__, run_name="__main__")
+        assert exc_info.value.code == 0
+        assert "--analyze" in capsys.readouterr().out
+
+
 class TestMainAnalyzeFlag:
     def test_not_run_when_flag_absent(self, main_env, stub_llm_calls, monkeypatch):
         called = []
@@ -175,7 +220,7 @@ class TestMainAnalyzeFlag:
         generator.main([])
         assert called == []
 
-    def test_bare_analyze_does_not_also_run_default_generate_targets(self, main_env, stub_analyze_call):
+    def test_bare_analyze_does_not_also_run_default_generate_targets(self, main_env, stub_analyze_call, capsys):
         # --analyze alone (no --generate) should do ONLY the analysis, not
         # also silently fall back to --generate's "omitted means generate
         # everything" default.
@@ -183,7 +228,7 @@ class TestMainAnalyzeFlag:
         out_dir = main_env / "generated"
         assert not (out_dir / "Jane Doe Resume (SDE).json").exists()
         assert not (out_dir / "Jane Doe Cover Letter (SDE).txt").exists()
-#        assert (out_dir / "Jane Doe Job Fit Analysis.md").exists()
+        assert "Fit score: 72%" in capsys.readouterr().out
 
     def test_bare_flag_with_no_value_errors(self, main_env):
         # --analyze's value IS the job description, so it's a required
@@ -193,6 +238,15 @@ class TestMainAnalyzeFlag:
             generator.main(["--analyze"])
         assert exc_info.value.code == 2
 
+    def test_exits_when_analyze_value_resolves_to_nothing(self, main_env, capsys):
+        # An all-whitespace --analyze value makes resolve_job_description
+        # raise ValueError; main() must catch it, print a [analyze]-
+        # prefixed message to stderr, and exit(1) -- not crash.
+        with pytest.raises(SystemExit) as exc_info:
+            generator.main(["--analyze", "   "])
+        assert exc_info.value.code == 1
+        assert "[analyze]" in capsys.readouterr().err
+
     def test_generate_analyze_is_not_a_valid_generate_value(self, main_env, stub_llm_calls):
         # analyze is triggered by its own --analyze flag now, not as a
         # --generate target - "--generate analyze" should be rejected
@@ -200,12 +254,18 @@ class TestMainAnalyzeFlag:
         with pytest.raises(SystemExit):
             generator.main(["--generate", "analyze"])
 
-#    def test_writes_markdown_report(self, main_env, stub_analyze_call):
-#        generator.main(["--analyze", "Need a Python developer."])
-#        out_dir = main_env / "generated"
-#        md_path = out_dir / "Jane Doe Job Fit Analysis.md"
-#        assert md_path.exists()
-#        assert "72%" in md_path.read_text(encoding="utf-8")
+    def test_prints_analysis_report_to_stdout(self, main_env, stub_analyze_call, capsys):
+        generator.main(["--analyze", "Need a Python developer."])
+        out = capsys.readouterr().out
+        assert "# Job Fit Analysis" in out
+        assert "Fit score: 72%" in out
+        assert stub_analyze_call["overall_summary"] in out
+
+    def test_does_not_write_any_analysis_report_file(self, main_env, stub_analyze_call):
+        # --analyze's report is stdout-only; it must not write anything
+        # to OUTPUT_FOLDER (or anywhere else).
+        generator.main(["--analyze", "Need a Python developer."])
+        assert not (main_env / "generated").exists()
 
     def test_analyze_value_can_be_a_file_path(self, main_env, stub_analyze_call, monkeypatch):
         jd_file = main_env / "jd.txt"

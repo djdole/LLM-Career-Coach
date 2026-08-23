@@ -140,6 +140,11 @@ class TestParseFilledResumeErrors:
         with pytest.raises(ValueError, match="Expected 'EDUCATION' header"):
             generator.parse_filled_resume(text)
 
+    def test_raises_when_skills_heading_missing_at_eof(self):
+        text = "Name\nContact\n\nSUMMARY\nSummary text\n"
+        with pytest.raises(ValueError, match="Output ended before a skills_heading line"):
+            generator.parse_filled_resume(text)
+
     def test_raises_when_education_line_not_pipe_delimited(self):
         text = (
             "Name\nContact\n\nSUMMARY\nSummary text\n\nSKILLS HEADING\nLanguages: Python\n\n"

@@ -147,15 +147,18 @@ class TestBuildLlmClient:
             generator.build_llm_client()
         assert exc_info.value.code == 1
 
-#    def test_builds_client_with_v1_suffix(self, monkeypatch):
-#        monkeypatch.setenv("LITELLM_BASE_URL", "http://example.com")
-#        monkeypatch.setenv("LITELLM_API_KEY", "secret")
-#        client = generator.build_llm_client()
-#        assert str(client.base_url) == "http://example.com/v1"
-#        assert client.api_key == "secret"
+    def test_builds_client_with_v1_suffix(self, monkeypatch):
+        monkeypatch.setenv("LITELLM_BASE_URL", "http://example.com")
+        monkeypatch.setenv("LITELLM_API_KEY", "secret")
+        client = generator.build_llm_client()
+        # openai.OpenAI normalizes base_url to always end with "/".
+        assert str(client.base_url) == "http://example.com/v1/"
+        assert client.api_key == "secret"
 
-#    def test_strips_trailing_slash_before_appending_v1(self, monkeypatch):
-#        monkeypatch.setenv("LITELLM_BASE_URL", "http://example.com/")
-#        monkeypatch.setenv("LITELLM_API_KEY", "secret")
-#        client = generator.build_llm_client()
-#        assert str(client.base_url) == "http://example.com/v1"
+    def test_strips_trailing_slash_before_appending_v1(self, monkeypatch):
+        monkeypatch.setenv("LITELLM_BASE_URL", "http://example.com/")
+        monkeypatch.setenv("LITELLM_API_KEY", "secret")
+        client = generator.build_llm_client()
+        # Without the strip, this would become ".../v1" -- confirms the
+        # trailing slash on LITELLM_BASE_URL doesn't produce "...//v1".
+        assert str(client.base_url) == "http://example.com/v1/"

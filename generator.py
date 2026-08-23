@@ -1169,9 +1169,8 @@ def call_llm_update_resume_data(client: openai.OpenAI, existing_kb: dict, source
             sys.exit(1)
 
         raw = response.choices[0].message.content or ""
-        text = extract_json_object(raw)
         try:
-            data = json.loads(text)
+            data = json.loads(extract_json_object(raw))
             validate_resume_data_draft(data, existing_kb)
             return data
         except (ValueError, json.JSONDecodeError) as e:
@@ -1579,9 +1578,6 @@ def load_file_location_settings() -> dict:
         "COVERLETTER_NAMING_TEMPLATE": os.environ.get(
             "COVERLETTER_NAMING_TEMPLATE", "{FirstName} {LastName} Cover Letter ({JobAcronym}).{Extension}"
         ),
-        "ANALYSIS_NAMING_TEMPLATE": os.environ.get(
-            "ANALYSIS_NAMING_TEMPLATE", "{FirstName} {LastName} Job Fit Analysis.{Extension}"
-        ),
         "ANALYSIS_PROMPT_TEMPLATE": os.environ.get("ANALYSIS_PROMPT_TEMPLATE", "ANALYSIS_PROMPT.template.txt"),
     }
 
@@ -1694,11 +1690,7 @@ def main(argv=None):
         prompt_template_text = Path(s["ANALYSIS_PROMPT_TEMPLATE"]).read_text(encoding="utf-8")
         analysis = call_llm_analyze_fit(client, kb, job_description, prompt_template_text)
 
-#        out_dir = Path(s["OUTPUT_FOLDER"])
-#        out_dir.mkdir(parents=True, exist_ok=True)
-#        analysis_md_path = out_dir / render_filename(s["ANALYSIS_NAMING_TEMPLATE"], full_name, "", "md")
         rendered_job_fit_analysis_report = render_job_fit_analysis_md(analysis)
-#        analysis_md_path.write_text(rendered_job_fit_analysis_report, encoding="utf-8")
         print(rendered_job_fit_analysis_report)
 
     summary_parts = []

@@ -6,6 +6,7 @@ import json
 from unittest.mock import MagicMock
 
 import httpx
+import openai
 import pytest
 
 import generator
@@ -104,10 +105,20 @@ class TestResolveJobDescription:
         with pytest.raises(ValueError):
             generator.resolve_job_description("https://example.com/missing")
 
+    def test_raises_when_url_returns_no_extractable_text(self, monkeypatch):
+        response = self._mock_response("   ", "text/plain")
+        monkeypatch.setattr(generator.httpx, "get", lambda *a, **k: response)
+        with pytest.raises(ValueError, match="no extractable text"):
+            generator.resolve_job_description("https://example.com/blank")
+
 
 class TestValidateJobFitAnalysis:
     def test_accepts_well_formed_analysis(self, sample_job_fit_analysis_dict):
         generator.validate_job_fit_analysis(sample_job_fit_analysis_dict)  # should not raise
+
+    def test_raises_when_top_level_not_a_dict(self):
+        with pytest.raises(ValueError, match="Expected a JSON object"):
+            generator.validate_job_fit_analysis(["not", "a", "dict"])
 
     def test_accepts_well_formed_multi_assessment_analysis(self, sample_job_fit_analysis_multi_dict):
         generator.validate_job_fit_analysis(sample_job_fit_analysis_multi_dict)  # should not raise
@@ -156,6 +167,11 @@ class TestValidateJobFitAnalysis:
         with pytest.raises(ValueError):
             generator.validate_job_fit_analysis(sample_job_fit_analysis_dict)
 
+    def test_raises_when_assessment_entry_not_a_dict(self, sample_job_fit_analysis_dict):
+        sample_job_fit_analysis_dict["fit_assessments"] = ["not a dict"]
+        with pytest.raises(ValueError, match="must be an object"):
+            generator.validate_job_fit_analysis(sample_job_fit_analysis_dict)
+
     @pytest.mark.parametrize("missing_key", sorted(generator.REQUIRED_ASSESSMENT_KEYS))
     def test_raises_on_missing_assessment_key(self, sample_job_fit_analysis_dict, missing_key):
         del sample_job_fit_analysis_dict["fit_assessments"][0][missing_key]
@@ -201,6 +217,11 @@ class TestValidateJobFitAnalysis:
     def test_raises_when_upskill_resources_not_a_list(self, sample_job_fit_analysis_dict):
         sample_job_fit_analysis_dict["upskill_resources"] = "not a list"
         with pytest.raises(ValueError):
+            generator.validate_job_fit_analysis(sample_job_fit_analysis_dict)
+
+    def test_raises_when_resource_entry_not_a_dict(self, sample_job_fit_analysis_dict):
+        sample_job_fit_analysis_dict["upskill_resources"] = ["not a dict"]
+        with pytest.raises(ValueError, match="must be an object"):
             generator.validate_job_fit_analysis(sample_job_fit_analysis_dict)
 
     def test_raises_when_resource_missing_required_key(self, sample_job_fit_analysis_dict):
@@ -282,6 +303,44 @@ class TestCallLlmAnalyzeFit:
     def test_exits_after_exhausting_retries(self, sample_kb, analysis_prompt_template_text):
         client = MagicMock()
         client.chat.completions.create.return_value = _make_response('{"wrong_key": "x"}')
+        with pytest.raises(SystemExit) as exc_info:
+            generator.call_llm_analyze_fit(client, sample_kb, "Need a Python dev.", analysis_prompt_template_text)
+        assert exc_info.value.code == 1
+
+    def test_falls_back_when_response_format_unsupported(
+        self, sample_kb, sample_job_fit_analysis_dict, analysis_prompt_template_text
+    ):
+        client = MagicMock()
+        client.chat.completions.create.side_effect = [
+            openai.BadRequestError(
+                message="response_format not supported",
+                response=MagicMock(status_code=400),
+                body={"error": "response_format not supported"},
+            ),
+            _make_response(json.dumps(sample_job_fit_analysis_dict)),
+        ]
+        result = generator.call_llm_analyze_fit(
+            client, sample_kb, "Need a Python dev.", analysis_prompt_template_text
+        )
+        assert result == sample_job_fit_analysis_dict
+        assert client.chat.completions.create.call_count == 2
+
+    def test_exits_on_connection_error(self, sample_kb, analysis_prompt_template_text):
+        client = MagicMock()
+        client.chat.completions.create.side_effect = openai.APIConnectionError(
+            request=MagicMock(), message="unreachable"
+        )
+        with pytest.raises(SystemExit) as exc_info:
+            generator.call_llm_analyze_fit(client, sample_kb, "Need a Python dev.", analysis_prompt_template_text)
+        assert exc_info.value.code == 1
+
+    def test_exits_on_api_status_error(self, sample_kb, analysis_prompt_template_text):
+        client = MagicMock()
+        client.chat.completions.create.side_effect = openai.APIStatusError(
+            message="server error",
+            response=MagicMock(status_code=500),
+            body={"error": "server error"},
+        )
         with pytest.raises(SystemExit) as exc_info:
             generator.call_llm_analyze_fit(client, sample_kb, "Need a Python dev.", analysis_prompt_template_text)
         assert exc_info.value.code == 1

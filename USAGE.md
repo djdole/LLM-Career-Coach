@@ -93,7 +93,6 @@ of truth `generator.py` reads at startup.
 | `RESUME_TEMPLATE` | `RESUME.template.md` | Template `--generate resume` fills in. |
 | `RESUME_NAMING_TEMPLATE` | `{FirstName} {LastName} Resume ({JobAcronym}).{Extension}` | Output filename pattern for resumes. `{FirstName}`/`{LastName}` come from `personal_info.full_name` in the knowledge base (middle name/initial dropped); `{JobAcronym}` is the variant (`SDE`/`SDET`); `{Extension}` is the output format. |
 | `COVERLETTER_NAMING_TEMPLATE` | `{FirstName} {LastName} Cover Letter ({JobAcronym}).{Extension}` | Same, for cover letters. |
-| `ANALYSIS_NAMING_TEMPLATE` | `{FirstName} {LastName} Job Fit Analysis.{Extension}` | Same, for `--analyze`'s report. No `{JobAcronym}` placeholder needed (it isn't per-resume-variant), but you can still include one if you want it in the filename. |
 
 ### Knowledge base
 
