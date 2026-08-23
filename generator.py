@@ -877,12 +877,42 @@ def render_cover_letter_pdf(cl: dict, path: Path) -> None:
 README_REQUIRED_HEADERS = ["## \U0001f6e0\ufe0f Skills", "## \U0001f4bc Experience", "## \U0001f393 Education", "## \u2728 Career Highlights"]
 
 
+def build_tagged_email(email: str, tag_address: str) -> str:
+    """
+    Builds the email address used for the README's mailto: link, applying
+    "plus addressing" (RFC 5233 subaddressing, e.g. Gmail/Outlook/etc.)
+    if EMAIL_TAG_ADDRESS is set: 'jane@example.com' + 'resume' becomes
+    'jane+resume@example.com', so the visible/displayed email can stay
+    exactly as-is while replies to (or the sender seeing) the mailto
+    link's address reveal it came from the README specifically.
+
+    Returns email UNCHANGED (no '+' inserted) if tag_address is blank,
+    whitespace-only, or unset -- and also if email doesn't look like a
+    single-@ address, since a malformed knowledge-base email shouldn't
+    crash the whole README run over a cosmetic feature.
+    """
+    tag_address = (tag_address or "").strip()
+    if not tag_address:
+        return email
+    local, sep, domain = email.partition("@")
+    if not sep:
+        return email
+    return f"{local}+{tag_address}@{domain}"
+
+
 def build_readme_context(kb: dict) -> dict:
     """Trimmed context for the README call - same spirit as
     build_baseline_context, but variant-agnostic (the profile README isn't
     SDE- or SDET-specific) and includes the extra fields the resume schema
     doesn't carry: location, each education entry's field of study, and
-    the career_narrative_notes differentiators list."""
+    the career_narrative_notes differentiators list.
+
+    personal_info also gets an added email_mailto field (see
+    build_tagged_email) alongside the knowledge base's own untouched
+    email -- the template uses email for the DISPLAYED text and
+    email_mailto for the mailto: link's address, so an optional
+    EMAIL_TAG_ADDRESS can be embedded in the link the reader clicks
+    without changing the email address shown on the page."""
     rules = kb["meta"]["output_rules"]
     skills = [
         {"category": CATEGORY_LABELS.get(k, k.replace("_", " ").title()), "items": v}
@@ -903,9 +933,13 @@ def build_readme_context(kb: dict) -> dict:
          "field_of_study": ed.get("field of study", ""), "graduation_date": ed["graduation date"]}
         for ed in kb["education"]
     ]
+    personal_info = dict(kb["personal_info"])
+    personal_info["email_mailto"] = build_tagged_email(
+        kb["personal_info"]["email"], os.environ.get("EMAIL_TAG_ADDRESS", "")
+    )
     return {
         "output_rules": {"never_fabricate": rules["never_fabricate"], "never_use_em_dash": rules["never_use_em_dash"]},
-        "personal_info": kb["personal_info"],
+        "personal_info": personal_info,
         "summary": kb["summary_variants"]["SDE"],
         "skills": skills,
         "work_experience": work_experience,
@@ -929,6 +963,14 @@ def build_readme_system_prompt(kb: dict, template_text: str) -> str:
         "the '* team context *' line entirely for a job with no "
         "team_context. Follow output_rules exactly, especially "
         "never_fabricate and never_use_em_dash.\n\n"
+        "IMPORTANT - two distinct email fields: personal_info.email is "
+        "the DISPLAYED email text and personal_info.email_mailto is the "
+        "address inside the mailto: link. They may differ (email_mailto "
+        "can carry an extra '+tag' for the link's address only) or be "
+        "identical - either way, use email EXACTLY where the template "
+        "shows visible email text, and email_mailto EXACTLY inside every "
+        "mailto: URL. Never swap them, and never merge them into one "
+        "value.\n\n"
         "=== TEMPLATE ===\n" + template_text + "\n\n"
         "=== CANDIDATE DATA (read for content only; do not include field "
         "names like team_context or graduation_date in your answer) ===\n"

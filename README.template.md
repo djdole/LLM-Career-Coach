@@ -11,7 +11,7 @@
 {{PROFESSIONAL_SUMMARY}}
 
 📍 {{LOCATION}}<br>
-📧 [{{EMAIL}}](mailto:{{EMAIL}})<br>
+📧 [{{EMAIL}}](mailto:{{EMAIL_MAILTO}})<br>
 📱 {{PHONE}}<br>
 🔗 [{{LINKEDIN_DISPLAY}}]({{LINKEDIN_URL}})<br>
 🔗 [{{PORTFOLIO_DISPLAY}}]({{PORTFOLIO_URL}})
@@ -56,4 +56,4 @@ Graduated {{GRADUATION_DATE}}
 
 ---
 
-📫 Reach out at [{{EMAIL}}](mailto:{{EMAIL}}) or connect on [LinkedIn]({{LINKEDIN_URL}}).
+📫 Reach out at [{{EMAIL}}](mailto:{{EMAIL_MAILTO}}) or connect on [LinkedIn]({{LINKEDIN_URL}}).

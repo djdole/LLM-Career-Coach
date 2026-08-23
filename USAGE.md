@@ -90,6 +90,7 @@ of truth `generator.py` reads at startup.
 | `OUTPUT_FOLDER` | `generated` | Where resume/cover letter files are written. |
 | `README_TEMPLATE` | `README.template.md` | Template `--generate readme` fills in. |
 | `README_OUTPUT` | `README.md` | Where the filled-in README is written (repo root, so it renders as the GitHub profile README). |
+| `EMAIL_TAG_ADDRESS` | `""` | Optional "plus addressing" tag (RFC 5233 subaddressing -- Gmail/Outlook/etc. honor it) applied to the README's email **mailto: link only**. The email address as *displayed* on the page is never changed. E.g. with this set to `resume` and `personal_info.email` = `jane@example.com`, the page still shows `jane@example.com`, but the link behind it is `mailto:jane+resume@example.com` -- so you can tell whether a reply came from someone who found you via the README. Leave blank (the default) for no tag at all. |
 | `RESUME_TEMPLATE` | `RESUME.template.md` | Template `--generate resume` fills in. |
 | `RESUME_NAMING_TEMPLATE` | `{FirstName} {LastName} Resume ({JobAcronym}).{Extension}` | Output filename pattern for resumes. `{FirstName}`/`{LastName}` come from `personal_info.full_name` in the knowledge base (middle name/initial dropped); `{JobAcronym}` is the variant (`SDE`/`SDET`); `{Extension}` is the output format. |
 | `COVERLETTER_NAMING_TEMPLATE` | `{FirstName} {LastName} Cover Letter ({JobAcronym}).{Extension}` | Same, for cover letters. |
