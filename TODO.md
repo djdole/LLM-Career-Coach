@@ -1,2 +1,3 @@
 - Add functionality: https://orcid.org/0000-0002-4442-0336 import to profile.
 - Update tests.yml to only run on "pull_request", not redundantly upon "push".
+- update profile.json : email: +from-githubcom-profile
