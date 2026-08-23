@@ -103,7 +103,7 @@ GENERATE_ALIASES = {
     "resume": "resume",
     "coverletter": "cover_letter",
     "readme": "readme",
-    "resumedata": "profile",
+    "profile": "profile",
 }
 
 # Every valid canonical target, default-generated or not - used for
