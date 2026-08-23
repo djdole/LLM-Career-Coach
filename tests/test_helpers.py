@@ -7,6 +7,29 @@ import pytest
 import generator
 
 
+class TestBuildTaggedEmail:
+    def test_no_tag_when_tag_address_unset(self):
+        assert generator.build_tagged_email("jane@example.com", "") == "jane@example.com"
+
+    def test_no_tag_when_tag_address_none(self):
+        assert generator.build_tagged_email("jane@example.com", None) == "jane@example.com"
+
+    def test_no_tag_when_tag_address_whitespace_only(self):
+        assert generator.build_tagged_email("jane@example.com", "   ") == "jane@example.com"
+
+    def test_inserts_tag_before_at_sign(self):
+        assert generator.build_tagged_email("jane@example.com", "resume") == "jane+resume@example.com"
+
+    def test_strips_whitespace_around_tag_address(self):
+        assert generator.build_tagged_email("jane@example.com", "  resume  ") == "jane+resume@example.com"
+
+    def test_email_without_at_sign_returned_unchanged(self):
+        assert generator.build_tagged_email("not-an-email", "resume") == "not-an-email"
+
+    def test_preserves_subdomain_and_dots_in_local_part(self):
+        assert generator.build_tagged_email("jane.doe@mail.example.com", "readme") == "jane.doe+readme@mail.example.com"
+
+
 class TestStripEmDashes:
     def test_replaces_em_dash_with_comma(self):
         assert generator.strip_em_dashes("before\u2014after") == "before,after"

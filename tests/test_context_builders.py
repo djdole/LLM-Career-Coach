@@ -97,6 +97,23 @@ class TestBuildReadmeContext:
         ctx = generator.build_readme_context(sample_kb)
         assert ctx["education"][0]["field_of_study"] == ""
 
+    def test_email_mailto_matches_email_when_tag_address_unset(self, sample_kb, monkeypatch):
+        monkeypatch.delenv("EMAIL_TAG_ADDRESS", raising=False)
+        ctx = generator.build_readme_context(sample_kb)
+        assert ctx["personal_info"]["email_mailto"] == ctx["personal_info"]["email"] == "jane@example.com"
+
+    def test_email_mailto_gets_tag_when_email_tag_address_set(self, sample_kb, monkeypatch):
+        monkeypatch.setenv("EMAIL_TAG_ADDRESS", "resume")
+        ctx = generator.build_readme_context(sample_kb)
+        assert ctx["personal_info"]["email_mailto"] == "jane+resume@example.com"
+        # The displayed email is untouched.
+        assert ctx["personal_info"]["email"] == "jane@example.com"
+
+    def test_does_not_mutate_the_original_knowledge_base_dict(self, sample_kb, monkeypatch):
+        monkeypatch.setenv("EMAIL_TAG_ADDRESS", "resume")
+        generator.build_readme_context(sample_kb)
+        assert "email_mailto" not in sample_kb["personal_info"]
+
 
 class TestBuildResumeFillPrompt:
     def test_includes_template_text_verbatim(self, sample_kb, resume_template_text):
@@ -132,3 +149,13 @@ class TestBuildReadmeSystemPrompt:
     def test_includes_career_highlights_instruction(self, sample_kb, readme_template_text):
         prompt = generator.build_readme_system_prompt(sample_kb, readme_template_text)
         assert "career_highlights" in prompt
+
+    def test_includes_email_and_email_mailto_disambiguation_instruction(self, sample_kb, readme_template_text):
+        prompt = generator.build_readme_system_prompt(sample_kb, readme_template_text)
+        assert "email_mailto" in prompt
+
+    def test_serialized_candidate_data_includes_both_email_fields(self, sample_kb, readme_template_text, monkeypatch):
+        monkeypatch.setenv("EMAIL_TAG_ADDRESS", "resume")
+        prompt = generator.build_readme_system_prompt(sample_kb, readme_template_text)
+        assert '"email": "jane@example.com"' in prompt
+        assert '"email_mailto": "jane+resume@example.com"' in prompt
