@@ -1,6 +1,8 @@
 """Tests for small, pure helper functions in generator.py."""
 
+import datetime
 import os
+import re
 
 import pytest
 
@@ -95,6 +97,80 @@ class TestRenderFilename:
     def test_two_token_name(self):
         result = generator.render_filename("{FirstName} {LastName}", "Jane Doe", "SDET", "docx")
         assert result == "Jane Doe"
+
+    def test_empty_full_name_renders_first_and_last_as_empty_string(self):
+        assert generator.render_filename("[{FirstName}][{LastName}]", "", "SDE", "json") == "[][]"
+
+    def test_none_full_name_renders_first_and_last_as_empty_string(self):
+        assert generator.render_filename("[{FirstName}][{LastName}]", None, "SDE", "json") == "[][]"
+
+    def test_job_acronym_can_nest_output_under_a_subfolder(self):
+        result = generator.render_filename(
+            "{JobAcronym}/{FirstName} {LastName} Resume.{Extension}", "Jane Doe", "SDE", "pdf",
+        )
+        assert result == "SDE/Jane Doe Resume.pdf"
+
+    def test_email_placeholder(self):
+        result = generator.render_filename("{Email}.{Extension}", "Jane Doe", "SDE", "json", email="jane@example.com")
+        assert result == "jane@example.com.json"
+
+    def test_email_defaults_to_empty_string(self):
+        result = generator.render_filename("[{Email}]", "Jane Doe", "SDE", "json")
+        assert result == "[]"
+
+    def test_bare_datetime_now_is_filesystem_safe(self):
+        result = generator.render_filename("data/{datetime.now}/profile.json", "", "", "json")
+        # No ':' or ' ' -- safe as a single path segment on every OS.
+        assert re.fullmatch(r"data/\d{4}-\d{2}-\d{2}_\d{6}/profile\.json", result)
+
+    def test_datetime_now_year_month_day_are_real_ints(self):
+        now = datetime.datetime.now()
+        result = generator.render_filename(
+            "{datetime.now.year}-{datetime.now.month:02d}-{datetime.now.day:02d}", "", "", "",
+        )
+        assert result == f"{now.year}-{now.month:02d}-{now.day:02d}"
+
+    def test_datetime_now_bare_and_attribute_access_share_one_instant(self):
+        # Both {datetime.now} and {datetime.now.year} in the SAME template
+        # must come from the same underlying datetime.now() call, not two
+        # separate calls that could straddle a rollover.
+        result = generator.render_filename("{datetime.now}_{datetime.now.year}", "", "", "")
+        bare, year = result.rsplit("_", 1)
+        assert bare.startswith(year)
+
+
+class TestNowPlaceholder:
+    def test_str_value_is_filesystem_safe_format(self):
+        dt = datetime.datetime(2026, 3, 5, 9, 7, 2)
+        assert str(generator._NowPlaceholder(dt)) == "2026-03-05_090702"
+
+    def test_known_datetime_attributes_pass_through(self):
+        dt = datetime.datetime(2026, 3, 5, 9, 7, 2)
+        placeholder = generator._NowPlaceholder(dt)
+        assert placeholder.year == 2026
+        assert placeholder.month == 3
+        assert placeholder.day == 5
+        assert placeholder.hour == 9
+
+    def test_unrelated_attribute_still_raises_attribute_error(self):
+        placeholder = generator._NowPlaceholder(datetime.datetime.now())
+        with pytest.raises(AttributeError):
+            placeholder.not_a_real_attribute
+
+
+class TestEnsureParentDirExists:
+    def test_creates_missing_parent_directory(self, tmp_path):
+        target = tmp_path / "a" / "b" / "c" / "file.txt"
+        assert not target.parent.exists()
+        result = generator.ensure_parent_dir_exists(target)
+        assert result == target
+        assert target.parent.is_dir()
+
+    def test_is_a_noop_when_parent_already_exists(self, tmp_path):
+        target = tmp_path / "file.txt"
+        result = generator.ensure_parent_dir_exists(target)
+        assert result == target
+        assert target.parent.is_dir()
 
 
 class TestComputeJobColumnWidths:
