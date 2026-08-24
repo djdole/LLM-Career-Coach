@@ -291,6 +291,18 @@ class TestGenerateResumeDataDraft:
         generator.generate_profile_draft(client=None, s=settings)
         assert (data_dir / "profile.json").exists()
 
+    def test_noop_when_knowledge_base_is_malformed_and_no_source_files(self, profile_env, monkeypatch):
+        # A malformed/unreadable KNOWLEDGE_BASE shouldn't crash a run
+        # that has no source files to process anyway -- it should still
+        # just skip quietly, the same as if KNOWLEDGE_BASE were absent.
+        monkeypatch.setenv("DATA", "data")
+        data_dir = profile_env / "data"
+        data_dir.mkdir()
+        (data_dir / "profile.json").write_text("{not valid json", encoding="utf-8")
+        settings = generator.load_file_location_settings()
+        generator.generate_profile_draft(client=None, s=settings)  # must not raise
+        assert (data_dir / "profile.json").read_text(encoding="utf-8") == "{not valid json"
+
     def test_builds_new_draft_when_knowledge_base_missing(self, profile_env, monkeypatch):
         monkeypatch.setenv("DATA", "data")
         data_dir = profile_env / "data"

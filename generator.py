@@ -62,12 +62,14 @@ filled in with the actual data by build_job_fit_prompt().
 """
 
 import argparse
+import datetime
 import html
 import json
 import os
 import re
 import string
 import sys
+import types
 import urllib.parse
 from pathlib import Path
 
@@ -1252,7 +1254,29 @@ def generate_profile_draft(client: openai.OpenAI, s: dict) -> None:
 
     data_dir = Path(data_dir_setting)
     kb_path = Path(s["KNOWLEDGE_BASE"])
-    draft_path = Path(s["KNOWLEDGE_BASE_DRAFT"])
+
+    def _read_existing_kb():
+        return json.loads(kb_path.read_text(encoding="utf-8")) if kb_path.is_file() else None
+
+    # KNOWLEDGE_BASE_DRAFT is a naming template too (see render_filename),
+    # not a raw path -- e.g. "data/{datetime.now}/profile.json" nests
+    # each run's draft under its own timestamped subfolder, and a
+    # template using {FirstName}/{LastName}/{Email} needs a name to pull
+    # from. This speculative read is ONLY for that: any read/parse
+    # failure here falls back to "" for those placeholders rather than
+    # aborting outright, since an unreadable/malformed KNOWLEDGE_BASE
+    # shouldn't crash a run that -- once the source-file scan below runs
+    # -- may well have turned out to be a no-op anyway. If KNOWLEDGE_BASE
+    # really is broken and there ARE source files to process, that
+    # surfaces properly below, where it's read again for real.
+    try:
+        personal_info = (_read_existing_kb() or {}).get("personal_info", {})
+    except (OSError, ValueError):
+        personal_info = {}
+    draft_path = Path(render_filename(
+        s["KNOWLEDGE_BASE_DRAFT"], personal_info.get("full_name", ""), "", "json",
+        email=personal_info.get("email", ""),
+    ))
 
     source_files = build_source_file_list(data_dir, kb_path, draft_path)
     if not source_files:
@@ -1268,11 +1292,10 @@ def generate_profile_draft(client: openai.OpenAI, s: dict) -> None:
         print(f"[profile] Source files in {data_dir}/ had no extractable text; skipping.", file=sys.stderr)
         return
 
-    existing_kb = json.loads(kb_path.read_text(encoding="utf-8")) if kb_path.is_file() else None
+    existing_kb = _read_existing_kb()
 
     draft = call_llm_update_profile(client, existing_kb, source_texts)
-    draft_path.parent.mkdir(parents=True, exist_ok=True)
-    draft_path.write_text(json.dumps(draft, indent=2), encoding="utf-8")
+    ensure_parent_dir_exists(draft_path).write_text(json.dumps(draft, indent=2), encoding="utf-8")
     verb = "Updated" if existing_kb is not None else "Built"
     print(f"[profile] {verb} knowledge base at {draft_path}")
 
@@ -1624,14 +1647,84 @@ def load_file_location_settings() -> dict:
     }
 
 
-def render_filename(naming_template: str, full_name: str, job_acronym: str, extension: str) -> str:
-    """Fills a naming template like '{FirstName} {LastName} Resume
-    ({JobAcronym}).{Extension}' using the candidate's full name (first and
-    last token; a middle name/initial is dropped, matching the existing
-    file-naming convention) and the given variant/extension."""
-    parts = full_name.split()
-    first_name, last_name = parts[0], parts[-1]
-    return naming_template.format(FirstName=first_name, LastName=last_name, JobAcronym=job_acronym, Extension=extension)
+class _NowPlaceholder(str):
+    """
+    A str subclass wrapping a single "now" timestamp, so a naming-
+    template placeholder can be used bare (renders as a filesystem-safe
+    default format) OR with dotted attribute access for an individual
+    component -- both from the exact same `datetime.now()` call, so a
+    template using several of these in one path (e.g. a year folder and
+    a day file) can't straddle a rollover between them.
+
+    Bare {datetime.now} -> "YYYY-MM-DD_HHMMSS" (sortable, no ':' or ' ',
+    safe as a path segment on every OS this runs on).
+    {datetime.now.year}/{.month}/{.day}/{.hour}/{.minute}/{.second} ->
+    the real underlying int (so e.g. {datetime.now.month:02d} zero-pads
+    via a normal str.format spec) -- and any other real datetime.datetime
+    attribute/method (.strftime, .date, .weekday, ...) is reachable the
+    same way, since unresolved attribute lookups fall through to it.
+    """
+
+    def __new__(cls, dt: datetime.datetime):
+        obj = super().__new__(cls, dt.strftime("%Y-%m-%d_%H%M%S"))
+        obj._dt = dt
+        return obj
+
+    def __getattr__(self, name):
+        return getattr(self._dt, name)
+
+
+def render_filename(
+    naming_template: str, full_name: str, job_acronym: str, extension: str, email: str = "",
+) -> str:
+    """
+    Fills a naming/output-path template -- RESUME_NAMING_TEMPLATE,
+    COVERLETTER_NAMING_TEMPLATE, or KNOWLEDGE_BASE_DRAFT -- with this
+    run's actual values. See USAGE.md's "Naming template placeholders"
+    section for the full list; in short:
+      {FirstName}/{LastName} - full_name's first and last whitespace-
+        separated token (a middle name/initial is dropped). Both render
+        as "" if full_name is falsy (e.g. KNOWLEDGE_BASE_DRAFT during a
+        from-scratch profile build, before any name is known yet).
+      {JobAcronym} - job_acronym verbatim (e.g. "SDE"/"SDET"); "" where
+        not applicable (KNOWLEDGE_BASE_DRAFT isn't per-variant).
+      {Extension} - extension verbatim (e.g. "pdf").
+      {Email} - email verbatim; "" if not given.
+      {datetime.now...} - see _NowPlaceholder.
+
+    A template MAY contain "/" to nest the result under a subfolder
+    (e.g. "{JobAcronym}/{FirstName} {LastName} Resume.{Extension}") --
+    render_filename only fills in the placeholders; creating that
+    subfolder before writing anything into it is the caller's job, via
+    ensure_parent_dir_exists().
+    """
+    parts = (full_name or "").split()
+    first_name = parts[0] if parts else ""
+    last_name = parts[-1] if parts else ""
+    now_ns = types.SimpleNamespace(now=_NowPlaceholder(datetime.datetime.now()))
+    return naming_template.format(
+        FirstName=first_name, LastName=last_name, JobAcronym=job_acronym, Extension=extension,
+        Email=email or "", datetime=now_ns,
+    )
+
+
+def ensure_parent_dir_exists(path: Path) -> Path:
+    """
+    Creates path's parent directory (and any missing intermediate
+    directories) if it doesn't already exist yet, then returns path
+    unchanged -- so a write call site can just be
+    `ensure_parent_dir_exists(some_path).write_text(...)`, or pass the
+    wrapped path straight to a renderer that writes to it internally
+    (render_resume_pdf, render_resume_docx, render_cover_letter_pdf,
+    render_cover_letter_docx). This is what makes a naming template like
+    "{JobAcronym}/{FirstName} {LastName} Resume.{Extension}" work at all:
+    reportlab/python-docx/plain file writes all fail outright if the
+    directory they're writing into doesn't exist yet, and naming
+    templates are free to put a placeholder before the LAST '/' to
+    request a subfolder that may not exist on disk until this runs.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path
 
 
 def main(argv=None):
@@ -1684,10 +1777,10 @@ def main(argv=None):
 
         for variant in VARIANTS:
             def resume_path(ext: str) -> Path:
-                return out_dir / render_filename(s["RESUME_NAMING_TEMPLATE"], full_name, variant, ext)
+                return ensure_parent_dir_exists(out_dir / render_filename(s["RESUME_NAMING_TEMPLATE"], full_name, variant, ext))
 
             def cl_path(ext: str) -> Path:
-                return out_dir / render_filename(s["COVERLETTER_NAMING_TEMPLATE"], full_name, variant, ext)
+                return ensure_parent_dir_exists(out_dir / render_filename(s["COVERLETTER_NAMING_TEMPLATE"], full_name, variant, ext))
 
             if "resume" in targets:
                 r = call_llm_fill_resume(client, kb, variant, resume_template_text)
@@ -1716,7 +1809,7 @@ def main(argv=None):
         template_text = Path(s["README_TEMPLATE"]).read_text(encoding="utf-8")
         readme_markdown = call_llm_readme(client, kb, template_text)
         readme_path = Path(s["README_OUTPUT"])
-        readme_path.write_text(readme_markdown, encoding="utf-8")
+        ensure_parent_dir_exists(readme_path).write_text(readme_markdown, encoding="utf-8")
         print(f"Wrote GitHub profile README to {readme_path}")
 
     if "profile" in targets:
