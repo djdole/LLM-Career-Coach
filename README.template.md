@@ -13,6 +13,7 @@
 📍 {{LOCATION}}<br>
 📧 [{{EMAIL}}](mailto:{{EMAIL_MAILTO}})<br>
 📱 {{PHONE}}<br>
+🔗 [ORCID]({{ORCID_URL}})<br>
 🔗 [{{LINKEDIN_DISPLAY}}]({{LINKEDIN_URL}})<br>
 🔗 [{{PORTFOLIO_DISPLAY}}]({{PORTFOLIO_URL}})
 
@@ -29,7 +30,7 @@
 
 <!-- Repeat this whole block once per job, in the order given in the data (most recent first). -->
 ### {{JOB_TITLE}}
-#### {{COMPANY}}  -  **{{START_MONTH_YEAR}}-{{END_MONTH_YEAR}}**
+#### {{COMPANY}}  -  **{{START_MONTH_YEAR}} to {{END_MONTH_YEAR}}**
 * {{TEAM_CONTEXT_ITEM}} * {{TEAM_CONTEXT_ITEM}} * ... *
 
 - {{BULLET}}
