@@ -45,7 +45,11 @@ Software Developer with years of valuable experience at Docusign, Microsoft, and
 
 ### Software Developer
 #### Docusign, Inc.  -  **2024-03 to 2025-07**
+<<<<<<< HEAD
 * Docusign Connect, Connect Test Listener (webhook), Ruby Webhook Test Interface, x509 Certificate Management *
+=======
+* Docusign Connect * *Connect Test Listener (webhook)* *Ruby Webhook Test Interface* *x509 Certificate Management* *
+>>>>>>> origin/main
 
 - Designed, implemented, and maintained the Connect Team APIListener webhook tool, a production service used for automated end-to-end validation of webhook delivery.
 - Built and maintained a Ruby-based webhook testing application enabling fast, safe switching of targeted webhook endpoints, while preserving operational functionality across internal Docusign systems.
@@ -55,7 +59,11 @@ Software Developer with years of valuable experience at Docusign, Microsoft, and
 
 ### Software Design Engineer in Test (SDET)
 #### Docusign, Inc.  -  **2013-11 to 2024-03**
+<<<<<<< HEAD
 * Docusign Connect, Product Incubation Team, Docusign Print Tool (deprecated) *
+=======
+* Docusign Connect * *Product Incubation Team* *Docusign Print Tool (deprecated)* *
+>>>>>>> origin/main
 
 - Designed and built automated test frameworks and a custom API request communication layer using NUnit and Selenium.
 - Engineered obfuscated interfaces and test frameworks supporting webhook endpoint selection for automated and manual testing.
@@ -72,20 +80,32 @@ Software Developer with years of valuable experience at Docusign, Microsoft, and
 
 ### SDET2
 #### Microsoft Engineering Excellence  -  **2012-01 to 2013-06**
+<<<<<<< HEAD
 * Team Foundation Server, Microsoft Test Manager, C# *
+=======
+* Team Foundation Server * *Microsoft Test Manager * *C#* *
+>>>>>>> origin/main
 
 - Designed and implemented automated tests for Quality Essentials v3 Client and Server.
 - Collaborated with developers, PMs, and leads to ensure quality testing of existing and new features.
 
 ### SDET2
 #### Amazon  -  **2011-11 to 2012-01**
+<<<<<<< HEAD
 * Linux, Eclipse, Hudson, Ant, TestNG, Java, Selenium *
+=======
+* Linux * *Eclipse * *Hudson * *Ant * *TestNG * *Java * *Selenium* *
+>>>>>>> origin/main
 
 - Automated manual test cases to improve execution efficiency and coverage.
 
 ### SDET
 #### Microsoft Live  -  **2011-04 to 2011-10**
+<<<<<<< HEAD
 * C#, SQL, WTT, Kahuna Automation Framework (KAF), NUnit, Source Depot, HyperV, Octopus *
+=======
+* C# * *SQL * *WTT * *Kahuna Automation Framework (KAF)* *NUnit * *Source Depot * *HyperV * *Octopus* *
+>>>>>>> origin/main
 
 - Designed and implemented a KAF-based test automation framework to execute Build Verification Tests (BVTs) for the BaR team.
 - Owned test features end-to-end, collaborating with developers and product managers to plan and execute strategy.
@@ -93,7 +113,11 @@ Software Developer with years of valuable experience at Docusign, Microsoft, and
 
 ### SDET
 #### Microsoft Health Solutions Group  -  **2008-02 to 2010-11**
+<<<<<<< HEAD
 * C#, SQL, WTT, Echo, KAF, NUnit, iMacros, REST, XML, HyperV *
+=======
+* C# * *SQL * *WTT * *Echo * *KAF * *NUnit * *iMacros * *REST * *XML * *HyperV* *
+>>>>>>> origin/main
 
 - Designed, updated, and maintained test plans for owned and shared product features.
 - Built and maintained web-app automation to increase test case execution efficiency.
@@ -103,14 +127,22 @@ Software Developer with years of valuable experience at Docusign, Microsoft, and
 
 ### Software Engineer
 #### Cosworth Tech Inc. / MAHLE Powertrain LLC  -  **2006-03 to 2008-02**
+<<<<<<< HEAD
 * Borland JBuilder, Java, Swing, Borland C++, Oracle SQL, PVCS/Serena *
+=======
+* Borland JBuilder * *Java * *Swing * *Borland C++ * *Oracle SQL * *PVCS/Serena* *
+>>>>>>> origin/main
 
 - Designed, developed, and debugged desktop applications using Borland C++ and Java, resolving defects tracked in Team Track.
 - Automated Excel-based reporting integrated with a SQL trouble-ticket tracking system for contract customers.
 
 ### Quality Assurance Engineer
 #### Cosworth Tech Inc. / MAHLE Powertrain LLC  -  **2005-03 to 2006-08**
+<<<<<<< HEAD
 * Excel, iMacros, Visual Basic, Team Track *
+=======
+* Excel * *iMacros * *Visual Basic * *Team Track* *
+>>>>>>> origin/main
 
 - Developed and maintained system and regression test plans for existing and new software applications.
 - Performed software validation across multiple projects to ensure product quality prior to release.
