@@ -1,0 +1,13 @@
+Dear Hiring Manager,
+
+I am excited to apply for the posted position. With more than 15 years of experience spanning DocuSign, Microsoft, Amazon, and MAHLE Powertrain, I have built production tooling, automated frameworks, APIs, and developer-focused solutions that improve software quality and engineering productivity.
+
+Most recently at DocuSign, I designed and maintained a production webhook validation service, developed Ruby-based tooling for webhook testing, led an x509 certificate migration across multiple engineering teams, and partnered with product managers and engineers to resolve complex customer issues. Earlier, I developed automation frameworks, REST API tooling, and customer sample integrations in C#, Java, PHP, Python, Ruby, and Node.js.
+
+Throughout my career, I have enjoyed solving complex technical problems, collaborating across engineering disciplines, mentoring teammates, and delivering reliable software. My experience with distributed systems, debugging production issues, CI/CD, Docker, Kubernetes, REST APIs, and Agile development enables me to contribute quickly while continuing to learn new technologies.
+
+I would welcome the opportunity to discuss how my background and software engineering experience can benefit your team. Thank you for your time and consideration. I look forward to hearing from you.
+
+Sincerely,
+
+Dennis Jay Dole
