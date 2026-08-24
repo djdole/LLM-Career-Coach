@@ -2,7 +2,7 @@
 Dennis.Dole@djdole.net · 734-218-2358 · https://www.linkedin.com/in/djdole/ · https://github.com/djdole
 
 ## Summary
-Software Development Engineer in Test with years of valuable experience at Docusign, Microsoft, and Amazon, specializing in designing automated test frameworks, building internal test tooling, and debugging complex product issues across distributed systems and webhook integrations. Skilled at driving test coverage, root-cauting defects, and partnering with developers and product managers throughout the SDLC. Proven track record mentoring new engineers and leading testing initiatives from planning through release.
+Software Development Engineer in Test with years of valuable experience at Docusign, Microsoft, and Amazon, specializing in designing automated test frameworks, building internal test tooling, and debugging complex product issues across distributed systems and webhook integrations. Skilled at driving test coverage, root-causing defects, and partnering with developers and product managers throughout the SDLC. Proven track record mentoring new engineers and leading testing initiatives from planning through release.
 
 ## Core Sdet Skills
 - **Languages:** C#, Ruby, Python, Java, PHP, Node.js, Bash, PowerShell, C++, Lisp, Visual Basic, JavaScript
@@ -26,7 +26,7 @@ Software Development Engineer in Test with years of valuable experience at Docus
 - **Soft Skills:** listening, empathy, communication, understanding, delegation, collaboration, critical thinking, adaptability
 
 ## Work Experience
-### Software Developer | Mar 2024 to Jul 2025
+### Software Developer | 2024-03 to 2025-07
 *Docusign, Inc. · Docusign Connect · Connect Test Listener (webhook) · Ruby Webhook Test Interface · x509 Certificate Management*
 - Designed, implemented, and maintained the Connect Team APIListener webhook tool, a production service used for automated end-to-end validation of webhook delivery.
 - Built and maintained a Ruby-based webhook testing application enabling fast, safe switching of targeted webhook endpoints, while preserving operational functionality across internal Docusign systems.
@@ -34,7 +34,7 @@ Software Development Engineer in Test with years of valuable experience at Docus
 - Improved the stability and reliability of internal webhook tooling relied on by automation and developer initiatives.
 - Partnered with Product Management to reproduce, triage, and resolve customer upgrade and configuration issues.
 
-### Software Design Engineer in Test | Nov 2013 to Mar 2024
+### Software Design Engineer in Test (SDET) | 2013-11 to 2024-03
 *Docusign, Inc. · Docusign Connect · Product Incubation Team · Docusign Print Tool (deprecated)*
 - Designed and built automated test frameworks and a custom API request communication layer using NUnit and Selenium.
 - Engineered obfuscated interfaces and test frameworks supporting webhook endpoint selection for automated and manual testing.
@@ -49,22 +49,22 @@ Software Development Engineer in Test with years of valuable experience at Docus
 - Performed manual and Selenium-based automated testing of Angular and React front-end applications, verifying UI functionality and catching regressions ahead of release.
 - Conducted manual mobile application testing for approximately six months, verifying functionality and user experience across mobile platforms.
 
-### SDET2 | Jan 2012 to Jun 2013
+### SDET2 | 2012-01 to 2013-06
 *Microsoft Engineering Excellence · Team Foundation Server · Microsoft Test Manager · C#*
 - Designed and implemented automated tests for Quality Essentials v3 Client and Server.
 - Collaborated with developers, PMs, and leads to ensure quality testing of existing and new features.
 
-### SDET2 | Nov 2011 to Jan 2012
+### SDET2 | 2011-11 to 2012-01
 *Amazon · Linux · Eclipse · Hudson · Ant · TestNG · Java · Selenium*
 - Automated manual test cases to improve execution efficiency and coverage.
 
-### SDET | Apr 2011 to Oct 2011
+### SDET | 2011-04 to 2011-10
 *Microsoft Live · C# · SQL · WTT · Kahuna Automation Framework (KAF) · NUnit · Source Depot · HyperV · Octopus*
 - Designed and implemented a KAF-based test automation framework to execute Build Verification Tests (BVTs) for the BaR team.
 - Owned test features end-to-end, collaborating with developers and product managers to plan and execute strategy.
 - Tested and documented issues across current and related product features.
 
-### SDET | Feb 2008 to Nov 2010
+### SDET | 2008-02 to 2010-11
 *Microsoft Health Solutions Group · C# · SQL · WTT · Echo · KAF · NUnit · iMacros · REST · XML · HyperV*
 - Designed, updated, and maintained test plans for owned and shared product features.
 - Built and maintained web-app automation to increase test case execution efficiency.
@@ -72,12 +72,12 @@ Software Development Engineer in Test with years of valuable experience at Docus
 - Participated in bug triage to review, prioritize, and delegate issue resolution.
 - Partnered with management, developers, UX, and operations to ensure product quality met release standards.
 
-### Software Engineer | Mar 2006 to Feb 2008
+### Software Engineer | 2006-03 to 2008-02
 *Cosworth Tech Inc. / MAHLE Powertrain LLC · Borland JBuilder · Java · Swing · Borland C++ · Oracle SQL · PVCS/Serena*
 - Designed, developed, and debugged desktop applications using Borland C++ and Java, resolving defects tracked in Team Track.
 - Automated Excel-based reporting integrated with a SQL trouble-ticket tracking system for contract customers.
 
-### Quality Assurance Engineer | Mar 2005 to Aug 2006
+### Quality Assurance Engineer | 2005-03 to 2006-08
 *Cosworth Tech Inc. / MAHLE Powertrain LLC · Excel · iMacros · Visual Basic · Team Track*
 - Developed and maintained system and regression test plans for existing and new software applications.
 - Performed software validation across multiple projects to ensure product quality prior to release.
