@@ -200,7 +200,7 @@
     {
       "title": "Software Developer",
       "company": "Docusign, Inc.",
-      "date_range": "2024-03 to 2025-07",
+      "date_range": "Mar 2024 to Jul 2025",
       "team_context": "Docusign Connect, Connect Test Listener (webhook), Ruby Webhook Test Interface, x509 Certificate Management",
       "bullets": [
         "Designed, implemented, and maintained the Connect Team APIListener webhook tool, a production service used for automated end-to-end validation of webhook delivery.",
@@ -213,7 +213,7 @@
     {
       "title": "Software Design Engineer in Test (SDET)",
       "company": "Docusign, Inc.",
-      "date_range": "2013-11 to 2024-03",
+      "date_range": "Nov 2013 to Mar 2024",
       "team_context": "Docusign Connect, Product Incubation Team, Docusign Print Tool (deprecated)",
       "bullets": [
         "Designed and built automated test frameworks and a custom API request communication layer using NUnit and Selenium.",
@@ -233,7 +233,7 @@
     {
       "title": "SDET2",
       "company": "Microsoft Engineering Excellence",
-      "date_range": "2012-01 to 2013-06",
+      "date_range": "Jan 2012 to Jun 2013",
       "team_context": "Team Foundation Server, Microsoft Test Manager, C#",
       "bullets": [
         "Designed and implemented automated tests for Quality Essentials v3 Client and Server.",
@@ -243,7 +243,7 @@
     {
       "title": "SDET2",
       "company": "Amazon",
-      "date_range": "2011-11 to 2012-01",
+      "date_range": "Nov 2011 to Jan 2012",
       "team_context": "Linux, Eclipse, Hudson, Ant, TestNG, Java, Selenium",
       "bullets": [
         "Automated manual test cases to improve execution efficiency and coverage."
@@ -252,7 +252,7 @@
     {
       "title": "SDET",
       "company": "Microsoft Live",
-      "date_range": "2011-04 to 2011-10",
+      "date_range": "Apr 2011 to Oct 2011",
       "team_context": "C#, SQL, WTT, Kahuna Automation Framework (KAF), NUnit, Source Depot, HyperV, Octopus",
       "bullets": [
         "Designed and implemented a KAF-based test automation framework to execute Build Verification Tests (BVTs) for the BaR team.",
@@ -263,7 +263,7 @@
     {
       "title": "SDET",
       "company": "Microsoft Health Solutions Group",
-      "date_range": "2008-02 to 2010-11",
+      "date_range": "Feb 2008 to Nov 2010",
       "team_context": "C#, SQL, WTT, Echo, KAF, NUnit, iMacros, REST, XML, HyperV",
       "bullets": [
         "Designed, updated, and maintained test plans for owned and shared product features.",
@@ -276,7 +276,7 @@
     {
       "title": "Software Engineer",
       "company": "Cosworth Tech Inc. / MAHLE Powertrain LLC",
-      "date_range": "2006-03 to 2008-02",
+      "date_range": "Mar 2006 to Feb 2008",
       "team_context": "Borland JBuilder, Java, Swing, Borland C++, Oracle SQL, PVCS/Serena",
       "bullets": [
         "Designed, developed, and debugged desktop applications using Borland C++ and Java, resolving defects tracked in Team Track.",
@@ -286,7 +286,7 @@
     {
       "title": "Quality Assurance Engineer",
       "company": "Cosworth Tech Inc. / MAHLE Powertrain LLC",
-      "date_range": "2005-03 to 2006-08",
+      "date_range": "Mar 2005 to Aug 2006",
       "team_context": "Excel, iMacros, Visual Basic, Team Track",
       "bullets": [
         "Developed and maintained system and regression test plans for existing and new software applications.",
