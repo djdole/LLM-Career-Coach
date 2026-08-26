@@ -1,9 +1,18 @@
 # Setting up the restricted "Job Fit Analysis" workflow
 
-`.github/workflows/analyze.yml` runs `./generate.sh --analyze <job_description>`
-on demand. This doc covers what it takes to actually restrict it to one
-person or team, and is honest about a couple of things GitHub does not
-let you restrict at the workflow level, so you don't end up assuming
+`.github/workflows/analyze.yml.disabled` runs
+`./generate.sh --analyze <job_description>` on demand -- once enabled.
+It currently ships with a `.disabled` suffix, which GitHub Actions
+ignores entirely (it won't appear in the Actions tab, and can't be
+triggered), specifically so it can't go live before the access
+restrictions below are actually in place. **Do not rename it to
+`analyze.yml` until you've completed steps 1-3 below** -- doing so
+before then would make it triggerable by anyone with write access, with
+none of the restrictions this doc describes yet configured.
+
+This doc covers what it takes to actually restrict it to one person or
+team once enabled, and is honest about a couple of things GitHub does
+not let you restrict at the workflow level, so you don't end up assuming
 protection that isn't there.
 
 ## What GitHub can and can't do here
@@ -33,24 +42,23 @@ not a substitute for it.
 
 ## One-time setup
 
+Steps 1-3 don't require the workflow to be live yet, and should be done
+first, while it's still `analyze.yml.disabled`. Step 5 is the opposite:
+GitHub can only apply an actor rule to a workflow it has already indexed
+from `.github/workflows/*.yml`, so it isn't possible until *after*
+enabling (step 4).
+
 1. **Repository access.** Make the repo private if it isn't already, and
    only grant the intended user(s)/team read (or higher) access.
 
-2. **Workflow execution protections** (if available to you - this is a
-   public-preview GitHub feature as of mid-2026, under Settings > Actions
-   > Policies, built on rulesets). Add an actor rule limiting who can
-   trigger `workflow_dispatch` on `analyze.yml` to the intended user or
-   team. This is the strongest trigger-side control, enforced by GitHub
-   itself before the workflow even starts.
-
-3. **Environment protection.** Settings > Environments > New environment,
-   named `job-fit-analysis` (matching the `environment:` key in
-   `analyze.yml`). Add the intended user or team as a required reviewer.
+2. **Environment protection.** Settings > Environments > New environment,
+   named `job-fit-analysis` (matching the `environment:` key in the
+   workflow file). Add the intended user or team as a required reviewer.
    Add `LITELLM_BASE_URL` and `LITELLM_API_KEY` as **environment secrets**
    here (not repository secrets) so they're only readable by runs of this
    environment.
 
-4. **Allow-list variables/secrets**, for the `authorize` job's fallback
+3. **Allow-list variables/secrets**, for the `authorize` job's fallback
    check (Settings > Secrets and variables > Actions):
    - `ANALYZE_ALLOWED_USERS` (variable) - comma-separated GitHub
      usernames, e.g. `octocat, some-teammate`. Simplest option for a
@@ -65,8 +73,22 @@ not a substitute for it.
    - `LITELLM_MODEL` (variable, optional) - overrides the default model
      if you don't want `generator.py`'s built-in default.
 
-5. Commit `analyze.yml` (already done if you're reading this from the
-   repo). Trigger it from the Actions tab, or:
+4. **Enable the workflow.** With 1-3 above in place, rename
+   `.github/workflows/analyze.yml.disabled` to
+   `.github/workflows/analyze.yml` and commit that rename. It's now
+   live: dispatchable (subject to steps 2-3's gates) and visible in the
+   Actions tab and to anyone with repo read access, per the visibility
+   limits described above.
+
+5. **Workflow execution protections** (if available to you - this is a
+   public-preview GitHub feature as of mid-2026, under Settings > Actions
+   > Policies, built on rulesets). Only possible now that the workflow is
+   enabled and GitHub has indexed it. Add an actor rule limiting who can
+   trigger `workflow_dispatch` on `analyze.yml` to the intended user or
+   team. This is the strongest trigger-side control, enforced by GitHub
+   itself before the workflow even starts.
+
+6. Trigger it from the Actions tab, or:
    ```
    gh workflow run analyze.yml -f job_description="paste text, a repo-relative file path, or a URL here"
    ```
