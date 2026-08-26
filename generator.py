@@ -106,6 +106,7 @@ GENERATE_ALIASES = {
     "coverletter": "cover_letter",
     "readme": "readme",
     "profile": "profile",
+    "resumedata": "profile",
 }
 
 # Every valid canonical target, default-generated or not - used for
@@ -996,8 +997,8 @@ def extract_markdown(raw: str) -> str:
 
 
 def validate_readme(md: str, expected_job_count: int) -> None:
-#    if not md.startswith("# "):
-#        raise ValueError("README does not start with a top-level '# ' heading.")
+    if not re.search(r"^# ", md, flags=re.MULTILINE):
+        raise ValueError("README is missing its top-level '# ' heading.")
     missing = [h for h in README_REQUIRED_HEADERS if h not in md]
     if missing:
         raise ValueError(f"README is missing required section(s): {missing}")

@@ -43,3 +43,19 @@ class TestValidateReadme:
     def test_accepts_zero_job_headers_when_zero_expected(self):
         no_jobs = GOOD_README.replace("### Job One\n### Job Two\n", "")
         generator.validate_readme(no_jobs, expected_job_count=0)
+
+    def test_raises_when_top_level_heading_missing_entirely(self):
+        no_heading = GOOD_README.replace("# Jane Doe\n\n", "")
+        with pytest.raises(ValueError, match="top-level '# ' heading"):
+            generator.validate_readme(no_heading, expected_job_count=2)
+
+    def test_accepts_heading_preceded_by_badge_links(self):
+        # The real template deliberately puts three badge links (and a
+        # "---") before the "# Hi, I'm ..." heading -- the heading check
+        # must not assume it's literally the first line of the document.
+        with_badges = (
+            "[![Tests](https://example.com/badge.svg)](https://example.com)\n"
+            "[![Coverage](https://example.com/badge.svg)](https://example.com)\n\n"
+            "---\n\n" + GOOD_README
+        )
+        generator.validate_readme(with_badges, expected_job_count=2)

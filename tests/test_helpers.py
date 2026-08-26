@@ -9,6 +9,47 @@ import pytest
 import generator
 
 
+class TestGenerateAliases:
+    """Every value USAGE.md and generator.py's own module docstring claim
+    is a valid --generate value must actually resolve via
+    GENERATE_ALIASES -- this class exists specifically to catch a
+    documented alias silently missing from the dict (as opposed to a
+    typo'd/unsupported value correctly being rejected), since that's a
+    gap ordinary line-coverage can't catch: every line of a dict literal
+    "runs" whether or not an intended entry is missing from it."""
+
+    @pytest.mark.parametrize("token,expected", [
+        ("resume", "resume"),
+        ("coverletter", "cover_letter"),
+        ("cover_letter", "cover_letter"),
+        ("cover-letter", "cover_letter"),
+        ("readme", "readme"),
+        ("profile", "profile"),
+        ("resumedata", "profile"),
+        ("resume_data", "profile"),
+        ("resume-data", "profile"),
+        ("RESUME", "resume"),
+        ("  resume  ", "resume"),
+    ])
+    def test_documented_alias_resolves(self, token, expected):
+        assert generator.parse_generate_targets([token]) == {expected}
+
+    def test_unknown_value_exits_with_error(self, capsys):
+        with pytest.raises(SystemExit) as exc_info:
+            generator.parse_generate_targets(["not_a_real_target"])
+        assert exc_info.value.code == 1
+        assert "Unknown --generate value" in capsys.readouterr().err
+
+    def test_bare_occurrence_contributes_nothing(self):
+        assert generator.parse_generate_targets([""]) == set()
+
+    def test_comma_separated_values_in_one_occurrence_are_unioned(self):
+        assert generator.parse_generate_targets(["resume,readme"]) == {"resume", "readme"}
+
+    def test_multiple_occurrences_are_unioned(self):
+        assert generator.parse_generate_targets(["resume", "readme"]) == {"resume", "readme"}
+
+
 class TestBuildTaggedEmail:
     def test_no_tag_when_tag_address_unset(self):
         assert generator.build_tagged_email("jane@example.com", "") == "jane@example.com"
