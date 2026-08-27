@@ -9,7 +9,7 @@
 Software Developer with years of valuable experience at Docusign, Microsoft, and Amazon building automated test frameworks, internal developer tooling, and webhook integration systems for distributed, production-scale software. Proficient across C#, Ruby, Python, Java, PHP, and Node.js, with a track record of designing APIs, debugging complex production issues, and leading technical migrations. Skilled at partnering with developers and product managers throughout the SDLC, and at mentoring engineers on new teams.
 
 📍 Des Moines, WA<br>
-📧 [Dennis.Dole@djdole.net](mailto:Dennis.Dole+githubcom-djdole@djdole.net)<br>
+📧 [Dennis.Dole@djdole.net](mailto:Dennis.Dole+githubcom-profile@djdole.net)<br>
 📱 734-218-2358<br>
 🔗 [ORCID](https://orcid.org/0000-0002-4442-0336)<br>
 🔗 [LinkedIn](https://www.linkedin.com/in/djdole/)<br>
@@ -44,8 +44,8 @@ Software Developer with years of valuable experience at Docusign, Microsoft, and
 ## 💼 Experience
 
 ### Software Developer
-#### Docusign, Inc.  -  **2024-03 to 2025-07**
-* Docusign Connect * *Connect Test Listener (webhook)* *Ruby Webhook Test Interface* *x509 Certificate Management* *
+#### Docusign, Inc.  -  **Mar 2024 to Jul 2025**
+* Docusign Connect, Connect Test Listener (webhook), Ruby Webhook Test Interface, x509 Certificate Management *
 
 - Designed, implemented, and maintained the Connect Team APIListener webhook tool, a production service used for automated end-to-end validation of webhook delivery.
 - Built and maintained a Ruby-based webhook testing application enabling fast, safe switching of targeted webhook endpoints, while preserving operational functionality across internal Docusign systems.
@@ -53,9 +53,11 @@ Software Developer with years of valuable experience at Docusign, Microsoft, and
 - Improved the stability and reliability of internal webhook tooling relied on by automation and developer initiatives.
 - Partnered with Product Management to reproduce, triage, and resolve customer upgrade and configuration issues.
 
+---
+
 ### Software Design Engineer in Test (SDET)
-#### Docusign, Inc.  -  **2013-11 to 2024-03**
-* Docusign Connect * *Product Incubation Team* *Docusign Print Tool (deprecated)* *
+#### Docusign, Inc.  -  **Nov 2013 to Mar 2024**
+* Docusign Connect, Product Incubation Team, Docusign Print Tool (deprecated) *
 
 - Designed and built automated test frameworks and a custom API request communication layer using NUnit and Selenium.
 - Engineered obfuscated interfaces and test frameworks supporting webhook endpoint selection for automated and manual testing.
@@ -70,30 +72,38 @@ Software Developer with years of valuable experience at Docusign, Microsoft, and
 - Performed manual and Selenium-based automated testing of Angular and React front-end applications, verifying UI functionality and catching regressions ahead of release.
 - Conducted manual mobile application testing for approximately six months, verifying functionality and user experience across mobile platforms.
 
+---
+
 ### SDET2
-#### Microsoft Engineering Excellence  -  **2012-01 to 2013-06**
-* Team Foundation Server * *Microsoft Test Manager * *C#* *
+#### Microsoft Engineering Excellence  -  **Jan 2012 to Jun 2013**
+* Team Foundation Server, Microsoft Test Manager, C# *
 
 - Designed and implemented automated tests for Quality Essentials v3 Client and Server.
 - Collaborated with developers, PMs, and leads to ensure quality testing of existing and new features.
 
+---
+
 ### SDET2
-#### Amazon  -  **2011-11 to 2012-01**
-* Linux * *Eclipse * *Hudson * *Ant * *TestNG * *Java * *Selenium* *
+#### Amazon  -  **Nov 2011 to Jan 2012**
+* Linux, Eclipse, Hudson, Ant, TestNG, Java, Selenium *
 
 - Automated manual test cases to improve execution efficiency and coverage.
 
+---
+
 ### SDET
-#### Microsoft Live  -  **2011-04 to 2011-10**
-* C# * *SQL * *WTT * *Kahuna Automation Framework (KAF)* *NUnit * *Source Depot * *HyperV * *Octopus* *
+#### Microsoft Live  -  **Apr 2011 to Oct 2011**
+* C#, SQL, WTT, Kahuna Automation Framework (KAF), NUnit, Source Depot, HyperV, Octopus *
 
 - Designed and implemented a KAF-based test automation framework to execute Build Verification Tests (BVTs) for the BaR team.
 - Owned test features end-to-end, collaborating with developers and product managers to plan and execute strategy.
 - Tested and documented issues across current and related product features.
 
+---
+
 ### SDET
-#### Microsoft Health Solutions Group  -  **2008-02 to 2010-11**
-* C# * *SQL * *WTT * *Echo * *KAF * *NUnit * *iMacros * *REST * *XML * *HyperV* *
+#### Microsoft Health Solutions Group  -  **Feb 2008 to Nov 2010**
+* C#, SQL, WTT, Echo, KAF, NUnit, iMacros, REST, XML, HyperV *
 
 - Designed, updated, and maintained test plans for owned and shared product features.
 - Built and maintained web-app automation to increase test case execution efficiency.
@@ -101,16 +111,20 @@ Software Developer with years of valuable experience at Docusign, Microsoft, and
 - Participated in bug triage to review, prioritize, and delegate issue resolution.
 - Partnered with management, developers, UX, and operations to ensure product quality met release standards.
 
+---
+
 ### Software Engineer
-#### Cosworth Tech Inc. / MAHLE Powertrain LLC  -  **2006-03 to 2008-02**
-* Borland JBuilder * *Java * *Swing * *Borland C++ * *Oracle SQL * *PVCS/Serena* *
+#### Cosworth Tech Inc. / MAHLE Powertrain LLC  -  **Mar 2006 to Feb 2008**
+* Borland JBuilder, Java, Swing, Borland C++, Oracle SQL, PVCS/Serena *
 
 - Designed, developed, and debugged desktop applications using Borland C++ and Java, resolving defects tracked in Team Track.
 - Automated Excel-based reporting integrated with a SQL trouble-ticket tracking system for contract customers.
 
+---
+
 ### Quality Assurance Engineer
-#### Cosworth Tech Inc. / MAHLE Powertrain LLC  -  **2005-03 to 2006-08**
-* Excel * *iMacros * *Visual Basic * *Team Track* *
+#### Cosworth Tech Inc. / MAHLE Powertrain LLC  -  **Mar 2005 to Aug 2006**
+* Excel, iMacros, Visual Basic, Team Track *
 
 - Developed and maintained system and regression test plans for existing and new software applications.
 - Performed software validation across multiple projects to ensure product quality prior to release.
@@ -138,4 +152,4 @@ Graduated 2004
 
 ---
 
-📫 Reach out at [Dennis.Dole@djdole.net](mailto:Dennis.Dole+githubcom-djdole@djdole.net) or connect on [LinkedIn](https://www.linkedin.com/in/djdole/).
+📫 Reach out at [Dennis.Dole@djdole.net](mailto:Dennis.Dole+githubcom-profile@djdole.net) or connect on [LinkedIn](https://www.linkedin.com/in/djdole/).
