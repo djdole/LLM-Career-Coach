@@ -74,6 +74,18 @@ class TestBuildSourceFileList:
             monkeypatch.setattr(Path, "resolve", original_resolve)
         assert result == [source]
 
+    def test_none_knowledge_base_path_excludes_nothing_extra(self, tmp_path):
+        # knowledge_base_path is None when KNOWLEDGE_BASE is a URL -- there's
+        # no local file to exclude by path, so only draft_path is excluded.
+        data_dir = tmp_path / "data"
+        data_dir.mkdir()
+        draft_path = data_dir / "draft.json"
+        draft_path.write_text("{}", encoding="utf-8")
+        source = data_dir / "old_resume.txt"
+        source.write_text("some text", encoding="utf-8")
+        result = generator.build_source_file_list(data_dir, None, draft_path)
+        assert result == [source]
+
 
 class TestExtractTextFromSourceFile:
     def test_reads_txt(self, tmp_path):

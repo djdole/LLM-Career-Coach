@@ -42,6 +42,16 @@ source files dropped in the DATA folder (env var DATA, e.g. pdf/txt/json/
 xml/docx documents) plus LiteLLM to build or non-destructively update a
 profile.json. See generate_profile_draft() for the exact rules.
 
+KNOWLEDGE_BASE (the knowledge base every target above reads from) is
+usually a local path, but may instead be an http(s) URL - e.g. a raw
+file URL into a private repo - so the knowledge base can be maintained
+somewhere other than this checkout. See load_knowledge_base() and, for a
+private source, the KNOWLEDGE_BASE_URL_TOKEN env var. --generate profile
+still always writes its draft to a local path (KNOWLEDGE_BASE_DRAFT)
+even when KNOWLEDGE_BASE is a URL - it has no way to push a draft back
+to an arbitrary URL, so promoting the draft back to that source is a
+manual step.
+
 --analyze is its own separate flag, independent of --generate: its value
 IS the job description - literal JD text, a path to a local file
 (pdf/docx/txt/md/json/xml), or a URL to fetch it from - see
@@ -1087,14 +1097,16 @@ def extract_text_from_source_file(path: Path) -> str:
     return ""
 
 
-def build_source_file_list(data_dir: Path, knowledge_base_path: Path, draft_path: Path) -> list:
+def build_source_file_list(data_dir: Path, knowledge_base_path: Path | None, draft_path: Path) -> list:
     """
     Lists the candidate source files sitting in the DATA folder: every
     regular, non-hidden file EXCEPT the knowledge base file itself (which
     may well live in the same folder, e.g. data/profile.json) and any
     pre-existing draft output (so a leftover draft from a prior run is
-    never re-consumed as if it were new source material). Returns []
-    if the folder doesn't exist, which callers treat the same as "empty".
+    never re-consumed as if it were new source material). knowledge_base_
+    path is None when KNOWLEDGE_BASE is a URL rather than a local path -
+    there's nothing on disk to exclude in that case. Returns [] if the
+    folder doesn't exist, which callers treat the same as "empty".
     """
     if not data_dir.is_dir():
         return []
@@ -1105,7 +1117,9 @@ def build_source_file_list(data_dir: Path, knowledge_base_path: Path, draft_path
         except OSError:
             return p
 
-    excluded = {_resolve(knowledge_base_path), _resolve(draft_path)}
+    excluded = {_resolve(draft_path)}
+    if knowledge_base_path is not None:
+        excluded.add(_resolve(knowledge_base_path))
     files = []
     for p in sorted(data_dir.iterdir()):
         if not p.is_file() or p.name.startswith("."):
@@ -1231,6 +1245,47 @@ def call_llm_update_profile(client: openai.OpenAI, existing_kb: dict, source_tex
     sys.exit(1)
 
 
+def fetch_knowledge_base_json(url: str) -> dict:
+    """
+    Fetches and parses the knowledge base from a URL, for a KNOWLEDGE_BASE
+    value that's http(s) instead of a local path - e.g. a raw file URL
+    into a private repo, so the knowledge base can live outside this
+    checkout entirely (see load_knowledge_base()). If KNOWLEDGE_BASE_
+    URL_TOKEN is set, it's sent as an "Authorization: token <value>"
+    header (GitHub's convention - works against both api.github.com and
+    raw.githubusercontent.com with a personal access token, for a private
+    repo). Raises ValueError, folding in the underlying error, on any
+    connection, timeout, non-2xx-status, or invalid-JSON failure.
+    """
+    headers = {"User-Agent": "Mozilla/5.0 (compatible; djdole-generator/1.0)"}
+    token = os.environ.get("KNOWLEDGE_BASE_URL_TOKEN")
+    if token:
+        headers["Authorization"] = f"token {token}"
+
+    try:
+        response = httpx.get(url, timeout=30.0, follow_redirects=True, headers=headers)
+        response.raise_for_status()
+    except httpx.HTTPError as e:
+        raise ValueError(f"Could not fetch KNOWLEDGE_BASE from {url!r}: {e}") from e
+
+    try:
+        return response.json()
+    except ValueError as e:
+        raise ValueError(f"KNOWLEDGE_BASE at {url!r} did not return valid JSON: {e}") from e
+
+
+def load_knowledge_base(location: str) -> dict:
+    """
+    Loads the knowledge base from KNOWLEDGE_BASE, which may be either a
+    local file path (the original behavior) or an http(s) URL. Raises
+    ValueError (fetch/parse failure) for a URL, or the usual
+    FileNotFoundError/json.JSONDecodeError for a local path.
+    """
+    if urllib.parse.urlparse(location).scheme in ("http", "https"):
+        return fetch_knowledge_base_json(location)
+    return json.loads(Path(location).read_text(encoding="utf-8"))
+
+
 def generate_profile_draft(client: openai.OpenAI, s: dict) -> None:
     """
     Implements --generate profile: builds or non-destructively updates
@@ -1247,6 +1302,14 @@ def generate_profile_draft(client: openai.OpenAI, s: dict) -> None:
       * Otherwise: KNOWLEDGE_BASE missing -> build a new draft from
         source files alone. KNOWLEDGE_BASE present -> non-destructively
         update it into the draft using the source files.
+
+    If KNOWLEDGE_BASE is a URL (see load_knowledge_base()), there's
+    nothing on disk to read as the "existing" knowledge base or to
+    exclude from the DATA folder scan, so it's fetched instead - the
+    update is still non-destructive to it, since the merged result is
+    always written locally to KNOWLEDGE_BASE_DRAFT rather than back to
+    the URL (this tool has no way to push to an arbitrary URL; promoting
+    the draft back to wherever KNOWLEDGE_BASE lives is a manual step).
     """
     data_dir_setting = s.get("DATA")
     if not data_dir_setting:
@@ -1254,22 +1317,27 @@ def generate_profile_draft(client: openai.OpenAI, s: dict) -> None:
         return
 
     data_dir = Path(data_dir_setting)
-    kb_path = Path(s["KNOWLEDGE_BASE"])
+    kb_location = s["KNOWLEDGE_BASE"]
+    kb_is_url = urllib.parse.urlparse(kb_location).scheme in ("http", "https")
+    kb_path = None if kb_is_url else Path(kb_location)
 
     def _read_existing_kb():
+        if kb_is_url:
+            return fetch_knowledge_base_json(kb_location)
         return json.loads(kb_path.read_text(encoding="utf-8")) if kb_path.is_file() else None
 
     # KNOWLEDGE_BASE_DRAFT is a naming template too (see render_filename),
     # not a raw path -- e.g. "data/{datetime.now}/profile.json" nests
     # each run's draft under its own timestamped subfolder, and a
     # template using {FirstName}/{LastName}/{Email} needs a name to pull
-    # from. This speculative read is ONLY for that: any read/parse
+    # from. This speculative read is ONLY for that: any read/fetch/parse
     # failure here falls back to "" for those placeholders rather than
-    # aborting outright, since an unreadable/malformed KNOWLEDGE_BASE
-    # shouldn't crash a run that -- once the source-file scan below runs
-    # -- may well have turned out to be a no-op anyway. If KNOWLEDGE_BASE
-    # really is broken and there ARE source files to process, that
-    # surfaces properly below, where it's read again for real.
+    # aborting outright, since an unreadable/malformed/unreachable
+    # KNOWLEDGE_BASE shouldn't crash a run that -- once the source-file
+    # scan below runs -- may well have turned out to be a no-op anyway.
+    # If KNOWLEDGE_BASE really is broken and there ARE source files to
+    # process, that surfaces properly below, where it's read again for
+    # real.
     try:
         personal_info = (_read_existing_kb() or {}).get("personal_info", {})
     except (OSError, ValueError):
@@ -1293,12 +1361,22 @@ def generate_profile_draft(client: openai.OpenAI, s: dict) -> None:
         print(f"[profile] Source files in {data_dir}/ had no extractable text; skipping.", file=sys.stderr)
         return
 
-    existing_kb = _read_existing_kb()
+    try:
+        existing_kb = _read_existing_kb()
+    except (OSError, ValueError) as e:
+        print(f"[profile] {e}", file=sys.stderr)
+        sys.exit(1)
 
     draft = call_llm_update_profile(client, existing_kb, source_texts)
     ensure_parent_dir_exists(draft_path).write_text(json.dumps(draft, indent=2), encoding="utf-8")
     verb = "Updated" if existing_kb is not None else "Built"
     print(f"[profile] {verb} knowledge base at {draft_path}")
+    if kb_is_url:
+        print(
+            f"[profile] KNOWLEDGE_BASE is a URL ({kb_location}); the draft above was NOT pushed there "
+            "-- review it, then promote it back to that source yourself.",
+            file=sys.stderr,
+        )
 
     for f in source_files:
         try:
@@ -1766,7 +1844,11 @@ def main(argv=None):
     # so it reads it lazily, itself, inside generate_profile_draft().
     kb = full_name = None
     if {"resume", "cover_letter", "readme"} & targets or args.analyze:
-        kb = json.loads(Path(s["KNOWLEDGE_BASE"]).read_text(encoding="utf-8"))
+        try:
+            kb = load_knowledge_base(s["KNOWLEDGE_BASE"])
+        except (OSError, ValueError) as e:
+            print(f"[KNOWLEDGE_BASE] {e}", file=sys.stderr)
+            sys.exit(1)
         full_name = kb["personal_info"]["full_name"]
 
     if "resume" in targets or "cover_letter" in targets:
