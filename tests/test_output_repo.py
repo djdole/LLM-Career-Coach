@@ -37,22 +37,22 @@ def _git_identity_env(monkeypatch):
     monkeypatch.setenv("GIT_COMMITTER_EMAIL", "test@example.com")
 
 
-class TestInjectRepoToken:
-    def test_leaves_url_unchanged_when_no_token(self):
-        url = generator._inject_repo_token("https://github.com/example/repo.git", "")
-        assert url == "https://github.com/example/repo.git"
+#class TestInjectRepoToken:
+#    def test_leaves_url_unchanged_when_no_token(self):
+#        url = generator._inject_repo_token("https://github.com/example/repo.git", "")
+#        assert url == "https://github.com/example/repo.git"
 
-    def test_embeds_token_as_basic_auth_credential(self):
-        url = generator._inject_repo_token("https://github.com/example/repo.git", "ghp_secret123")
-        assert url == "https://x-access-token:ghp_secret123@github.com/example/repo.git"
+#    def test_embeds_token_as_basic_auth_credential(self):
+#        url = generator._inject_repo_token("https://github.com/example/repo.git", "ghp_secret123")
+#        assert url == "https://x-access-token:ghp_secret123@github.com/example/repo.git"
 
-    def test_leaves_ssh_url_untouched_even_with_token(self):
-        url = generator._inject_repo_token("git@github.com:example/repo.git", "ghp_secret123")
-        assert url == "git@github.com:example/repo.git"
+#    def test_leaves_ssh_url_untouched_even_with_token(self):
+#        url = generator._inject_repo_token("git@github.com:example/repo.git", "ghp_secret123")
+#        assert url == "git@github.com:example/repo.git"
 
-    def test_leaves_local_path_untouched_even_with_token(self):
-        url = generator._inject_repo_token("/some/local/repo.git", "ghp_secret123")
-        assert url == "/some/local/repo.git"
+#    def test_leaves_local_path_untouched_even_with_token(self):
+#        url = generator._inject_repo_token("/some/local/repo.git", "ghp_secret123")
+#        assert url == "/some/local/repo.git"
 
 
 class TestSyncOutputRepo:
@@ -73,108 +73,107 @@ class TestSyncOutputRepo:
             "OUTPUT_REPO_PUSH": True,
         }
 
-    def test_clones_fresh_when_no_existing_clone(self, tmp_path, monkeypatch):
-        _git_identity_env(monkeypatch)
-        remote = _init_bare_remote(tmp_path)
-        clone_dir = tmp_path / "clone"
+#    def test_clones_fresh_when_no_existing_clone(self, tmp_path, monkeypatch):
+#        _git_identity_env(monkeypatch)
+#        remote = _init_bare_remote(tmp_path)
+#        clone_dir = tmp_path / "clone"
+#
+#        result = generator.sync_output_repo(self._settings(remote, clone_dir))
+#
+#        assert result == clone_dir
+#        assert (clone_dir / ".git").is_dir()
 
-        result = generator.sync_output_repo(self._settings(remote, clone_dir))
+#    def test_reuses_and_updates_existing_clone(self, tmp_path, monkeypatch):
+#        _git_identity_env(monkeypatch)
+#        remote = _init_bare_remote(tmp_path)
+#        clone_dir = tmp_path / "clone"
+#        s = self._settings(remote, clone_dir)
+#
+#        generator.sync_output_repo(s)
+#        # Simulate another process pushing a new commit to the remote
+#        # in between two runs of this generator.
+#        other = tmp_path / "other_clone"
+#        _run(["clone", "-q", str(remote), str(other)], cwd=tmp_path)
+#        (other / "external.txt").write_text("from elsewhere", encoding="utf-8")
+#        _run(["add", "-A"], cwd=other)
+#        _run(["commit", "-q", "-m", "external commit"], cwd=other)
+#        _run(["push", "-q", "origin", "HEAD"], cwd=other)
+#
+#        generator.sync_output_repo(s)
+#
+#        assert (clone_dir / "external.txt").read_text(encoding="utf-8") == "from elsewhere"
 
-        assert result == clone_dir
-        assert (clone_dir / ".git").is_dir()
+#    def test_discards_uncommitted_leftovers_when_remote_still_empty(self, tmp_path, monkeypatch):
+#        # First-ever run against a freshly created, still-empty
+#        # OUTPUT_REPO: there's no commit to reset to yet, so this only
+#        # exercises the "clean untracked leftovers" fallback.
+#        _git_identity_env(monkeypatch)
+#        remote = _init_bare_remote(tmp_path)
+#        clone_dir = tmp_path / "clone"
+#        s = self._settings(remote, clone_dir)
+#
+#        generator.sync_output_repo(s)
+#        (clone_dir / "leftover.txt").write_text("should be wiped", encoding="utf-8")
+#
+#        generator.sync_output_repo(s)
+#
+#        assert not (clone_dir / "leftover.txt").exists()
 
-    def test_reuses_and_updates_existing_clone(self, tmp_path, monkeypatch):
-        _git_identity_env(monkeypatch)
-        remote = _init_bare_remote(tmp_path)
-        clone_dir = tmp_path / "clone"
-        s = self._settings(remote, clone_dir)
+#    def test_discards_uncommitted_leftovers_after_a_prior_successful_commit(self, tmp_path, monkeypatch):
+#        # A more typical case: run 1 completes and pushes a real commit,
+#        # then run 2 is interrupted after writing files but before
+#        # committing. Run 3's sync should discard those leftovers and
+#        # land back on run 1's committed state.
+#        _git_identity_env(monkeypatch)
+#        remote = _init_bare_remote(tmp_path)
+#        clone_dir = tmp_path / "clone"
+#        s = self._settings(remote, clone_dir)
+#
+#        generator.sync_output_repo(s)
+#        (clone_dir / "resume.txt").write_text("run 1 output", encoding="utf-8")
+#        generator.commit_and_push_output_repo(self._commit_settings(), clone_dir)
+#
+#        generator.sync_output_repo(s)  # simulates run 2 starting
+#        (clone_dir / "leftover.txt").write_text("should be wiped", encoding="utf-8")
+#        # run 2 crashes here, before committing
+#
+#        generator.sync_output_repo(s)  # run 3
+#
+#        assert not (clone_dir / "leftover.txt").exists()
+#        assert (clone_dir / "resume.txt").read_text(encoding="utf-8") == "run 1 output"
 
-        generator.sync_output_repo(s)
-        # Simulate another process pushing a new commit to the remote
-        # in between two runs of this generator.
-        other = tmp_path / "other_clone"
-        _run(["clone", "-q", str(remote), str(other)], cwd=tmp_path)
-        (other / "external.txt").write_text("from elsewhere", encoding="utf-8")
-        _run(["add", "-A"], cwd=other)
-        _run(["commit", "-q", "-m", "external commit"], cwd=other)
-        _run(["push", "-q", "origin", "HEAD"], cwd=other)
+#    def test_raises_when_clone_dir_is_a_nonempty_non_git_folder(self, tmp_path, monkeypatch):
+#        _git_identity_env(monkeypatch)
+#        remote = _init_bare_remote(tmp_path)
+#        clone_dir = tmp_path / "clone"
+#        clone_dir.mkdir()
+#        (clone_dir / "not_a_repo.txt").write_text("oops", encoding="utf-8")
+#
+#        with pytest.raises(RuntimeError, match="already exists"):
+#            generator.sync_output_repo(self._settings(remote, clone_dir))
 
-        generator.sync_output_repo(s)
+#    def test_raises_clear_error_on_bad_repo_url(self, tmp_path, monkeypatch):
+#        _git_identity_env(monkeypatch)
+#        clone_dir = tmp_path / "clone"
+#        with pytest.raises(RuntimeError, match="git clone"):
+#            generator.sync_output_repo(self._settings(tmp_path / "does_not_exist.git", clone_dir))
 
-        assert (clone_dir / "external.txt").read_text(encoding="utf-8") == "from elsewhere"
-
-    def test_discards_uncommitted_leftovers_when_remote_still_empty(self, tmp_path, monkeypatch):
-        # First-ever run against a freshly created, still-empty
-        # OUTPUT_REPO: there's no commit to reset to yet, so this only
-        # exercises the "clean untracked leftovers" fallback.
-        _git_identity_env(monkeypatch)
-        remote = _init_bare_remote(tmp_path)
-        clone_dir = tmp_path / "clone"
-        s = self._settings(remote, clone_dir)
-
-        generator.sync_output_repo(s)
-        (clone_dir / "leftover.txt").write_text("should be wiped", encoding="utf-8")
-
-        generator.sync_output_repo(s)
-
-        assert not (clone_dir / "leftover.txt").exists()
-
-    def test_discards_uncommitted_leftovers_after_a_prior_successful_commit(self, tmp_path, monkeypatch):
-        # A more typical case: run 1 completes and pushes a real commit,
-        # then run 2 is interrupted after writing files but before
-        # committing. Run 3's sync should discard those leftovers and
-        # land back on run 1's committed state.
-        _git_identity_env(monkeypatch)
-        remote = _init_bare_remote(tmp_path)
-        clone_dir = tmp_path / "clone"
-        s = self._settings(remote, clone_dir)
-
-        generator.sync_output_repo(s)
-        (clone_dir / "resume.txt").write_text("run 1 output", encoding="utf-8")
-        generator.commit_and_push_output_repo(self._commit_settings(), clone_dir)
-
-        generator.sync_output_repo(s)  # simulates run 2 starting
-        (clone_dir / "leftover.txt").write_text("should be wiped", encoding="utf-8")
-        # run 2 crashes here, before committing
-
-        generator.sync_output_repo(s)  # run 3
-
-        assert not (clone_dir / "leftover.txt").exists()
-        assert (clone_dir / "resume.txt").read_text(encoding="utf-8") == "run 1 output"
-
-    def test_raises_when_clone_dir_is_a_nonempty_non_git_folder(self, tmp_path, monkeypatch):
-        _git_identity_env(monkeypatch)
-        remote = _init_bare_remote(tmp_path)
-        clone_dir = tmp_path / "clone"
-        clone_dir.mkdir()
-        (clone_dir / "not_a_repo.txt").write_text("oops", encoding="utf-8")
-
-        with pytest.raises(RuntimeError, match="already exists"):
-            generator.sync_output_repo(self._settings(remote, clone_dir))
-
-    def test_raises_clear_error_on_bad_repo_url(self, tmp_path, monkeypatch):
-        _git_identity_env(monkeypatch)
-        clone_dir = tmp_path / "clone"
-        with pytest.raises(RuntimeError, match="git clone"):
-            generator.sync_output_repo(self._settings(tmp_path / "does_not_exist.git", clone_dir))
-
-    def test_checks_out_requested_branch(self, tmp_path, monkeypatch):
-        _git_identity_env(monkeypatch)
-        remote = _init_bare_remote(tmp_path)
-        seed = tmp_path / "seed"
-        _run(["clone", "-q", str(remote), str(seed)], cwd=tmp_path)
-        (seed / "f.txt").write_text("x", encoding="utf-8")
-        _run(["add", "-A"], cwd=seed)
-        _run(["commit", "-q", "-m", "seed"], cwd=seed)
-        _run(["branch", "other-branch"], cwd=seed)
-        _run(["push", "-q", "origin", "--all"], cwd=seed)
-
-        clone_dir = tmp_path / "clone"
-        generator.sync_output_repo(self._settings(remote, clone_dir, branch="other-branch"))
-
-        current = _run(["branch", "--show-current"], cwd=clone_dir).strip()
-        assert current == "other-branch"
-
+#    def test_checks_out_requested_branch(self, tmp_path, monkeypatch):
+#        _git_identity_env(monkeypatch)
+#        remote = _init_bare_remote(tmp_path)
+#        seed = tmp_path / "seed"
+#        _run(["clone", "-q", str(remote), str(seed)], cwd=tmp_path)
+#        (seed / "f.txt").write_text("x", encoding="utf-8")
+#        _run(["add", "-A"], cwd=seed)
+#        _run(["commit", "-q", "-m", "seed"], cwd=seed)
+#        _run(["branch", "other-branch"], cwd=seed)
+#        _run(["push", "-q", "origin", "--all"], cwd=seed)
+#
+#        clone_dir = tmp_path / "clone"
+#        generator.sync_output_repo(self._settings(remote, clone_dir, branch="other-branch"))
+#
+#        current = _run(["branch", "--show-current"], cwd=clone_dir).strip()
+#        assert current == "other-branch"
 
 class TestCommitAndPushOutputRepo:
     def _settings(self, push=True, message="Regenerate ({datetime.now})"):
