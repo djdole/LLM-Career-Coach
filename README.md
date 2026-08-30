@@ -1,84 +1,136 @@
-[![Tests](https://github.com/djdole/LLM-Career-Coach/actions/workflows/tests.yml/badge.svg)](https://github.com/djdole/LLM-Career-Coach/actions/workflows/tests.yml)
-[![Coverage](https://raw.githubusercontent.com/djdole/LLM-Career-Coach/main/badges/coverage-badge.svg)](https://github.com/djdole/LLM-Career-Coach/actions/workflows/tests.yml)
-[![Tests Passing](https://raw.githubusercontent.com/djdole/LLM-Career-Coach/main/badges/tests-badge.svg)](https://github.com/djdole/LLM-Career-Coach/actions/workflows/tests.yml)
+# Hi, I'm Dennis Jay Dole 👋
+
+Software Developer with years of valuable experience at Docusign, Microsoft, and Amazon building automated test frameworks, internal developer tooling, and webhook integration systems for distributed, production-scale software. Proficient across C#, Ruby, Python, Java, PHP, and Node.js, with a track record of designing APIs, debugging complex production issues, and leading technical migrations. Skilled at partnering with developers and product managers throughout the SDLC, and at mentoring engineers on new teams.
+
+📍 Des Moines, WA<br>
+📧 [Dennis.Dole@djdole.net](mailto:Dennis.Dole@djdole.net)<br>
+📱 734-218-2358<br>
+🔗 [ORCID](https://orcid.org/0000-0002-4442-0336)<br>
+🔗 [LinkedIn](https://www.linkedin.com/in/djdole/)<br>
+🔗 [Portfolio](https://github.com/djdole)
 
 ---
 
-# LLM Career Coach
+## 🛠️ Skills
 
-**One structured knowledge base in → tailored resumes, cover letters, a
-GitHub profile README, and job-fit analysis out.** 
-
-A single Python script (`generator.py`) reads `data/profile.json` and, through a self-hosted LLM (LiteLLM in front of Ollama, or any OpenAI-compatible backend), fills in Markdown templates and renders the results as PDF/DOCX/TXT/MD/JSON - so updating one JSON file regenerates every job-application document, in every format, consistently.
-
-No paid API, no per-run cost, no usage limits.
+**Languages:** C#, Ruby, Python, Java, PHP, Node.js, Bash, PowerShell, C++, Lisp, Visual Basic, JavaScript<br>
+**APIs & Web Servers:** REST API design, Apache HTTPD/Tomcat, IIS, nginx, Node.js, MongoDB<br>
+**Operating Systems:** Windows, Unix, Linux, custom<br>
+**Test Automation Frameworks:** Selenium, Playwright, Echo, Docusign's SAW Ruby framework, KAF (Kahuna Automation Framework), custom API test/automation harnesses<br>
+**Frontend & Mobile Testing:** Angular (manual + Selenium automated testing), React (manual + Selenium automated testing), mobile application manual testing<br>
+**Unit & Integration Testing:** nUnit, xUnit, jUnit, PHPUnit, WTT (Microsoft internal), SAW (Docusign internal)<br>
+**Test Management & Planning:** MTM, TFS, test plan design, bug triage, exploratory testing (black/white box)<br>
+**Performance Testing:** JMeter<br>
+**CI/CD & DevOps:** Jenkins, Hudson, Octopus, Azure Pipelines, GitHub Actions / GitHub Workflows, Docker, Kubernetes, Ansible<br>
+**Databases & Query Languages:** SQL, Kusto, MongoDB, Kusto Query Language, KQL<br>
+**Version Control:** Git, Mercurial, TFS, Source Depot, PVCS<br>
+**Debugging & Diagnostics:** Fiddler, Postman, Resharper, xDebug, rDebug<br>
+**Virtualization & Infra:** Docker, Kubernetes, HyperV, VirtualBox, Proxmox, WSL<br>
+**Developer Tools & IDEs:** VS Code (Git/GitHub integration)<br>
+**AI & Automation Tooling:** LLM-assisted content/document generation (Claude), structured JSON knowledge-base design for LLM consumption, prompt/instruction engineering for repeatable AI workflows, AI-assisted CI/CD pipeline design (GitHub Actions + LLM API)<br>
+**Methodologies:** Agile, Scrum, Kanban, TDD, Waterfall, DevOps<br>
+**Collaboration & Docs:** Jira, Confluence, SharePoint, MediaWiki<br>
+**Monitoring / Incident Mgmt:** PagerDuty<br>
+**Soft Skills:** listening, empathy, communication, understanding, delegation, collaboration, critical thinking, adaptability<br>
 
 ---
 
-## What it generates
+## 💼 Experience
 
-| Target | Output |
-|---|---|
-| **Resumes** | One per configured position variant (`SDE`/`SDET` by default, but any number of variants - see `VARIANTS` below) × 5 formats each (`pdf`, `docx`, `txt`, `md`, `json`) |
-| **Cover letters** | Same variants as resumes × 3 formats (`pdf`, `docx`, `txt`) |
-| **GitHub profile README** | 1 Markdown file, filled in from the same knowledge base |
-| **Job-fit analysis** | Given a job posting (pasted text, a file, or a URL), estimates percentage fit, lists missing skills/qualifications, and suggests free resources to close the gaps |
-| **Knowledge-base maintenance** | An opt-in workflow that folds new source material (old resumes, notes, etc.) into `profile.json` itself, non-destructively |
+### Software Developer
+#### Docusign, Inc.  -  **March 2024 to July 2025**
+* Docusign Connect * Connect Test Listener (webhook) * Ruby Webhook Test Interface * x509 Certificate Management *
 
-Everything above is baseline content, not tailored to one specific job
-posting - `--analyze` is the closest this tool comes to
-posting-specific output, and it only evaluates fit, it doesn't rewrite
-the resume. Tailoring a resume for a single application is a separate,
-manual, chat-based process outside this script.
+- Designed, implemented, and maintained the Connect Team APIListener webhook tool, a production service used for automated end-to-end validation of webhook delivery.
+- Built and maintained a Ruby-based webhook testing application enabling fast, safe switching of targeted webhook endpoints, while preserving operational functionality across internal Docusign systems.
+- Led a migration to a new internal x509 certificate for Docusign Connect webhook connections, coordinating certificate rotation and deployment validation with 5+ internal engineering teams.
+- Improved the stability and reliability of internal webhook tooling relied on by automation and developer initiatives.
+- Partnered with Product Management to reproduce, triage, and resolve customer upgrade and configuration issues.
 
-## How it works
+### Software Design Engineer in Test (SDET)
+#### Docusign, Inc.  -  **November 2013 to March 2024**
+* Docusign Connect * Product Incubation Team * Docusign Print Tool (deprecated) *
 
-- **`data/profile.json` is the single source of truth.** Skills, work
-  history, education, and reusable summary/cover-letter building
-  blocks all live there once; every generated document is derived from
-  it, not maintained by hand.
-- **Position variants are configurable, not fixed to two.** `VARIANTS`
-  (a JSON array in `.env`, `["SDE", "SDET"]` by default) controls which
-  variants get generated - add, remove, rename, or reorder however
-  many you need, and each one gets its own tailored resume and cover
-  letter set, pulled from that variant's fields in `profile.json`.
-  Quoting each entry means a variant name can contain spaces, e.g.
-  `["Product Manager", "HR Admin"]`.
-- **Everything runs through a self-hosted LLM**, via a LiteLLM proxy in
-  front of Ollama (or anything else OpenAI-compatible LiteLLM can
-  reach). Generation never spends API credits and never fails because
-  of an account balance.
-- **Templates drive the wording**, naming templates drive the file
-  layout - both fully configurable via `.env` (see `.env.template`).
-- **Output can be checked into a different repository entirely.**
-  Setting `OUTPUT_REPO` decouples this generator from wherever the
-  actual resumes/cover letters/README get committed: this repo clones
-  that other repo, writes the generated files there, and commits (and
-  optionally pushes) automatically. That's how this repo stays just
-  the tool, while the generated documents themselves live in their own
-  repo.
+- Designed and built automated test frameworks and a custom API request communication layer using NUnit and Selenium.
+- Engineered obfuscated interfaces and test frameworks supporting webhook endpoint selection for automated and manual testing.
+- Developed sample HMAC-authenticated webhook integration code and ported it to Java, PHP, Python, C#, Ruby, and Node.js for customer-facing developer documentation.
+- Debugged product issues and authored clear, reproducible bug reports including environment details, stack traces, and metrics.
+- Maintained and extended existing automated test suites to sustain reliable coverage of product code.
+- Participated in code reviews for new features, automation, and bug fixes alongside developers.
+- Planned and organized bug-bash events, giving developers, testers, and managers early access to alpha features.
+- Participated in bug triage of internal and customer-reported issues, and in dev/QA on-call rotations.
+- Collaborated with release management to verify successful deployment and configuration of releases.
+- Trained and mentored new developers, testers, and team leads.
+- Performed manual and Selenium-based automated testing of Angular and React front-end applications, verifying UI functionality and catching regressions ahead of release.
+- Conducted manual mobile application testing for approximately six months, verifying functionality and user experience across mobile platforms.
 
-## Quick start
+### SDET2
+#### Microsoft Engineering Excellence  -  **January 2012 to June 2013**
+* Team Foundation Server * Microsoft Test Manager * C# *
 
-```bash
-cp .env.template .env        # then fill in LITELLM_BASE_URL / LITELLM_API_KEY
-python generator.py                       # generate resumes + cover letters + README
-python generator.py --generate resume     # just resumes
-python generator.py --analyze "paste a job description here"
-```
+- Designed and implemented automated tests for Quality Essentials v3 Client and Server.
+- Collaborated with developers, PMs, and leads to ensure quality testing of existing and new features.
 
-Or use `./generate.sh`, which bootstraps a venv and installs
-dependencies for you on first run.
+### SDET2
+#### Amazon  -  **November 2011 to January 2012**
+* Linux * Eclipse * Hudson * Ant * TestNG * Java * Selenium *
 
-## Automation
+- Automated manual test cases to improve execution efficiency and coverage.
 
-GitHub Actions workflows under `.github/workflows/` can regenerate
-output automatically whenever `data/profile.json` changes, and keep
-the test suite/coverage badges above up to date - see `USAGE.md` for
-details. None of it is required to run this locally.
+### SDET
+#### Microsoft Live  -  **April 2011 to October 2011**
+* C# * SQL * WTT * Kahuna Automation Framework (KAF) * NUnit * Source Depot * HyperV * Octopus *
 
-## Learn more
+- Designed and implemented a KAF-based test automation framework to execute Build Verification Tests (BVTs) for the BaR team.
+- Owned test features end-to-end, collaborating with developers and product managers to plan and execute strategy.
+- Tested and documented issues across current and related product features.
 
-Full configuration reference, every `.env` variable, naming-template
-placeholders, `--analyze` details, and the test suite are documented
-in [`USAGE.md`](./USAGE.md).
+### SDET
+#### Microsoft Health Solutions Group  -  **February 2008 to November 2010**
+* C# * SQL * WTT * Echo * KAF * NUnit * iMacros * REST * XML * HyperV *
+
+- Designed, updated, and maintained test plans for owned and shared product features.
+- Built and maintained web-app automation to increase test case execution efficiency.
+- Performed exploratory black- and white-box testing to proactively mitigate release risk.
+- Participated in bug triage to review, prioritize, and delegate issue resolution.
+- Partnered with management, developers, UX, and operations to ensure product quality met release standards.
+
+### Software Engineer
+#### Cosworth Tech Inc. / MAHLE Powertrain LLC  -  **March 2006 to February 2008**
+* Borland JBuilder * Java * Swing * Borland C++ * Oracle SQL * PVCS/Serena *
+
+- Designed, developed, and debugged desktop applications using Borland C++ and Java, resolving defects tracked in Team Track.
+- Automated Excel-based reporting integrated with a SQL trouble-ticket tracking system for contract customers.
+
+### Quality Assurance Engineer
+#### Cosworth Tech Inc. / MAHLE Powertrain LLC  -  **March 2005 to August 2006**
+* Excel * iMacros * Visual Basic * Team Track *
+
+- Developed and maintained system and regression test plans for existing and new software applications.
+- Performed software validation across multiple projects to ensure product quality prior to release.
+
+---
+
+## 🎓 Education
+
+**Bachelor of Science in Computer Science**<br>
+Michigan Technological University - Computer Science<br>
+Graduated 2004
+
+---
+
+## ✨ Career Highlights
+
+- Long track record of driving product quality, and raising the quality expectation for team productivity and software quality, and user experience.
+- Deep, unusual specialization in webhook systems: design, testing, HMAC authentication, x509 certificate migration, multi-language sample code (Java/PHP/Python/C#/Ruby/Node.js).
+- 15+ years of continuous experience across three well-known tech employers (Docusign, Microsoft, Amazon).
+- Demonstrated progression from QA/manual testing to SDET to SDE, showing growth into full software development.
+- Led a cross-team technical migration (x509 certificate rotation) coordinating 5+ engineering teams.
+- Long track record of mentoring and training new engineers.
+- Fluent in many languages (C#, Ruby, Python, Java, PHP, Node.js) which is valuable for polyglot/integration-heavy roles.
+- Hands-on manual and Selenium-automated testing experience with Angular and React front-end applications, plus manual mobile testing experience.
+
+---
+
+📫 Reach out at [Dennis.Dole@djdole.net](mailto:Dennis.Dole@djdole.net) or connect on [LinkedIn](https://www.linkedin.com/in/djdole/).<br>
+(Generated using [djdole LLM-Career-Coach](https://github.com/djdole/LLM-Career-Coach).)
