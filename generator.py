@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Generates baseline (no-specific-JD) SDE and SDET resumes, plus a cover
+Generates baseline (no-specific-JD) resumes (one per VARIANTS entry -
+SDE and SDET by default), plus a cover
 letter, from profile.json, in pdf/docx/txt/md/json formats.
 
 Uses a self-hosted LiteLLM proxy (in front of Ollama, per that stack's
@@ -108,8 +109,6 @@ from reportlab.lib.pagesizes import LETTER
 from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, HRFlowable
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-
-VARIANTS = ["SDE", "SDET"]
 
 # The set of targets built whenever --generate is omitted entirely.
 # "profile" is deliberately NOT a member of this set - it's a
@@ -307,6 +306,11 @@ CATEGORY_LABELS = {
 }
 
 SKILLS_HEADING_BY_VARIANT = {"SDE": "CORE TECHNICAL SKILLS", "SDET": "CORE SDET SKILLS"}
+# Fallback heading for a VARIANTS entry (see load_file_location_settings)
+# that isn't one of the two named above -- e.g. VARIANTS=SDE,SDET,SRE.
+# Add an entry above for any variant that deserves custom wording
+# instead of falling through to this generic one.
+SKILLS_HEADING_FALLBACK = "CORE {variant} SKILLS"
 BULLET_CHAR = "\u25cf"  # "●", matches the existing hand-written resumes' style
 EM_DASH = "\u2014"
 
@@ -393,7 +397,7 @@ def build_baseline_context(kb: dict, variant: str) -> dict:
         "personal_info": kb["personal_info"],
         "education": education,
         "summary": summary,
-        "skills_heading": SKILLS_HEADING_BY_VARIANT[variant],
+        "skills_heading": SKILLS_HEADING_BY_VARIANT.get(variant, SKILLS_HEADING_FALLBACK.format(variant=variant.upper())),
         "skills": skills,
         "work_experience": work_experience,
         "cover_letter_generic_template": kb["cover_letter_building_blocks"]["generic_fallback_template"],
@@ -1270,7 +1274,7 @@ def fetch_knowledge_base_json(url: str) -> dict:
     repo). Raises ValueError, folding in the underlying error, on any
     connection, timeout, non-2xx-status, or invalid-JSON failure.
     """
-    headers = {"User-Agent": "Mozilla/5.0 (compatible; LLM-Career-Coach/1.0)"}
+    headers = {"User-Agent": "Mozilla/5.0 (compatible; resume-generator/1.0)"}
     token = os.environ.get("KNOWLEDGE_BASE_URL_TOKEN")
     if token:
         headers["Authorization"] = f"token {token}"
@@ -1449,7 +1453,7 @@ def _fetch_job_description_from_url(url: str) -> str:
     try:
         response = httpx.get(
             url, timeout=30.0, follow_redirects=True,
-            headers={"User-Agent": "Mozilla/5.0 (compatible; LLM-Career-Coach/1.0)"},
+            headers={"User-Agent": "Mozilla/5.0 (compatible; resume-generator/1.0)"},
         )
         response.raise_for_status()
     except httpx.HTTPError as e:
@@ -1722,6 +1726,21 @@ def _render_matched_and_missing_md(assessment: dict, heading_level: str) -> list
 
 def load_file_location_settings() -> dict:
     return {
+        # Not strictly a file location like the rest of this dict, but
+        # lives here for the same reason the OUTPUT_REPO* settings do:
+        # one place main() reads every env-configurable setting from, so
+        # it's re-read (and testable) fresh per run/test rather than
+        # frozen at import time.
+        #
+        # Comma-separated resume/cover-letter variants to generate, in
+        # order - e.g. "SDE,SDET" (the default) or "SDE,SDET,SRE". Each
+        # entry becomes {JobAcronym} in a naming template, a key looked
+        # up in profile.json's per-variant fields (summary_variants,
+        # title_by_variant, etc. - see build_baseline_context), and,
+        # unless it's "SDE" or "SDET", falls back to a generic
+        # "CORE <VARIANT> SKILLS" heading (see SKILLS_HEADING_BY_VARIANT)
+        # rather than failing outright.
+        "VARIANTS": [v.strip() for v in os.environ.get("VARIANTS", "SDE,SDET").split(",") if v.strip()],
         "OUTPUT_FOLDER": os.environ.get("OUTPUT_FOLDER", "generated"),
         "KNOWLEDGE_BASE": os.environ.get("KNOWLEDGE_BASE", "data/profile.json"),
         "KNOWLEDGE_BASE_DRAFT": os.environ.get("KNOWLEDGE_BASE_DRAFT", "data/profile.json"),
@@ -1747,7 +1766,7 @@ def load_file_location_settings() -> dict:
         "OUTPUT_REPO_CLONE_DIR": os.environ.get("OUTPUT_REPO_CLONE_DIR", ".output-repo"),
         "OUTPUT_REPO_AUTHOR_NAME": os.environ.get("OUTPUT_REPO_AUTHOR_NAME", "Dennis Jay Dole"),
         "OUTPUT_REPO_AUTHOR_EMAIL": os.environ.get(
-            "OUTPUT_REPO_AUTHOR_EMAIL", "Dennis.Dole+LLM-Career-Coach@djdole.net"
+            "OUTPUT_REPO_AUTHOR_EMAIL", "Dennis.Dole+resume-generator@djdole.net"
         ),
         "OUTPUT_REPO_COMMIT_MESSAGE": os.environ.get(
             "OUTPUT_REPO_COMMIT_MESSAGE", "Regenerate resumes/cover letters ({datetime.now})"
@@ -2050,7 +2069,7 @@ def main(argv=None):
             Path(s["RESUME_TEMPLATE"]).read_text(encoding="utf-8") if "resume" in targets else None
         )
 
-        for variant in VARIANTS:
+        for variant in s["VARIANTS"]:
             def resume_path(ext: str) -> Path:
                 return ensure_parent_dir_exists(out_dir / render_filename(s["RESUME_NAMING_TEMPLATE"], full_name, variant, ext))
 
@@ -2112,7 +2131,7 @@ def main(argv=None):
 
     summary_parts = []
     if "resume" in targets:
-        summary_parts.append(f"{len(VARIANTS)} resume variant(s) (5 formats)")
+        summary_parts.append(f"{len(s['VARIANTS'])} resume variant(s) (5 formats)")
     if "cover_letter" in targets:
         summary_parts.append("cover letters (3 formats)")
     if summary_parts:

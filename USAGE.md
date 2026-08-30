@@ -8,7 +8,9 @@ using a self-hosted LiteLLM proxy (in front of Ollama) rather than a paid
 hosted API - generation never spends API credits and never fails due to
 account balance. Everything is driven by one script, `generator.py`:
 
-- **Resumes** - two variants (SDE and SDET), each in 5 formats
+- **Resumes** - one per `VARIANTS` entry (`SDE`/`SDET` by default,
+  configurable - see [Resume/cover letter variants](#resumecover-letter-variants)
+  below), each in 5 formats
   (pdf/docx/txt/md/json).
 - **Cover letters** - one per variant, in 3 formats (pdf/docx/txt).
 - **A GitHub profile README** - filled in from the same knowledge base.
@@ -83,6 +85,19 @@ of truth `generator.py` reads at startup.
 | `LITELLM_TIMEOUT` | `550` (seconds) | How long to wait for a single LLM response before giving up on that attempt. Keep this comfortably *below* any reverse proxy's own read timeout in front of LiteLLM (e.g. nginx's `proxy_read_timeout`), or the proxy silently kills the connection first and this setting never gets to matter. |
 | `LITELLM_KEEP_ALIVE` | `30m` | How long Ollama keeps the model loaded in VRAM after a request. A full run makes several sequential calls; keep this comfortably longer than a full run takes end to end so the model doesn't unload mid-run. Accepts a duration string (`30m`, `1h`) or a number of seconds. |
 
+### Resume/cover letter variants
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `VARIANTS` | `SDE,SDET` | Comma-separated list of variants to generate, in order. Each entry becomes `{JobAcronym}` in a naming template below, a key looked up in `profile.json`'s per-variant fields (`summary_variants`, `title_by_variant`, etc.), and the resume's skills-section heading -- `SDE`/`SDET` get custom wording (`SKILLS_HEADING_BY_VARIANT` in `generator.py`), any other value gets a generic "CORE \<VARIANT\> SKILLS" heading rather than an error. |
+
+A variant missing from one of `profile.json`'s per-variant fields
+doesn't fail the run: `summary_variants` falls back to that field's
+`"SDE"` entry, and a job's `title_by_variant` falls back to whichever
+variant it does have. Set `VARIANTS="SDE"` to generate a single
+variant, or add a third (`VARIANTS="SDE,SDET,SRE"`) once `profile.json`
+has content worth generating for it.
+
 ### Output locations
 
 | Variable | Default | Purpose |
@@ -125,7 +140,7 @@ checkout.
 | `OUTPUT_REPO_BRANCH` | *(unset)* | Branch to check out/commit/push in `OUTPUT_REPO`. Defaults to that repo's own default branch. |
 | `OUTPUT_REPO_TOKEN` | *(unset)* | Only used when `OUTPUT_REPO` is an `https://` URL to a private repo. Sent as an HTTP Basic auth credential embedded in the clone/fetch/push URL (works the same way as a GitHub/GitLab personal access token used as the password, with any non-empty username). Leave unset for a public repo, or for an `ssh://` URL (use your normal SSH key/ssh-agent setup instead). |
 | `OUTPUT_REPO_CLONE_DIR` | `.output-repo` | Local folder `OUTPUT_REPO` is cloned into, and kept up to date in on later runs, instead of re-cloning from scratch every time. Already covered by `.gitignore` -- it's its own separate git repo nested inside this one. |
-| `OUTPUT_REPO_AUTHOR_NAME` / `OUTPUT_REPO_AUTHOR_EMAIL` | `LLM-Career-Coach` / `LLM-Career-Coach@users.noreply.github.com` | Commit author/committer identity used in `OUTPUT_REPO`. Set these if you'd rather commits be attributed to a real account -- useful in CI, where no global git identity may be configured. |
+| `OUTPUT_REPO_AUTHOR_NAME` / `OUTPUT_REPO_AUTHOR_EMAIL` | `resume-generator` / `resume-generator@users.noreply.github.com` | Commit author/committer identity used in `OUTPUT_REPO`. Set these if you'd rather commits be attributed to a real account -- useful in CI, where no global git identity may be configured. |
 | `OUTPUT_REPO_COMMIT_MESSAGE` | `Regenerate resumes/cover letters ({datetime.now})` | Commit message for the `OUTPUT_REPO` commit. Also a naming template (see below), though only its `{datetime.now...}` placeholders make sense here since a commit isn't per-resume-variant. |
 | `OUTPUT_REPO_PUSH` | `true` | Set to `false` to only commit locally in `OUTPUT_REPO_CLONE_DIR` (e.g. to review the diff yourself before pushing it on) without skipping the commit itself. |
 
@@ -278,8 +293,8 @@ descriptions.
 
 | Target | Files per variant | Formats |
 |---|---|---|
-| `resume` | 1 per variant (SDE, SDET) | `.json`, `.txt`, `.md`, `.pdf`, `.docx` (5) |
-| `cover_letter` | 1 per variant (SDE, SDET) | `.txt`, `.pdf`, `.docx` (3) |
+| `resume` | 1 per `VARIANTS` entry (`SDE`, `SDET` by default) | `.json`, `.txt`, `.md`, `.pdf`, `.docx` (5) |
+| `cover_letter` | 1 per `VARIANTS` entry (`SDE`, `SDET` by default) | `.txt`, `.pdf`, `.docx` (3) |
 | `readme` | 1 | `.md`, written to `README_OUTPUT` (repo root by default) |
 | `profile` | 1 | `.json`, written to `KNOWLEDGE_BASE_DRAFT` |
 | `analyze` | 1 | `.md`, written to `OUTPUT_FOLDER`, and also printed to stdout |

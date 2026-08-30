@@ -15,6 +15,12 @@ class TestBuildBaselineContext:
         assert generator.build_baseline_context(sample_kb, "SDE")["skills_heading"] == "CORE TECHNICAL SKILLS"
         assert generator.build_baseline_context(sample_kb, "SDET")["skills_heading"] == "CORE SDET SKILLS"
 
+    def test_skills_heading_falls_back_for_unlisted_variant(self, sample_kb):
+        # Only SDE/SDET have custom wording in SKILLS_HEADING_BY_VARIANT -
+        # any other VARIANTS entry (e.g. VARIANTS=SDE,SDET,SRE) should get
+        # a generic heading instead of a KeyError.
+        assert generator.build_baseline_context(sample_kb, "SRE")["skills_heading"] == "CORE SRE SKILLS"
+
     def test_output_rules_trimmed_to_two_keys(self, sample_kb):
         ctx = generator.build_baseline_context(sample_kb, "SDE")
         assert set(ctx["output_rules"].keys()) == {"never_fabricate", "never_use_em_dash"}
