@@ -307,7 +307,8 @@ CATEGORY_LABELS = {
 
 SKILLS_HEADING_BY_VARIANT = {"SDE": "CORE TECHNICAL SKILLS", "SDET": "CORE SDET SKILLS"}
 # Fallback heading for a VARIANTS entry (see load_file_location_settings)
-# that isn't one of the two named above -- e.g. VARIANTS=SDE,SDET,SRE.
+# that isn't one of the two named above -- e.g.
+# VARIANTS=["SDE", "SDET", "SRE"].
 # Add an entry above for any variant that deserves custom wording
 # instead of falling through to this generic one.
 SKILLS_HEADING_FALLBACK = "CORE {variant} SKILLS"
@@ -1724,6 +1725,35 @@ def _render_matched_and_missing_md(assessment: dict, heading_level: str) -> list
     return lines
 
 
+def parse_variants_env(raw) -> list:
+    """
+    Parses the VARIANTS env var into a list of variant names. VARIANTS
+    is a JSON array of strings - e.g. '["SDE", "SDET"]' or
+    '["Product Manager", "HR Admin"]' - rather than a bare
+    comma-separated list, specifically so a variant name can itself
+    contain spaces (or even a comma) without being split apart: each
+    element is its own quoted JSON string, so "Product Manager" stays
+    one entry instead of becoming "Product" and "Manager".
+
+    raw is None (VARIANTS unset entirely) returns the default
+    ["SDE", "SDET"]. Anything else that isn't valid JSON, or isn't a
+    JSON array of strings, exits with a clear error - same style as
+    build_llm_client() exiting on missing LiteLLM config - rather than
+    silently falling back to the default or crashing later with a
+    confusing error mid-run.
+    """
+    if raw is None:
+        return ["SDE", "SDET"]
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        parsed = None
+    if not isinstance(parsed, list) or not all(isinstance(v, str) for v in parsed):
+        print(f'VARIANTS must be a JSON array of strings, e.g. ["SDE", "SDET"] -- got: {raw!r}', file=sys.stderr)
+        sys.exit(1)
+    return [v.strip() for v in parsed if v.strip()]
+
+
 def load_file_location_settings() -> dict:
     return {
         # Not strictly a file location like the rest of this dict, but
@@ -1732,15 +1762,15 @@ def load_file_location_settings() -> dict:
         # it's re-read (and testable) fresh per run/test rather than
         # frozen at import time.
         #
-        # Comma-separated resume/cover-letter variants to generate, in
-        # order - e.g. "SDE,SDET" (the default) or "SDE,SDET,SRE". Each
-        # entry becomes {JobAcronym} in a naming template, a key looked
-        # up in profile.json's per-variant fields (summary_variants,
-        # title_by_variant, etc. - see build_baseline_context), and,
-        # unless it's "SDE" or "SDET", falls back to a generic
-        # "CORE <VARIANT> SKILLS" heading (see SKILLS_HEADING_BY_VARIANT)
-        # rather than failing outright.
-        "VARIANTS": [v.strip() for v in os.environ.get("VARIANTS", "SDE,SDET").split(",") if v.strip()],
+        # Resume/cover-letter variants to generate, in order - see
+        # parse_variants_env() above for VARIANTS' JSON-array format.
+        # Each entry becomes {JobAcronym} in a naming template, a key
+        # looked up in profile.json's per-variant fields
+        # (summary_variants, title_by_variant, etc. - see
+        # build_baseline_context), and, unless it's "SDE" or "SDET",
+        # falls back to a generic "CORE <VARIANT> SKILLS" heading (see
+        # SKILLS_HEADING_BY_VARIANT) rather than failing outright.
+        "VARIANTS": parse_variants_env(os.environ.get("VARIANTS")),
         "OUTPUT_FOLDER": os.environ.get("OUTPUT_FOLDER", "generated"),
         "KNOWLEDGE_BASE": os.environ.get("KNOWLEDGE_BASE", "data/profile.json"),
         "KNOWLEDGE_BASE_DRAFT": os.environ.get("KNOWLEDGE_BASE_DRAFT", "data/profile.json"),

@@ -91,18 +91,24 @@ class TestMain:
         assert (main_env / "README.md").read_text(encoding="utf-8") == stub_llm_calls
 
     def test_respects_variants_override(self, main_env, monkeypatch, stub_llm_calls):
-        monkeypatch.setenv("VARIANTS", "SDE")
+        monkeypatch.setenv("VARIANTS", '["SDE"]')
         generator.main()
         out_dir = main_env / "generated"
         assert (out_dir / "Jane Doe Resume (SDE).json").exists()
         assert not (out_dir / "Jane Doe Resume (SDET).json").exists()
 
     def test_variants_override_can_add_a_new_variant(self, main_env, monkeypatch, stub_llm_calls):
-        monkeypatch.setenv("VARIANTS", "SDE,SDET,SRE")
+        monkeypatch.setenv("VARIANTS", '["SDE", "SDET", "SRE"]')
         generator.main()
         out_dir = main_env / "generated"
         for variant in ("SDE", "SDET", "SRE"):
             assert (out_dir / f"Jane Doe Resume ({variant}).json").exists()
+
+    def test_variants_entry_with_spaces_becomes_one_filename(self, main_env, monkeypatch, stub_llm_calls):
+        monkeypatch.setenv("VARIANTS", '["Product Manager"]')
+        generator.main()
+        out_dir = main_env / "generated"
+        assert (out_dir / "Jane Doe Resume (Product Manager).json").exists()
 
     def test_drops_middle_name_from_filenames(self, main_env, stub_llm_calls):
         # sample_kb's personal_info.full_name is "Jane Q. Doe" (see conftest);
