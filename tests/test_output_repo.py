@@ -181,8 +181,8 @@ class TestCommitAndPushOutputRepo:
         return {
             "OUTPUT_REPO": "irrelevant-for-this-class",
             "OUTPUT_REPO_BRANCH": "",
-            "OUTPUT_REPO_AUTHOR_NAME": "djdole-generator",
-            "OUTPUT_REPO_AUTHOR_EMAIL": "djdole-generator@users.noreply.github.com",
+            "OUTPUT_REPO_AUTHOR_NAME": "resume-generator",
+            "OUTPUT_REPO_AUTHOR_EMAIL": "resume-generator@users.noreply.github.com",
             "OUTPUT_REPO_COMMIT_MESSAGE": message,
             "OUTPUT_REPO_PUSH": push,
         }
