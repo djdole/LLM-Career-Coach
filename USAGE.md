@@ -89,14 +89,24 @@ of truth `generator.py` reads at startup.
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `VARIANTS` | `SDE,SDET` | Comma-separated list of variants to generate, in order. Each entry becomes `{JobAcronym}` in a naming template below, a key looked up in `profile.json`'s per-variant fields (`summary_variants`, `title_by_variant`, etc.), and the resume's skills-section heading -- `SDE`/`SDET` get custom wording (`SKILLS_HEADING_BY_VARIANT` in `generator.py`), any other value gets a generic "CORE \<VARIANT\> SKILLS" heading rather than an error. |
+| `VARIANTS` | `["SDE", "SDET"]` | A JSON array of variant names to generate, in order. Each entry becomes `{JobAcronym}` in a naming template below, a key looked up in `profile.json`'s per-variant fields (`summary_variants`, `title_by_variant`, etc.), and the resume's skills-section heading -- `SDE`/`SDET` get custom wording (`SKILLS_HEADING_BY_VARIANT` in `generator.py`), any other value gets a generic "CORE \<VARIANT\> SKILLS" heading rather than an error. |
+
+`VARIANTS` is JSON, not a bare comma-separated list, specifically so a
+variant name can contain spaces (or even a comma) without being split
+apart -- e.g. `VARIANTS=["Product Manager", "HR Admin", "Executive
+Producer of Everything"]` is three variants, not more. In `.env`, wrap
+the whole value in single quotes (the JSON syntax itself uses double
+quotes): `VARIANTS='["Product Manager", "HR Admin"]'`. A value that
+isn't valid JSON, or isn't an array of strings, exits immediately with
+an error rather than being silently ignored.
 
 A variant missing from one of `profile.json`'s per-variant fields
 doesn't fail the run: `summary_variants` falls back to that field's
 `"SDE"` entry, and a job's `title_by_variant` falls back to whichever
-variant it does have. Set `VARIANTS="SDE"` to generate a single
-variant, or add a third (`VARIANTS="SDE,SDET,SRE"`) once `profile.json`
-has content worth generating for it.
+variant it does have -- though for a wholly new variant like `"Product
+Manager"`, you'll usually want to add real content for it to those
+fields rather than relying on the SDE fallback. Set `VARIANTS='["SDE"]'`
+to generate a single variant, or `VARIANTS='[]'` to generate none.
 
 ### Output locations
 

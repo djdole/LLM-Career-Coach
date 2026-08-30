@@ -40,10 +40,12 @@ manual, chat-based process outside this script.
   blocks all live there once; every generated document is derived from
   it, not maintained by hand.
 - **Position variants are configurable, not fixed to two.** `VARIANTS`
-  (a comma-separated `.env` list, `SDE,SDET` by default) controls which
+  (a JSON array in `.env`, `["SDE", "SDET"]` by default) controls which
   variants get generated - add, remove, rename, or reorder however
   many you need, and each one gets its own tailored resume and cover
   letter set, pulled from that variant's fields in `profile.json`.
+  Quoting each entry means a variant name can contain spaces, e.g.
+  `["Product Manager", "HR Admin"]`.
 - **Everything runs through a self-hosted LLM**, via a LiteLLM proxy in
   front of Ollama (or anything else OpenAI-compatible LiteLLM can
   reach). Generation never spends API credits and never fails because

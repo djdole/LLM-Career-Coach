@@ -272,30 +272,56 @@ class TestLoadFileLocationSettings:
         assert settings["OUTPUT_FOLDER"] == "custom_output"
         assert settings["README_OUTPUT"] == "custom_readme.md"
 
-    def test_variants_splits_on_comma(self, monkeypatch):
-        monkeypatch.setenv("VARIANTS", "SDE,SDET,SRE")
+    def test_variants_parses_json_array(self, monkeypatch):
+        monkeypatch.setenv("VARIANTS", '["SDE", "SDET", "SRE"]')
         settings = generator.load_file_location_settings()
         assert settings["VARIANTS"] == ["SDE", "SDET", "SRE"]
 
+    def test_variants_entries_may_contain_spaces(self, monkeypatch):
+        monkeypatch.setenv("VARIANTS", '["Product Manager", "Executive Producer of Everything"]')
+        settings = generator.load_file_location_settings()
+        assert settings["VARIANTS"] == ["Product Manager", "Executive Producer of Everything"]
+
     def test_variants_strips_whitespace_around_entries(self, monkeypatch):
-        monkeypatch.setenv("VARIANTS", " SDE , SDET ")
+        monkeypatch.setenv("VARIANTS", '[" SDE ", " SDET "]')
         settings = generator.load_file_location_settings()
         assert settings["VARIANTS"] == ["SDE", "SDET"]
 
-    def test_variants_drops_empty_entries(self, monkeypatch):
-        monkeypatch.setenv("VARIANTS", "SDE,,SDET,")
+    def test_variants_drops_empty_string_entries(self, monkeypatch):
+        monkeypatch.setenv("VARIANTS", '["SDE", "", "SDET", "   "]')
         settings = generator.load_file_location_settings()
         assert settings["VARIANTS"] == ["SDE", "SDET"]
 
-    def test_variants_empty_string_yields_empty_list(self, monkeypatch):
-        monkeypatch.setenv("VARIANTS", "")
+    def test_variants_empty_array_yields_empty_list(self, monkeypatch):
+        monkeypatch.setenv("VARIANTS", "[]")
         settings = generator.load_file_location_settings()
         assert settings["VARIANTS"] == []
 
     def test_variants_single_entry(self, monkeypatch):
-        monkeypatch.setenv("VARIANTS", "SDE")
+        monkeypatch.setenv("VARIANTS", '["SDE"]')
         settings = generator.load_file_location_settings()
         assert settings["VARIANTS"] == ["SDE"]
+
+    def test_variants_exits_with_clear_error_on_invalid_json(self, monkeypatch, capsys):
+        monkeypatch.setenv("VARIANTS", "SDE,SDET")  # old CSV format, no longer accepted
+        with pytest.raises(SystemExit) as exc_info:
+            generator.load_file_location_settings()
+        assert exc_info.value.code == 1
+        assert "VARIANTS must be a JSON array of strings" in capsys.readouterr().err
+
+    def test_variants_exits_with_clear_error_on_non_array_json(self, monkeypatch, capsys):
+        monkeypatch.setenv("VARIANTS", '{"SDE": true}')
+        with pytest.raises(SystemExit) as exc_info:
+            generator.load_file_location_settings()
+        assert exc_info.value.code == 1
+        assert "VARIANTS must be a JSON array of strings" in capsys.readouterr().err
+
+    def test_variants_exits_with_clear_error_on_non_string_array_entries(self, monkeypatch, capsys):
+        monkeypatch.setenv("VARIANTS", "[1, 2]")
+        with pytest.raises(SystemExit) as exc_info:
+            generator.load_file_location_settings()
+        assert exc_info.value.code == 1
+        assert "VARIANTS must be a JSON array of strings" in capsys.readouterr().err
 
 
 class TestBuildLlmClient:
