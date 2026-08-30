@@ -21,6 +21,11 @@ venv/
 job_description.txt
 generated/*Job Fit Analysis.*
 
+# Local clone OUTPUT_REPO is checked out into (see .env.template) --
+# it's its own separate git repository nested inside this one, not
+# content that belongs in THIS repo's history.
+.output-repo/
+
 # pytest-testmon's local test-selection database (per-machine, tracks
 # which tests exercise which lines of code as of your last run) - see
 # pytest.ini and USAGE.md's "Running tests" section.
