@@ -1270,7 +1270,7 @@ def fetch_knowledge_base_json(url: str) -> dict:
     repo). Raises ValueError, folding in the underlying error, on any
     connection, timeout, non-2xx-status, or invalid-JSON failure.
     """
-    headers = {"User-Agent": "Mozilla/5.0 (compatible; resume-generator/1.0)"}
+    headers = {"User-Agent": "Mozilla/5.0 (compatible; LLM-Career-Coach/1.0)"}
     token = os.environ.get("KNOWLEDGE_BASE_URL_TOKEN")
     if token:
         headers["Authorization"] = f"token {token}"
@@ -1449,7 +1449,7 @@ def _fetch_job_description_from_url(url: str) -> str:
     try:
         response = httpx.get(
             url, timeout=30.0, follow_redirects=True,
-            headers={"User-Agent": "Mozilla/5.0 (compatible; resume-generator/1.0)"},
+            headers={"User-Agent": "Mozilla/5.0 (compatible; LLM-Career-Coach/1.0)"},
         )
         response.raise_for_status()
     except httpx.HTTPError as e:
@@ -1747,7 +1747,7 @@ def load_file_location_settings() -> dict:
         "OUTPUT_REPO_CLONE_DIR": os.environ.get("OUTPUT_REPO_CLONE_DIR", ".output-repo"),
         "OUTPUT_REPO_AUTHOR_NAME": os.environ.get("OUTPUT_REPO_AUTHOR_NAME", "Dennis Jay Dole"),
         "OUTPUT_REPO_AUTHOR_EMAIL": os.environ.get(
-            "OUTPUT_REPO_AUTHOR_EMAIL", "Dennis.Dole+resume-generator@djdole.net"
+            "OUTPUT_REPO_AUTHOR_EMAIL", "Dennis.Dole+LLM-Career-Coach@djdole.net"
         ),
         "OUTPUT_REPO_COMMIT_MESSAGE": os.environ.get(
             "OUTPUT_REPO_COMMIT_MESSAGE", "Regenerate resumes/cover letters ({datetime.now})"
