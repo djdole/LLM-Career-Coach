@@ -95,6 +95,46 @@ of truth `generator.py` reads at startup.
 | `RESUME_NAMING_TEMPLATE` | `{FirstName} {LastName} Resume ({JobAcronym}).{Extension}` | Output path pattern for resumes -- see [Naming template placeholders](#naming-template-placeholders) below for everything usable here, including nesting the output under a subfolder. |
 | `COVERLETTER_NAMING_TEMPLATE` | `{FirstName} {LastName} Cover Letter ({JobAcronym}).{Extension}` | Same, for cover letters. |
 
+### Checking output into a different repository
+
+By default, `OUTPUT_FOLDER` and `README_OUTPUT` above are written
+straight into this checkout, and it's on you (or a CI workflow like
+`.github/workflows/generate.yml`) to commit them. Setting `OUTPUT_REPO`
+decouples that: this generator repo and the repo that actually holds
+someone's checked-in resumes/cover letters/README can be two entirely
+different repos. When set, every run that generates a resume, cover
+letter, and/or README:
+
+1. Clones `OUTPUT_REPO` locally into `OUTPUT_REPO_CLONE_DIR` (or, if a
+   previous run already cloned it there, fetches and hard-resets that
+   clone to match `origin` first -- so leftover uncommitted output from
+   an interrupted previous run is discarded, not layered on top of).
+2. Writes `OUTPUT_FOLDER` and `README_OUTPUT` *inside that clone*
+   instead of inside this checkout.
+3. Commits everything new under the clone and, unless
+   `OUTPUT_REPO_PUSH` is `false`, pushes it.
+
+`KNOWLEDGE_BASE_DRAFT` is **not** affected by this -- it's the
+source-of-truth knowledge base everything else is generated *from*,
+not generated output itself, so it always stays local to this
+checkout.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `OUTPUT_REPO` | *(unset)* | Repo to check `OUTPUT_FOLDER` and `README_OUTPUT` into instead of this checkout. Unset means "no change" -- original behavior. Accepts anything `git clone` accepts: an `https://` URL, an `ssh://`/`git@...` URL, or a local path. |
+| `OUTPUT_REPO_BRANCH` | *(unset)* | Branch to check out/commit/push in `OUTPUT_REPO`. Defaults to that repo's own default branch. |
+| `OUTPUT_REPO_TOKEN` | *(unset)* | Only used when `OUTPUT_REPO` is an `https://` URL to a private repo. Sent as an HTTP Basic auth credential embedded in the clone/fetch/push URL (works the same way as a GitHub/GitLab personal access token used as the password, with any non-empty username). Leave unset for a public repo, or for an `ssh://` URL (use your normal SSH key/ssh-agent setup instead). |
+| `OUTPUT_REPO_CLONE_DIR` | `.output-repo` | Local folder `OUTPUT_REPO` is cloned into, and kept up to date in on later runs, instead of re-cloning from scratch every time. Already covered by `.gitignore` -- it's its own separate git repo nested inside this one. |
+| `OUTPUT_REPO_AUTHOR_NAME` / `OUTPUT_REPO_AUTHOR_EMAIL` | `djdole-generator` / `djdole-generator@users.noreply.github.com` | Commit author/committer identity used in `OUTPUT_REPO`. Set these if you'd rather commits be attributed to a real account -- useful in CI, where no global git identity may be configured. |
+| `OUTPUT_REPO_COMMIT_MESSAGE` | `Regenerate resumes/cover letters ({datetime.now})` | Commit message for the `OUTPUT_REPO` commit. Also a naming template (see below), though only its `{datetime.now...}` placeholders make sense here since a commit isn't per-resume-variant. |
+| `OUTPUT_REPO_PUSH` | `true` | Set to `false` to only commit locally in `OUTPUT_REPO_CLONE_DIR` (e.g. to review the diff yourself before pushing it on) without skipping the commit itself. |
+
+```bash
+# .env
+OUTPUT_REPO="https://github.com/YOUR_USERNAME/your-resumes.git"
+OUTPUT_REPO_TOKEN="ghp_..."   # only needed if that repo is private
+```
+
 ### Knowledge base
 
 | Variable | Default | Purpose |

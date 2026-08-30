@@ -52,6 +52,18 @@ even when KNOWLEDGE_BASE is a URL - it has no way to push a draft back
 to an arbitrary URL, so promoting the draft back to that source is a
 manual step.
 
+Resume/cover letter/README output (OUTPUT_FOLDER, README_OUTPUT)
+normally lands in this same checkout, for the calling workflow/you to
+commit. Setting OUTPUT_REPO decouples that: generated files are instead
+written into a local clone of that OTHER git repo, which is committed
+and pushed automatically at the end of the run - so this generator repo
+and the repo that actually holds someone's checked-in resumes/cover
+letters/README can be two different repos entirely. KNOWLEDGE_BASE_DRAFT
+is unaffected - it's the source-of-truth knowledge base everything
+else is generated FROM, not generated output itself, so it always
+stays local. See sync_output_repo(), commit_and_push_output_repo(), and
+the OUTPUT_REPO* env vars in .env.template.
+
 --analyze is its own separate flag, independent of --generate: its value
 IS the job description - literal JD text, a path to a local file
 (pdf/docx/txt/md/json/xml), or a URL to fetch it from - see
@@ -78,6 +90,7 @@ import json
 import os
 import re
 import string
+import subprocess
 import sys
 import types
 import urllib.parse
@@ -1723,6 +1736,22 @@ def load_file_location_settings() -> dict:
             "COVERLETTER_NAMING_TEMPLATE", "{FirstName} {LastName} Cover Letter ({JobAcronym}).{Extension}"
         ),
         "ANALYSIS_PROMPT_TEMPLATE": os.environ.get("ANALYSIS_PROMPT_TEMPLATE", "ANALYSIS_PROMPT.template.txt"),
+        # OUTPUT_REPO and friends: see sync_output_repo() and
+        # commit_and_push_output_repo(). Unset OUTPUT_REPO (the default)
+        # means "no change" - OUTPUT_FOLDER is written into this checkout,
+        # exactly like before this feature existed.
+        "OUTPUT_REPO": os.environ.get("OUTPUT_REPO", ""),
+        "OUTPUT_REPO_BRANCH": os.environ.get("OUTPUT_REPO_BRANCH", ""),
+        "OUTPUT_REPO_TOKEN": os.environ.get("OUTPUT_REPO_TOKEN", ""),
+        "OUTPUT_REPO_CLONE_DIR": os.environ.get("OUTPUT_REPO_CLONE_DIR", ".output-repo"),
+        "OUTPUT_REPO_AUTHOR_NAME": os.environ.get("OUTPUT_REPO_AUTHOR_NAME", "djdole-generator"),
+        "OUTPUT_REPO_AUTHOR_EMAIL": os.environ.get(
+            "OUTPUT_REPO_AUTHOR_EMAIL", "djdole-generator@users.noreply.github.com"
+        ),
+        "OUTPUT_REPO_COMMIT_MESSAGE": os.environ.get(
+            "OUTPUT_REPO_COMMIT_MESSAGE", "Regenerate resumes/cover letters ({datetime.now})"
+        ),
+        "OUTPUT_REPO_PUSH": os.environ.get("OUTPUT_REPO_PUSH", "true").strip().lower() not in ("false", "0", "no"),
     }
 
 
@@ -1806,6 +1835,150 @@ def ensure_parent_dir_exists(path: Path) -> Path:
     return path
 
 
+def _run_git(args: list, cwd, env: dict = None) -> str:
+    """
+    Runs `git <args>` in cwd and returns stdout. Raises RuntimeError
+    (folding in git's own stderr) on a non-zero exit, so an OUTPUT_REPO
+    problem (bad URL, auth failure, network error, non-fast-forward
+    push, ...) surfaces as a clear error instead of silently no-op'ing.
+    """
+    result = subprocess.run(["git", *args], cwd=cwd, env=env, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"git {' '.join(args)} (in {cwd}) failed: {result.stderr.strip()}")
+    return result.stdout
+
+
+def _inject_repo_token(repo_url: str, token: str) -> str:
+    """
+    Embeds OUTPUT_REPO_TOKEN into an https:// OUTPUT_REPO URL as an HTTP
+    Basic auth credential, so clone/fetch/push work non-interactively
+    (e.g. in CI) without SSH key setup -- GitHub/GitLab/etc. all accept a
+    personal access token as the password with any non-empty username;
+    "x-access-token" is used here, GitHub's own convention for this.
+    Leaves ssh:// URLs and local paths untouched (there's no equivalent
+    embedding for those -- use your normal SSH key/ssh-agent setup
+    instead), and leaves the URL untouched entirely when no token is set.
+    """
+    if not token or not repo_url.startswith(("http://", "https://")):
+        return repo_url
+    parsed = urllib.parse.urlsplit(repo_url)
+    netloc = f"x-access-token:{token}@{parsed.netloc}"
+    return urllib.parse.urlunsplit((parsed.scheme, netloc, parsed.path, parsed.query, parsed.fragment))
+
+
+def _resolve_output_repo_target_ref(clone_dir: Path, branch: str):
+    """
+    Returns the origin ref sync_output_repo() should hard-reset the clone
+    to, or None if that ref doesn't exist yet -- which just means the
+    remote has no commits reachable from it yet (e.g. this is the very
+    first run ever against a freshly created, still-empty OUTPUT_REPO,
+    or a retry after a previous run crashed before
+    commit_and_push_output_repo() got to push anything). In that case
+    there's nothing to reset TO, and the caller falls back to only
+    cleaning up untracked leftovers instead.
+    """
+    if branch:
+        candidate = f"origin/{branch}"
+    else:
+        head = subprocess.run(
+            ["git", "symbolic-ref", "-q", "refs/remotes/origin/HEAD"], cwd=clone_dir, capture_output=True, text=True,
+        )
+        if head.returncode != 0:
+            return None
+        candidate = head.stdout.strip().removeprefix("refs/remotes/")
+    exists = subprocess.run(
+        ["git", "rev-parse", "--verify", "-q", candidate], cwd=clone_dir, capture_output=True,
+    ).returncode == 0
+    return candidate if exists else None
+
+
+def sync_output_repo(s: dict) -> Path:
+    """
+    Ensures OUTPUT_REPO is available locally at OUTPUT_REPO_CLONE_DIR --
+    cloning it there if this is the first run, or bringing an existing
+    clone from a previous run up to date with origin otherwise -- and
+    returns that clone's path. Called once per run, before any
+    generation happens, whenever OUTPUT_REPO is set; see
+    commit_and_push_output_repo() for the other half, after generation.
+
+    Reusing OUTPUT_REPO_CLONE_DIR across runs (rather than a fresh clone
+    every time) means repeated runs only fetch what changed. The clone is
+    always reset to exactly match origin/<branch> before returning --
+    any uncommitted changes or untracked files left over from an
+    interrupted previous run (e.g. this script crashing after writing
+    output but before commit_and_push_output_repo() ran) are discarded,
+    so every run starts from a known-clean state instead of silently
+    layering new output on top of leftover partial output.
+    """
+    clone_dir = Path(s["OUTPUT_REPO_CLONE_DIR"])
+    repo_url = _inject_repo_token(s["OUTPUT_REPO"], s["OUTPUT_REPO_TOKEN"])
+    branch = s["OUTPUT_REPO_BRANCH"]
+
+    if (clone_dir / ".git").is_dir():
+        _run_git(["remote", "set-url", "origin", repo_url], clone_dir)
+        _run_git(["fetch", "origin"], clone_dir)
+        if not branch:
+            # (Re-)detect origin's default branch. Needed whenever the
+            # clone was originally made from an empty remote (no default
+            # branch existed yet to record) and that remote has since
+            # gained one -- e.g. this generator's own first successful
+            # commit_and_push_output_repo() call. Failure (remote is
+            # still empty) is fine and expected; _resolve_output_repo_
+            # target_ref then falls through to the clean-only path below.
+            subprocess.run(["git", "remote", "set-head", "origin", "-a"], cwd=clone_dir, capture_output=True)
+        target = _resolve_output_repo_target_ref(clone_dir, branch)
+        if target:
+            if branch:
+                _run_git(["checkout", "-B", branch, target], clone_dir)
+            _run_git(["reset", "--hard", target], clone_dir)
+        _run_git(["clean", "-fd"], clone_dir)
+    else:
+        if clone_dir.exists() and any(clone_dir.iterdir()):
+            raise RuntimeError(
+                f"OUTPUT_REPO_CLONE_DIR '{clone_dir}' already exists and isn't a git clone "
+                "-- remove it, or point OUTPUT_REPO_CLONE_DIR somewhere else, and re-run."
+            )
+        clone_dir.parent.mkdir(parents=True, exist_ok=True)
+        args = ["clone", repo_url, str(clone_dir)]
+        if branch:
+            args[1:1] = ["--branch", branch]
+        _run_git(args, clone_dir.parent)
+
+    return clone_dir
+
+
+def commit_and_push_output_repo(s: dict, clone_dir: Path) -> bool:
+    """
+    Stages every change under clone_dir (the OUTPUT_REPO clone) and, if
+    there's anything new to check in, commits it with
+    OUTPUT_REPO_COMMIT_MESSAGE (a naming template -- see render_filename
+    -- though only its {datetime.now...} placeholders make sense here,
+    since a commit isn't per-resume-variant) and, unless OUTPUT_REPO_PUSH
+    is false, pushes it to OUTPUT_REPO_BRANCH (or whatever branch is
+    currently checked out, if that's unset). Returns True if a commit
+    was made, False if the working tree already matched what's
+    committed (nothing new to check in this run).
+    """
+    _run_git(["add", "-A"], clone_dir)
+    if not _run_git(["status", "--porcelain"], clone_dir).strip():
+        return False
+
+    commit_env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": s["OUTPUT_REPO_AUTHOR_NAME"],
+        "GIT_AUTHOR_EMAIL": s["OUTPUT_REPO_AUTHOR_EMAIL"],
+        "GIT_COMMITTER_NAME": s["OUTPUT_REPO_AUTHOR_NAME"],
+        "GIT_COMMITTER_EMAIL": s["OUTPUT_REPO_AUTHOR_EMAIL"],
+    }
+    message = render_filename(s["OUTPUT_REPO_COMMIT_MESSAGE"], full_name="", job_acronym="", extension="")
+    _run_git(["commit", "-m", message], clone_dir, env=commit_env)
+
+    if s["OUTPUT_REPO_PUSH"]:
+        _run_git(["push", "origin", f"HEAD:{s['OUTPUT_REPO_BRANCH']}" if s["OUTPUT_REPO_BRANCH"] else "HEAD"], clone_dir)
+
+    return True
+
+
 def main(argv=None):
     parser = build_arg_parser()
     # argv is None (the default) whenever main() is called directly rather
@@ -1851,8 +2024,25 @@ def main(argv=None):
             sys.exit(1)
         full_name = kb["personal_info"]["full_name"]
 
+    # Non-None only when OUTPUT_REPO is set and this run is actually
+    # generating something OUTPUT_REPO covers (resume/cover_letter/
+    # readme) - signals, after those blocks, whether
+    # commit_and_push_output_repo() needs to run. Synced once up front,
+    # rather than separately for the resume/cover_letter block and the
+    # readme block below, so both write into the exact same clone/commit.
+    output_repo_clone_dir = None
+    if s["OUTPUT_REPO"] and ({"resume", "cover_letter", "readme"} & targets):
+        try:
+            output_repo_clone_dir = sync_output_repo(s)
+        except RuntimeError as e:
+            print(f"[OUTPUT_REPO] {e}", file=sys.stderr)
+            sys.exit(1)
+
     if "resume" in targets or "cover_letter" in targets:
-        out_dir = Path(s["OUTPUT_FOLDER"])
+        out_dir = (
+            output_repo_clone_dir / s["OUTPUT_FOLDER"] if output_repo_clone_dir is not None
+            else Path(s["OUTPUT_FOLDER"])
+        )
         out_dir.mkdir(parents=True, exist_ok=True)
         resume_template_text = (
             Path(s["RESUME_TEMPLATE"]).read_text(encoding="utf-8") if "resume" in targets else None
@@ -1888,10 +2078,17 @@ def main(argv=None):
 
     if "readme" in targets:
         # Separate LLM call, template-driven: fills README_TEMPLATE using
-        # profile.json, rather than reusing the resume call above.
+        # profile.json, rather than reusing the resume call above. When
+        # OUTPUT_REPO is set, this is written into that same clone (and
+        # so committed/pushed alongside the resume/cover letter output
+        # below) rather than into this checkout - README_OUTPUT is a
+        # generated file like any other target here.
         template_text = Path(s["README_TEMPLATE"]).read_text(encoding="utf-8")
         readme_markdown = call_llm_readme(client, kb, template_text)
-        readme_path = Path(s["README_OUTPUT"])
+        readme_path = (
+            output_repo_clone_dir / s["README_OUTPUT"] if output_repo_clone_dir is not None
+            else Path(s["README_OUTPUT"])
+        )
         ensure_parent_dir_exists(readme_path).write_text(readme_markdown, encoding="utf-8")
         print(f"Wrote GitHub profile README to {readme_path}")
 
@@ -1917,7 +2114,20 @@ def main(argv=None):
     if "cover_letter" in targets:
         summary_parts.append("cover letters (3 formats)")
     if summary_parts:
-        print(f"Wrote {' + '.join(summary_parts)} to {s['OUTPUT_FOLDER']}/")
+        dest = f"{output_repo_clone_dir}/{s['OUTPUT_FOLDER']}" if output_repo_clone_dir is not None else s["OUTPUT_FOLDER"]
+        print(f"Wrote {' + '.join(summary_parts)} to {dest}/")
+
+    if output_repo_clone_dir is not None:
+        try:
+            committed = commit_and_push_output_repo(s, output_repo_clone_dir)
+        except RuntimeError as e:
+            print(f"[OUTPUT_REPO] {e}", file=sys.stderr)
+            sys.exit(1)
+        if committed:
+            verb = "Committed and pushed" if s["OUTPUT_REPO_PUSH"] else "Committed (not pushed - OUTPUT_REPO_PUSH=false)"
+            print(f"{verb} generated files to {s['OUTPUT_REPO']}.")
+        else:
+            print(f"No changes to check into {s['OUTPUT_REPO']} (output already up to date).")
 
 
 if __name__ == "__main__":
