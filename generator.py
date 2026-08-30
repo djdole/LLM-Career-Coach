@@ -1270,7 +1270,7 @@ def fetch_knowledge_base_json(url: str) -> dict:
     repo). Raises ValueError, folding in the underlying error, on any
     connection, timeout, non-2xx-status, or invalid-JSON failure.
     """
-    headers = {"User-Agent": "Mozilla/5.0 (compatible; djdole-generator/1.0)"}
+    headers = {"User-Agent": "Mozilla/5.0 (compatible; resume-generator/1.0)"}
     token = os.environ.get("KNOWLEDGE_BASE_URL_TOKEN")
     if token:
         headers["Authorization"] = f"token {token}"
@@ -1449,7 +1449,7 @@ def _fetch_job_description_from_url(url: str) -> str:
     try:
         response = httpx.get(
             url, timeout=30.0, follow_redirects=True,
-            headers={"User-Agent": "Mozilla/5.0 (compatible; djdole-generator/1.0)"},
+            headers={"User-Agent": "Mozilla/5.0 (compatible; resume-generator/1.0)"},
         )
         response.raise_for_status()
     except httpx.HTTPError as e:
@@ -1742,11 +1742,12 @@ def load_file_location_settings() -> dict:
         # exactly like before this feature existed.
         "OUTPUT_REPO": os.environ.get("OUTPUT_REPO", ""),
         "OUTPUT_REPO_BRANCH": os.environ.get("OUTPUT_REPO_BRANCH", ""),
+        "OUTPUT_REPO_USER": os.environ.get("OUTPUT_REPO_USER", ""),
         "OUTPUT_REPO_TOKEN": os.environ.get("OUTPUT_REPO_TOKEN", ""),
         "OUTPUT_REPO_CLONE_DIR": os.environ.get("OUTPUT_REPO_CLONE_DIR", ".output-repo"),
-        "OUTPUT_REPO_AUTHOR_NAME": os.environ.get("OUTPUT_REPO_AUTHOR_NAME", "djdole-generator"),
+        "OUTPUT_REPO_AUTHOR_NAME": os.environ.get("OUTPUT_REPO_AUTHOR_NAME", "Dennis Jay Dole"),
         "OUTPUT_REPO_AUTHOR_EMAIL": os.environ.get(
-            "OUTPUT_REPO_AUTHOR_EMAIL", "djdole-generator@users.noreply.github.com"
+            "OUTPUT_REPO_AUTHOR_EMAIL", "Dennis.Dole+resume-generator@djdole.net"
         ),
         "OUTPUT_REPO_COMMIT_MESSAGE": os.environ.get(
             "OUTPUT_REPO_COMMIT_MESSAGE", "Regenerate resumes/cover letters ({datetime.now})"
@@ -1848,7 +1849,7 @@ def _run_git(args: list, cwd, env: dict = None) -> str:
     return result.stdout
 
 
-def _inject_repo_token(repo_url: str, token: str) -> str:
+def _inject_repo_token(repo_url: str, user: str,token: str) -> str:
     """
     Embeds OUTPUT_REPO_TOKEN into an https:// OUTPUT_REPO URL as an HTTP
     Basic auth credential, so clone/fetch/push work non-interactively
@@ -1862,7 +1863,8 @@ def _inject_repo_token(repo_url: str, token: str) -> str:
     if not token or not repo_url.startswith(("http://", "https://")):
         return repo_url
     parsed = urllib.parse.urlsplit(repo_url)
-    netloc = f"x-access-token:{token}@{parsed.netloc}"
+    usr = user or "x-access-token"
+    netloc = f"{usr}:{token}@{parsed.netloc}"
     return urllib.parse.urlunsplit((parsed.scheme, netloc, parsed.path, parsed.query, parsed.fragment))
 
 
@@ -1911,7 +1913,7 @@ def sync_output_repo(s: dict) -> Path:
     layering new output on top of leftover partial output.
     """
     clone_dir = Path(s["OUTPUT_REPO_CLONE_DIR"])
-    repo_url = _inject_repo_token(s["OUTPUT_REPO"], s["OUTPUT_REPO_TOKEN"])
+    repo_url = _inject_repo_token(s["OUTPUT_REPO"], s["OUTPUT_REPO_USER"], s["OUTPUT_REPO_TOKEN"])
     branch = s["OUTPUT_REPO_BRANCH"]
 
     if (clone_dir / ".git").is_dir():
