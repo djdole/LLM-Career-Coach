@@ -33,6 +33,7 @@ def main_env(tmp_path, monkeypatch, sample_kb):
     monkeypatch.setenv("LITELLM_API_KEY", "secret")
     monkeypatch.delenv("OUTPUT_FOLDER", raising=False)
     monkeypatch.delenv("DATA", raising=False)
+    monkeypatch.delenv("VARIANTS", raising=False)
     return tmp_path
 
 
@@ -69,14 +70,14 @@ class TestMain:
     def test_writes_all_five_resume_formats_per_variant(self, main_env, stub_llm_calls):
         generator.main()
         out_dir = main_env / "generated"
-        for variant in generator.VARIANTS:
+        for variant in generator.load_file_location_settings()["VARIANTS"]:
             for ext in ("json", "txt", "md", "pdf", "docx"):
                 assert (out_dir / f"Jane Doe Resume ({variant}).{ext}").exists()
 
     def test_writes_all_three_cover_letter_formats_per_variant(self, main_env, stub_llm_calls):
         generator.main()
         out_dir = main_env / "generated"
-        for variant in generator.VARIANTS:
+        for variant in generator.load_file_location_settings()["VARIANTS"]:
             for ext in ("txt", "docx", "pdf"):
                 assert (out_dir / f"Jane Doe Cover Letter ({variant}).{ext}").exists()
 
@@ -88,6 +89,20 @@ class TestMain:
     def test_writes_readme_from_call_llm_readme(self, main_env, stub_llm_calls):
         generator.main()
         assert (main_env / "README.md").read_text(encoding="utf-8") == stub_llm_calls
+
+    def test_respects_variants_override(self, main_env, monkeypatch, stub_llm_calls):
+        monkeypatch.setenv("VARIANTS", "SDE")
+        generator.main()
+        out_dir = main_env / "generated"
+        assert (out_dir / "Jane Doe Resume (SDE).json").exists()
+        assert not (out_dir / "Jane Doe Resume (SDET).json").exists()
+
+    def test_variants_override_can_add_a_new_variant(self, main_env, monkeypatch, stub_llm_calls):
+        monkeypatch.setenv("VARIANTS", "SDE,SDET,SRE")
+        generator.main()
+        out_dir = main_env / "generated"
+        for variant in ("SDE", "SDET", "SRE"):
+            assert (out_dir / f"Jane Doe Resume ({variant}).json").exists()
 
     def test_drops_middle_name_from_filenames(self, main_env, stub_llm_calls):
         # sample_kb's personal_info.full_name is "Jane Q. Doe" (see conftest);

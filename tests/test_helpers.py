@@ -250,11 +250,12 @@ class TestComputeJobColumnWidths:
 class TestLoadFileLocationSettings:
     def test_defaults_when_env_unset(self, monkeypatch):
         for key in (
-            "OUTPUT_FOLDER", "KNOWLEDGE_BASE", "DATA", "README_TEMPLATE", "README_OUTPUT",
+            "VARIANTS", "OUTPUT_FOLDER", "KNOWLEDGE_BASE", "DATA", "README_TEMPLATE", "README_OUTPUT",
             "RESUME_TEMPLATE", "RESUME_NAMING_TEMPLATE", "COVERLETTER_NAMING_TEMPLATE",
         ):
             monkeypatch.delenv(key, raising=False)
         settings = generator.load_file_location_settings()
+        assert settings["VARIANTS"] == ["SDE", "SDET"]
         assert settings["OUTPUT_FOLDER"] == "generated"
         assert settings["KNOWLEDGE_BASE"] == "data/profile.json"
         assert settings["DATA"] is None
@@ -270,6 +271,31 @@ class TestLoadFileLocationSettings:
         settings = generator.load_file_location_settings()
         assert settings["OUTPUT_FOLDER"] == "custom_output"
         assert settings["README_OUTPUT"] == "custom_readme.md"
+
+    def test_variants_splits_on_comma(self, monkeypatch):
+        monkeypatch.setenv("VARIANTS", "SDE,SDET,SRE")
+        settings = generator.load_file_location_settings()
+        assert settings["VARIANTS"] == ["SDE", "SDET", "SRE"]
+
+    def test_variants_strips_whitespace_around_entries(self, monkeypatch):
+        monkeypatch.setenv("VARIANTS", " SDE , SDET ")
+        settings = generator.load_file_location_settings()
+        assert settings["VARIANTS"] == ["SDE", "SDET"]
+
+    def test_variants_drops_empty_entries(self, monkeypatch):
+        monkeypatch.setenv("VARIANTS", "SDE,,SDET,")
+        settings = generator.load_file_location_settings()
+        assert settings["VARIANTS"] == ["SDE", "SDET"]
+
+    def test_variants_empty_string_yields_empty_list(self, monkeypatch):
+        monkeypatch.setenv("VARIANTS", "")
+        settings = generator.load_file_location_settings()
+        assert settings["VARIANTS"] == []
+
+    def test_variants_single_entry(self, monkeypatch):
+        monkeypatch.setenv("VARIANTS", "SDE")
+        settings = generator.load_file_location_settings()
+        assert settings["VARIANTS"] == ["SDE"]
 
 
 class TestBuildLlmClient:
