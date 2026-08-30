@@ -31,3 +31,5 @@ generated/*Job Fit Analysis.*
 # pytest.ini and USAGE.md's "Running tests" section.
 .testmondata
 .testmondata-journal
+
+*.swp
