@@ -52,7 +52,7 @@ jobs:
           OUTPUT_REPO_AUTHOR_NAME: ${{ secrets.OUTPUT_REPO_AUTHOR_NAME || vars.OUTPUT_REPO_AUTHOR_NAME || 'LLM-Career-Coach' }}
           OUTPUT_REPO_AUTHOR_EMAIL: ${{ secrets.OUTPUT_REPO_AUTHOR_EMAIL || vars.OUTPUT_REPO_AUTHOR_EMAIL || 'LLM-Career-Coach@users.noreply.github.com' }}
           OUTPUT_REPO_COMMIT_MESSAGE: ${{ secrets.OUTPUT_REPO_COMMIT_MESSAGE || vars.OUTPUT_REPO_COMMIT_MESSAGE || 'Regenerate resumes/cover letters ({datetime.now})' }}
-          OUTPUT_REPO_PUSH: ${{ secrets.OUTPUT_REPO_PUSH || vars.OUTPUT_REPO_PUSH || 'true' }}
+          OUTPUT_REPO_PUSH: ${{ secrets.OUTPUT_REPO_PUSH || vars.OUTPUT_REPO_PUSH || 'false' }}
           KNOWLEDGE_BASE_DRAFT: ${{ secrets.KNOWLEDGE_BASE_DRAFT || vars.KNOWLEDGE_BASE_DRAFT || 'data/profile.json' }}
           DATA: ${{ secrets.DATA || vars.DATA || 'data' }}
           README_TEMPLATE: ${{ secrets.README_TEMPLATE || vars.README_TEMPLATE || 'README.template.md' }}
@@ -86,7 +86,7 @@ jobs:
           OUTPUT_REPO_AUTHOR_NAME: ${{ secrets.OUTPUT_REPO_AUTHOR_NAME || vars.OUTPUT_REPO_AUTHOR_NAME || 'LLM-Career-Coach' }}
           OUTPUT_REPO_AUTHOR_EMAIL: ${{ secrets.OUTPUT_REPO_AUTHOR_EMAIL || vars.OUTPUT_REPO_AUTHOR_EMAIL || 'LLM-Career-Coach@users.noreply.github.com' }}
           OUTPUT_REPO_COMMIT_MESSAGE: ${{ secrets.OUTPUT_REPO_COMMIT_MESSAGE || vars.OUTPUT_REPO_COMMIT_MESSAGE || 'Regenerate resumes/cover letters ({datetime.now})' }}
-          OUTPUT_REPO_PUSH: ${{ secrets.OUTPUT_REPO_PUSH || vars.OUTPUT_REPO_PUSH || 'true' }}
+          OUTPUT_REPO_PUSH: ${{ secrets.OUTPUT_REPO_PUSH || vars.OUTPUT_REPO_PUSH || 'false' }}
           KNOWLEDGE_BASE_DRAFT: ${{ secrets.KNOWLEDGE_BASE_DRAFT || vars.KNOWLEDGE_BASE_DRAFT || 'data/profile.json' }}
           DATA: ${{ secrets.DATA || vars.DATA || 'data' }}
           README_TEMPLATE: ${{ secrets.README_TEMPLATE || vars.README_TEMPLATE || 'README.template.md' }}
