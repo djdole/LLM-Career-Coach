@@ -6,9 +6,28 @@ name: Generate Files
 # resumes for a specific posting are a separate, manual, per-application
 # workflow (done in chat) and are NOT handled by this file.
 #
+# Reads the knowledge base from KNOWLEDGE_BASE (a repo variable) below,
+# exactly like generator.py does locally - it's whatever your own .env
+# points at: a local path (the "data/profile.json" default) or an
+# http(s) URL into some other repo entirely. See the trigger note right
+# below before relying on KNOWLEDGE_BASE being a URL, though.
+#
 # Uses a self-hosted LiteLLM proxy (in front of Ollama, per that stack's
 # docker-compose.yml) instead of a paid API, so this workflow never spends
 # API credits and never fails due to account balance/credits.
+#
+# TRIGGER LIMITATION - read before relying on KNOWLEDGE_BASE being a URL:
+# GitHub's `paths:` trigger filter below can only ever watch files inside
+# THIS repo, and its value can't be templated from KNOWLEDGE_BASE (or
+# anything else) - "on:" triggers are evaluated before any variable
+# lookup happens. So if KNOWLEDGE_BASE points at a URL into a different
+# repo, a push to THAT repo will never fire this workflow automatically;
+# the "data/profile.json" trigger below only fires for the original,
+# same-repo setup. Until/unless something cross-repo (a schedule, or a
+# small workflow in the other repo that dispatches this one) is added,
+# a remote KNOWLEDGE_BASE effectively means workflow_dispatch (the
+# Actions tab's "Run workflow" button) is the only way this actually
+# runs - it still works, it's just not automatic anymore.
 #
 # NETWORK REACHABILITY - read before enabling:
 # `runs-on: ubuntu-latest` below uses GitHub's hosted runners, which live
@@ -26,6 +45,8 @@ on:
   push:
     branches: [main]
     paths:
+      # Only fires for a LOCAL KNOWLEDGE_BASE at its default path - see
+      # the TRIGGER LIMITATION note above if yours is a URL instead.
       - "data/profile.json"
   workflow_dispatch: {} # allows manually re-running from the Actions tab
 
@@ -58,6 +79,15 @@ jobs:
           LITELLM_BASE_URL: ${{ secrets.LITELLM_BASE_URL }}
           LITELLM_API_KEY: ${{ secrets.LITELLM_API_KEY }}
           LITELLM_MODEL: ${{ vars.LITELLM_MODEL }}
+          # Falls back to the same "data/profile.json" default
+          # generator.py itself uses when KNOWLEDGE_BASE is unset -
+          # without the `|| ...`, an unconfigured repo variable would
+          # set KNOWLEDGE_BASE="" here, which is NOT the same as unset
+          # and would NOT fall back to that default on its own.
+          KNOWLEDGE_BASE: ${{ vars.KNOWLEDGE_BASE || 'data/profile.json' }}
+          # Only needed when KNOWLEDGE_BASE above is a URL into a
+          # private repo. Empty is fine (and the default) otherwise.
+          KNOWLEDGE_BASE_URL_TOKEN: ${{ secrets.KNOWLEDGE_BASE_URL_TOKEN }}
         run: python generator.py
 
       - name: Open pull request with regenerated files
@@ -66,10 +96,8 @@ jobs:
           commit-message: "Regenerate resumes and cover letter from updated knowledge base"
           branch: auto/regenerate-resumes
           delete-branch: true
-          title: "Auto: regenerate resumes/cover letter from profile.json"
+          title: "Auto: regenerate resumes/cover letter from the knowledge base"
           body: |
-            Triggered by a change to `profile.json`.
-
             Generated via self-hosted LiteLLM/Ollama (model: ${{ vars.LITELLM_MODEL }}).
             This PR was opened automatically and was **not** reviewed by a human yet.
             Please read the diff in `generated/` before merging: local-model output
