@@ -1,46 +1,4 @@
 name: Generate Files
-
-# Regenerates the baseline (no-specific-JD) SDE and SDET resumes, plus a
-# generic cover letter, whenever the knowledge base changes, and opens a
-# PR with the results instead of pushing straight to main. Job-tailored
-# resumes for a specific posting are a separate, manual, per-application
-# workflow (done in chat) and are NOT handled by this file.
-#
-# Reads the knowledge base from KNOWLEDGE_BASE (a repo variable) below,
-# exactly like generator.py does locally - it's whatever your own .env
-# points at: a local path (the "data/profile.json" default) or an
-# http(s) URL into some other repo entirely. See the trigger note right
-# below before relying on KNOWLEDGE_BASE being a URL, though.
-#
-# Uses a self-hosted LiteLLM proxy (in front of Ollama, per that stack's
-# docker-compose.yml) instead of a paid API, so this workflow never spends
-# API credits and never fails due to account balance/credits.
-#
-# TRIGGER LIMITATION - read before relying on KNOWLEDGE_BASE being a URL:
-# GitHub's `paths:` trigger filter below can only ever watch files inside
-# THIS repo, and its value can't be templated from KNOWLEDGE_BASE (or
-# anything else) - "on:" triggers are evaluated before any variable
-# lookup happens. So if KNOWLEDGE_BASE points at a URL into a different
-# repo, a push to THAT repo will never fire this workflow automatically;
-# the "data/profile.json" trigger below only fires for the original,
-# same-repo setup. Until/unless something cross-repo (a schedule, or a
-# small workflow in the other repo that dispatches this one) is added,
-# a remote KNOWLEDGE_BASE effectively means workflow_dispatch (the
-# Actions tab's "Run workflow" button) is the only way this actually
-# runs - it still works, it's just not automatic anymore.
-#
-# NETWORK REACHABILITY - read before enabling:
-# `runs-on: ubuntu-latest` below uses GitHub's hosted runners, which live
-# on the public internet. They can only reach your LiteLLM instance if it's
-# exposed via something like a Cloudflare Tunnel, Tailscale Funnel, or a
-# reverse proxy with auth in front of it (set LITELLM_BASE_URL to that
-# public address, pointing at ${LITELLM_PORT} - NOT Open WebUI's UI port).
-# If you'd rather not expose it at all, install a self-hosted GitHub
-# Actions runner on the same network as that stack (Settings -> Actions ->
-# Runners -> New self-hosted runner) and change `runs-on: ubuntu-latest` to
-# `runs-on: self-hosted` below - then LITELLM_BASE_URL can just be a plain
-# LAN address (e.g. http://192.168.x.x:4000).
-
 on:
   push:
     branches: [main]
@@ -76,21 +34,69 @@ jobs:
 
       - name: Generate baseline outputs
         env:
-          LITELLM_BASE_URL: ${{ secrets.LITELLM_BASE_URL }}
-          LITELLM_API_KEY: ${{ secrets.LITELLM_API_KEY }}
-          LITELLM_MODEL: ${{ vars.LITELLM_MODEL }}
-          # Falls back to the same "data/profile.json" default
-          # generator.py itself uses when KNOWLEDGE_BASE is unset -
-          # without the `|| ...`, an unconfigured repo variable would
-          # set KNOWLEDGE_BASE="" here, which is NOT the same as unset
-          # and would NOT fall back to that default on its own.
-          KNOWLEDGE_BASE: ${{ vars.KNOWLEDGE_BASE || 'data/profile.json' }}
-          # Only needed when KNOWLEDGE_BASE above is a URL into a
-          # private repo. Empty is fine (and the default) otherwise.
-          KNOWLEDGE_BASE_URL_TOKEN: ${{ secrets.KNOWLEDGE_BASE_URL_TOKEN }}
+          LITELLM_BASE_URL: ${{ secrets.LITELLM_BASE_URL || vars.LITELLM_BASE_URL || 'http://localhost:4000' }}
+          LITELLM_API_KEY: ${{ secrets.LITELLM_API_KEY || vars.LITELLM_API_KEY || '' }}
+          LITELLM_MODEL: ${{ secrets.LITELLM_MODEL || vars.LITELLM_MODEL || 'qwen3.6:latest' }}
+          KNOWLEDGE_BASE: ${{ secrets.KNOWLEDGE_BASE || vars.KNOWLEDGE_BASE || 'data/profile.json' }}
+          KNOWLEDGE_BASE_URL_TOKEN: ${{ secrets.KNOWLEDGE_BASE_URL_TOKEN || vars.KNOWLEDGE_BASE_URL_TOKEN || '' }}
+          LITELLM_MAX_TOKENS: ${{ secrets.LITELLM_MAX_TOKENS || vars.LITELLM_MAX_TOKENS || '10000' }}
+          OLLAMA_NUM_CTX: ${{ secrets.OLLAMA_NUM_CTX || vars.OLLAMA_NUM_CTX || '16384' }}
+          LITELLM_TIMEOUT: ${{ secrets.LITELLM_TIMEOUT || vars.LITELLM_TIMEOUT || '550' }}
+          LITELLM_KEEP_ALIVE: ${{ secrets.LITELLM_KEEP_ALIVE || vars.LITELLM_KEEP_ALIVE || '30m' }}
+          VARIANTS: ${{ secrets.VARIANTS || vars.VARIANTS || '["SDE", "SDET"]' }}
+          OUTPUT_FOLDER: ${{ secrets.OUTPUT_FOLDER || vars.OUTPUT_FOLDER || 'generated' }}
+          OUTPUT_REPO: ${{ secrets.OUTPUT_REPO || vars.OUTPUT_REPO || 'https://github.com/YOUR_USERNAME/your-resumes.git' }}
+          OUTPUT_REPO_BRANCH: ${{ secrets.OUTPUT_REPO_BRANCH || vars.OUTPUT_REPO_BRANCH || '' }}
+          OUTPUT_REPO_TOKEN: ${{ secrets.OUTPUT_REPO_TOKEN || vars.OUTPUT_REPO_TOKEN || 'ghp_...' }}
+          OUTPUT_REPO_CLONE_DIR: ${{ secrets.OUTPUT_REPO_CLONE_DIR || vars.OUTPUT_REPO_CLONE_DIR || '.output-repo' }}
+          OUTPUT_REPO_AUTHOR_NAME: ${{ secrets.OUTPUT_REPO_AUTHOR_NAME || vars.OUTPUT_REPO_AUTHOR_NAME || 'LLM-Career-Coach' }}
+          OUTPUT_REPO_AUTHOR_EMAIL: ${{ secrets.OUTPUT_REPO_AUTHOR_EMAIL || vars.OUTPUT_REPO_AUTHOR_EMAIL || 'LLM-Career-Coach@users.noreply.github.com' }}
+          OUTPUT_REPO_COMMIT_MESSAGE: ${{ secrets.OUTPUT_REPO_COMMIT_MESSAGE || vars.OUTPUT_REPO_COMMIT_MESSAGE || 'Regenerate resumes/cover letters ({datetime.now})' }}
+          OUTPUT_REPO_PUSH: ${{ secrets.OUTPUT_REPO_PUSH || vars.OUTPUT_REPO_PUSH || 'true' }}
+          KNOWLEDGE_BASE_DRAFT: ${{ secrets.KNOWLEDGE_BASE_DRAFT || vars.KNOWLEDGE_BASE_DRAFT || 'data/profile.json' }}
+          DATA: ${{ secrets.DATA || vars.DATA || 'data' }}
+          README_TEMPLATE: ${{ secrets.README_TEMPLATE || vars.README_TEMPLATE || 'README.template.md' }}
+          README_OUTPUT: ${{ secrets.README_OUTPUT || vars.README_OUTPUT || 'README.md' }}
+          EMAIL_TAG_ADDRESS: ${{ secrets.EMAIL_TAG_ADDRESS || vars.EMAIL_TAG_ADDRESS || 'githubcom-profile' }}
+          RESUME_TEMPLATE: ${{ secrets.RESUME_TEMPLATE || vars.RESUME_TEMPLATE || 'RESUME.template.md' }}
+          RESUME_NAMING_TEMPLATE: ${{ secrets.RESUME_NAMING_TEMPLATE || vars.RESUME_NAMING_TEMPLATE || '{JobAcronym}/{FirstName} {LastName} Resume ({JobAcronym}).{Extension}' }}
+          COVERLETTER_NAMING_TEMPLATE: ${{ secrets.COVERLETTER_NAMING_TEMPLATE || vars.COVERLETTER_NAMING_TEMPLATE || '{JobAcronym}/{FirstName} {LastName} Cover Letter ({JobAcronym}).{Extension}' }}
+          ANALYSIS_NAMING_TEMPLATE: ${{ secrets.ANALYSIS_NAMING_TEMPLATE || vars.ANALYSIS_NAMING_TEMPLATE || '{FirstName} {LastName} Job Fit Analysis.{Extension}' }}
+          ANALYSIS_PROMPT_TEMPLATE: ${{ secrets.ANALYSIS_PROMPT_TEMPLATE || vars.ANALYSIS_PROMPT_TEMPLATE || 'ANALYSIS_PROMPT.template.txt' }}
+
         run: python generator.py
 
       - name: Open pull request with regenerated files
+        env:
+          LITELLM_BASE_URL: ${{ secrets.LITELLM_BASE_URL || vars.LITELLM_BASE_URL || 'http://localhost:4000' }}
+          LITELLM_API_KEY: ${{ secrets.LITELLM_API_KEY || vars.LITELLM_API_KEY || '' }}
+          LITELLM_MODEL: ${{ secrets.LITELLM_MODEL || vars.LITELLM_MODEL || 'qwen3.6:latest' }}
+          KNOWLEDGE_BASE: ${{ secrets.KNOWLEDGE_BASE || vars.KNOWLEDGE_BASE || 'data/profile.json' }}
+          KNOWLEDGE_BASE_URL_TOKEN: ${{ secrets.KNOWLEDGE_BASE_URL_TOKEN || vars.KNOWLEDGE_BASE_URL_TOKEN || '' }}
+          LITELLM_MAX_TOKENS: ${{ secrets.LITELLM_MAX_TOKENS || vars.LITELLM_MAX_TOKENS || '10000' }}
+          OLLAMA_NUM_CTX: ${{ secrets.OLLAMA_NUM_CTX || vars.OLLAMA_NUM_CTX || '16384' }}
+          LITELLM_TIMEOUT: ${{ secrets.LITELLM_TIMEOUT || vars.LITELLM_TIMEOUT || '550' }}
+          LITELLM_KEEP_ALIVE: ${{ secrets.LITELLM_KEEP_ALIVE || vars.LITELLM_KEEP_ALIVE || '30m' }}
+          VARIANTS: ${{ secrets.VARIANTS || vars.VARIANTS || '["SDE", "SDET"]' }}
+          OUTPUT_FOLDER: ${{ secrets.OUTPUT_FOLDER || vars.OUTPUT_FOLDER || 'generated' }}
+          OUTPUT_REPO: ${{ secrets.OUTPUT_REPO || vars.OUTPUT_REPO || 'https://github.com/YOUR_USERNAME/your-resumes.git' }}
+          OUTPUT_REPO_BRANCH: ${{ secrets.OUTPUT_REPO_BRANCH || vars.OUTPUT_REPO_BRANCH || '' }}
+          OUTPUT_REPO_TOKEN: ${{ secrets.OUTPUT_REPO_TOKEN || vars.OUTPUT_REPO_TOKEN || 'ghp_...' }}
+          OUTPUT_REPO_CLONE_DIR: ${{ secrets.OUTPUT_REPO_CLONE_DIR || vars.OUTPUT_REPO_CLONE_DIR || '.output-repo' }}
+          OUTPUT_REPO_AUTHOR_NAME: ${{ secrets.OUTPUT_REPO_AUTHOR_NAME || vars.OUTPUT_REPO_AUTHOR_NAME || 'LLM-Career-Coach' }}
+          OUTPUT_REPO_AUTHOR_EMAIL: ${{ secrets.OUTPUT_REPO_AUTHOR_EMAIL || vars.OUTPUT_REPO_AUTHOR_EMAIL || 'LLM-Career-Coach@users.noreply.github.com' }}
+          OUTPUT_REPO_COMMIT_MESSAGE: ${{ secrets.OUTPUT_REPO_COMMIT_MESSAGE || vars.OUTPUT_REPO_COMMIT_MESSAGE || 'Regenerate resumes/cover letters ({datetime.now})' }}
+          OUTPUT_REPO_PUSH: ${{ secrets.OUTPUT_REPO_PUSH || vars.OUTPUT_REPO_PUSH || 'true' }}
+          KNOWLEDGE_BASE_DRAFT: ${{ secrets.KNOWLEDGE_BASE_DRAFT || vars.KNOWLEDGE_BASE_DRAFT || 'data/profile.json' }}
+          DATA: ${{ secrets.DATA || vars.DATA || 'data' }}
+          README_TEMPLATE: ${{ secrets.README_TEMPLATE || vars.README_TEMPLATE || 'README.template.md' }}
+          README_OUTPUT: ${{ secrets.README_OUTPUT || vars.README_OUTPUT || 'README.md' }}
+          EMAIL_TAG_ADDRESS: ${{ secrets.EMAIL_TAG_ADDRESS || vars.EMAIL_TAG_ADDRESS || 'githubcom-profile' }}
+          RESUME_TEMPLATE: ${{ secrets.RESUME_TEMPLATE || vars.RESUME_TEMPLATE || 'RESUME.template.md' }}
+          RESUME_NAMING_TEMPLATE: ${{ secrets.RESUME_NAMING_TEMPLATE || vars.RESUME_NAMING_TEMPLATE || '{JobAcronym}/{FirstName} {LastName} Resume ({JobAcronym}).{Extension}' }}
+          COVERLETTER_NAMING_TEMPLATE: ${{ secrets.COVERLETTER_NAMING_TEMPLATE || vars.COVERLETTER_NAMING_TEMPLATE || '{JobAcronym}/{FirstName} {LastName} Cover Letter ({JobAcronym}).{Extension}' }}
+          ANALYSIS_NAMING_TEMPLATE: ${{ secrets.ANALYSIS_NAMING_TEMPLATE || vars.ANALYSIS_NAMING_TEMPLATE || '{FirstName} {LastName} Job Fit Analysis.{Extension}' }}
+          ANALYSIS_PROMPT_TEMPLATE: ${{ secrets.ANALYSIS_PROMPT_TEMPLATE || vars.ANALYSIS_PROMPT_TEMPLATE || 'ANALYSIS_PROMPT.template.txt' }}
         uses: peter-evans/create-pull-request@v6
         with:
           commit-message: "Regenerate resumes and cover letter from updated knowledge base"
