@@ -4,7 +4,7 @@
 
 ---
 
-# Resume Generator
+# LLM Career Coach
 
 **One structured knowledge base in → tailored resumes, cover letters, a
 GitHub profile README, and job-fit analysis out.** A single Python
