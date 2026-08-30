@@ -1,4 +1,3 @@
-
 # Hi, I'm {{FULL_NAME}} 👋
 
 {{PROFESSIONAL_SUMMARY}}
