@@ -47,6 +47,7 @@ jobs:
           OUTPUT_FOLDER: ${{ secrets.OUTPUT_FOLDER || vars.OUTPUT_FOLDER || 'generated' }}
           OUTPUT_REPO: ${{ secrets.OUTPUT_REPO || vars.OUTPUT_REPO || 'https://github.com/YOUR_USERNAME/your-resumes.git' }}
           OUTPUT_REPO_BRANCH: ${{ secrets.OUTPUT_REPO_BRANCH || vars.OUTPUT_REPO_BRANCH || '' }}
+          OUTPUT_REPO_USER: ${{ secrets.OUTPUT_REPO_USER || vars.OUTPUT_REPO_USER || '' }}
           OUTPUT_REPO_TOKEN: ${{ secrets.OUTPUT_REPO_TOKEN || vars.OUTPUT_REPO_TOKEN || 'ghp_...' }}
           OUTPUT_REPO_CLONE_DIR: ${{ secrets.OUTPUT_REPO_CLONE_DIR || vars.OUTPUT_REPO_CLONE_DIR || '.output-repo' }}
           OUTPUT_REPO_AUTHOR_NAME: ${{ secrets.OUTPUT_REPO_AUTHOR_NAME || vars.OUTPUT_REPO_AUTHOR_NAME || 'LLM-Career-Coach' }}
@@ -81,6 +82,7 @@ jobs:
           OUTPUT_FOLDER: ${{ secrets.OUTPUT_FOLDER || vars.OUTPUT_FOLDER || 'generated' }}
           OUTPUT_REPO: ${{ secrets.OUTPUT_REPO || vars.OUTPUT_REPO || 'https://github.com/YOUR_USERNAME/your-resumes.git' }}
           OUTPUT_REPO_BRANCH: ${{ secrets.OUTPUT_REPO_BRANCH || vars.OUTPUT_REPO_BRANCH || '' }}
+          OUTPUT_REPO_USER: ${{ secrets.OUTPUT_REPO_USER || vars.OUTPUT_REPO_USER || '' }}
           OUTPUT_REPO_TOKEN: ${{ secrets.OUTPUT_REPO_TOKEN || vars.OUTPUT_REPO_TOKEN || 'ghp_...' }}
           OUTPUT_REPO_CLONE_DIR: ${{ secrets.OUTPUT_REPO_CLONE_DIR || vars.OUTPUT_REPO_CLONE_DIR || '.output-repo' }}
           OUTPUT_REPO_AUTHOR_NAME: ${{ secrets.OUTPUT_REPO_AUTHOR_NAME || vars.OUTPUT_REPO_AUTHOR_NAME || 'LLM-Career-Coach' }}
