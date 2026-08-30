@@ -51,4 +51,4 @@ Graduated {{GRADUATION_DATE}}
 ---
 
 📫 Reach out at [{{EMAIL}}](mailto:{{EMAIL_MAILTO}}) or connect on [LinkedIn]({{LINKEDIN_URL}}).<br>
-(Generated using [djdole LLM resume-generator](https://github.com/djdole/resume-generator).)
+(Generated using [djdole LLM-Career-Coach](https://github.com/djdole/LLM-Career-Coach).)
