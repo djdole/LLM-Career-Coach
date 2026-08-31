@@ -67,9 +67,9 @@ jobs:
         id: poll
         env:
           GH_API_TOKEN: ${{ secrets.POLL_TARGET_REPO_TOKEN }}
-          TARGET_REPO: ${{ vars.POLL_TARGET_REPO }}
-          TARGET_REF: ${{ vars.POLL_TARGET_REF || 'main' }}
-          WATCH_PATHS: ${{ vars.POLL_PATHS || 'data/profile.json' }}
+          TARGET_REPO: ${{ secrets.POLL_TARGET_REPO || vars.POLL_TARGET_REPO }}
+          TARGET_REF: ${{ secrets.POLL_TARGET_REF || vars.POLL_TARGET_REF || 'main' }}
+          WATCH_PATHS: ${{ secrets.POLL_PATHS || vars.POLL_PATHS || 'data/profile.json' }}
           STATE_FILE: .github/state/poll-state.json
         run: |
           set -euo pipefail
@@ -150,10 +150,10 @@ jobs:
         if: steps.poll.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RUN_REF: ${{ vars.GENERATE_WORKFLOW_REF || github.event.repository.default_branch }}
+          RUN_REF: ${{ secrets.GENERATE_WORKFLOW_REF || vars.GENERATE_WORKFLOW_REF || github.event.repository.default_branch }}
         run: |
           set -euo pipefail
-          echo "Change detected in watched paths on ${{ vars.POLL_TARGET_REPO }} - dispatching generate.yml on ${RUN_REF}"
+          echo "Change detected in watched paths on ${{ secrets.POLL_TARGET_REPO || vars.POLL_TARGET_REPO }} - dispatching generate.yml on ${RUN_REF}"
           gh workflow run generate.yml --repo "${{ github.repository }}" --ref "$RUN_REF"
 
       - name: Commit updated poll state
