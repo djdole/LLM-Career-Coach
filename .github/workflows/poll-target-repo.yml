@@ -11,28 +11,30 @@
 #
 # HOW "CHANGED" IS DETECTED: no state is stored anywhere. Each run asks
 # the GitHub API "were there any commits touching this path in the last
-# POLL_LOOKBACK_MINUTES minutes?" (via the commits endpoint's `since`
-# filter). That means this workflow never needs to write anything back
-# to this repo (or anywhere else) - no state file, no extra branch, no
-# `contents: write` permission.
+# POLL_TARGET_LOOKBACK_MINUTES minutes?" (via the commits endpoint's
+# `since` filter). That means this workflow never needs to write
+# anything back to this repo (or anywhere else) - no state file, no
+# extra branch, no `contents: write` permission.
 #
-# TRADE-OFF, on purpose: POLL_LOOKBACK_MINUTES (default 40) is set a bit
-# longer than the 30-minute schedule so consecutive windows overlap.
-# GitHub's cron schedules aren't guaranteed to fire exactly on time
-# (they can run a few minutes late under load), so the overlap exists to
-# make sure a change never falls in the gap between one run's window and
-# the next. Worst case with overlap is a harmless extra check of an
-# already-seen commit (generate.yml opening a PR with an empty diff is a
-# no-op for peter-evans/create-pull-request). This does NOT protect
-# against a run being skipped entirely for longer than the lookback
-# window - e.g. GitHub auto-disables scheduled workflows after 60 days
-# with no repository activity. If that's ever happened, run this
-# workflow manually (workflow_dispatch) with POLL_LOOKBACK_MINUTES set
-# generously to catch up.
+# TRADE-OFF, on purpose: POLL_TARGET_LOOKBACK_MINUTES (default 40) is
+# set a bit longer than the 30-minute schedule so consecutive windows
+# overlap. GitHub's cron schedules aren't guaranteed to fire exactly on
+# time (they can run a few minutes late under load), so the overlap
+# exists to make sure a change never falls in the gap between one run's
+# window and the next. Worst case with overlap is a harmless extra
+# check of an already-seen commit (generate.yml opening a PR with an
+# empty diff is a no-op for peter-evans/create-pull-request). This does
+# NOT protect against a run being skipped entirely for longer than the
+# lookback window - e.g. GitHub auto-disables scheduled workflows after
+# 60 days with no repository activity. If that's ever happened, run
+# this workflow manually (workflow_dispatch) with
+# POLL_TARGET_LOOKBACK_MINUTES set generously to catch up.
 #
 # ---------------------------------------------------------------------
 # ONE-TIME SETUP (Settings > Secrets and variables > Actions)
-#   Variables (Settings > ... > Variables):
+#   Each of these can be set as either a repository Variable or a
+#   repository Secret - secrets win if both are set. Use a Variable
+#   unless the value itself is sensitive (none of these need to be).
 #     POLL_TARGET_REPO   "owner/repo" of the repo to watch, e.g.
 #                        "YOUR_USERNAME/career-coach-source"
 #     POLL_TARGET_REF    Branch/ref to watch on that repo. Default: "main"
@@ -48,8 +50,9 @@
 #                        comfortably above the cron interval.
 #     GENERATE_WORKFLOW_REF
 #                        Branch to run generate.yml on when triggered.
-#                        Default: this repo's default branch.
-#   Secrets:
+#                        Default: this repo's default branch. Variable
+#                        only (no secret fallback).
+#   Secret only (never a plain variable):
 #     POLL_TARGET_REPO_TOKEN
 #                        A PAT with read access to the target repo.
 #                        Required if that repo is private; a
@@ -96,7 +99,7 @@ jobs:
           set -euo pipefail
 
           if [ -z "${TARGET_REPO:-}" ]; then
-            echo "::error::The POLL_TARGET_REPO repository variable is not set (Settings > Secrets and variables > Actions > Variables). Nothing to poll."
+            echo "::error::POLL_TARGET_REPO is not set (Settings > Secrets and variables > Actions). Nothing to poll."
             exit 1
           fi
 
@@ -148,6 +151,7 @@ jobs:
           done
 
           echo "changed=${changed}" >> "$GITHUB_OUTPUT"
+          echo "target_repo=${TARGET_REPO}" >> "$GITHUB_OUTPUT"
 
       - name: Trigger generate.yml
         if: steps.poll.outputs.changed == 'true'
@@ -156,5 +160,5 @@ jobs:
           RUN_REF: ${{ vars.GENERATE_WORKFLOW_REF || github.event.repository.default_branch }}
         run: |
           set -euo pipefail
-          echo "Change detected in watched paths on ${{ vars.POLL_TARGET_REPO }} - dispatching generate.yml on ${RUN_REF}"
+          echo "Change detected in watched paths on ${{ steps.poll.outputs.target_repo }} - dispatching generate.yml on ${RUN_REF}"
           gh workflow run generate.yml --repo "${{ github.repository }}" --ref "$RUN_REF"
