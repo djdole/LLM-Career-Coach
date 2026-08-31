@@ -15,7 +15,7 @@
 #     POLL_TARGET_REPO   "owner/repo" of the repo to watch, e.g.
 #                        "YOUR_USERNAME/career-coach-source"
 #     POLL_TARGET_REF    Branch/ref to watch on that repo. Default: "main"
-#     POLL_PATHS         List of files/folders to watch, one per line
+#     POLL_TARGET_PATHS  List of files/folders to watch, one per line
 #                        (or comma-separated), relative to the target
 #                        repo's root, e.g.:
 #                          data/profile.json
@@ -69,7 +69,7 @@ jobs:
           GH_API_TOKEN: ${{ secrets.POLL_TARGET_REPO_TOKEN }}
           TARGET_REPO: ${{ secrets.POLL_TARGET_REPO || vars.POLL_TARGET_REPO }}
           TARGET_REF: ${{ secrets.POLL_TARGET_REF || vars.POLL_TARGET_REF || 'main' }}
-          WATCH_PATHS: ${{ secrets.POLL_PATHS || vars.POLL_PATHS || 'data/profile.json' }}
+          WATCH_PATHS: ${{ secrets.POLL_TARGET_PATHS || vars.POLL_TARGET_PATHS || 'data/profile.json' }}
           STATE_FILE: .github/state/poll-state.json
         run: |
           set -euo pipefail
@@ -96,7 +96,7 @@ jobs:
           mapfile -t watch_paths < <(printf '%s' "$WATCH_PATHS" | tr ',' '\n' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' | grep -v '^$')
 
           if [ "${#watch_paths[@]}" -eq 0 ]; then
-            echo "::error::POLL_PATHS resolved to an empty list of paths to watch."
+            echo "::error::POLL_TARGET_PATHS resolved to an empty list of paths to watch."
             exit 1
           fi
 
@@ -136,7 +136,7 @@ jobs:
             elif [ -z "$previous_sha" ]; then
               # First time we've seen this path - record it, but don't treat
               # it as a change (avoids an immediate spurious trigger the
-              # first time a new path is added to POLL_PATHS).
+              # first time a new path is added to POLL_TARGET_PATHS).
               echo "  -> first observation, recording baseline"
             fi
 
