@@ -1,56 +1,104 @@
 # Command-Line Usage
 
-## TODO Documentation Tasks
+`python generator.py --help` is the authoritative, always-current
+source for flags - this page is a curated explanation on top of it.
+The CLI can change independently of `USAGE.md` and this page, so if
+something here looks stale, `--help` (backed by `build_arg_parser()`
+in `generator.py`) wins.
 
-- State that `python generator.py --help` is the authoritative,
-  always-current source for flags, and that this page is a curated
-  explanation on top of it. Read `build_arg_parser()` in
-  `generator.py` (around line 139) to confirm current flag names,
-  help text, and defaults before writing this page, since the CLI can
-  change independently of `USAGE.md`.
-- Document `--generate [TARGETS]` fully, as a table of invocations and
-  effects:
-  - Flag omitted entirely -> generates `resume` + `cover_letter` +
-    `readme` (the default), unless `--analyze` was given and
-    `--generate` was not, in which case only the analysis runs.
-  - `--generate` with no value -> generates nothing.
-  - `--generate resume` -> just resumes.
-  - `--generate resume,cover_letter` -> comma-separated list in one
-    occurrence.
-  - `--generate resume --generate readme` -> repeated occurrences are
-    unioned together.
-  Also document: valid values (`resume`, `cover_letter` or
-  `coverletter`, `readme`, `profile` or `resumedata`), that values are
-  case-insensitive and `-`/`_` are interchangeable, that an
-  unrecognized value exits with an error listing valid ones, and that
-  `profile` is never included in the "omitted entirely" default since
-  it is a separate, opt-in maintenance workflow. Source: `USAGE.md`'s
-  `--generate` section and `parse_generate_targets()` in
-  `generator.py` (around line 176).
-- Document `--analyze JOB_DESCRIPTION` fully:
-  - It runs independently of `--generate`; both can be passed in one
-    invocation.
-  - Its value is interpreted in this order: an `http://`/`https://`
-    URL (fetched and reduced to plain text if the response looks like
-    HTML), a path to an existing local file (text extracted from
-    pdf/docx/txt/md/json/xml), or otherwise the literal value as
-    pasted job description text. Source:
-    `resolve_job_description()` in `generator.py` (around line 1470).
-  - What it produces: a percentage fit estimate (0-100), a **separate**
-    percentage per qualifications list if the posting splits them
-    (for example "Required" vs. "Preferred"), a list of missing
-    skills/qualifications, and suggested (preferably free) resources
-    to close each gap.
-  - Where the report goes: written to `OUTPUT_FOLDER` as
-    `ANALYSIS_NAMING_TEMPLATE`, and also printed to stdout.
-  - Give the three example invocations from `USAGE.md` (pasted text,
-    local file path, URL).
-- Document `-h` / `--help` briefly: standard argparse help listing
-  both flags with their live descriptions.
-- Add a "Common invocations" quick-reference table or list, for
-  example: generate everything, generate only resumes, run only an
-  analysis, generate resumes and run an analysis in one call, generate
-  a knowledge-base draft from source documents (`--generate profile`,
-  requires `DATA` to be set - cross-reference
-  `05-generation-targets-and-outputs.md` for the profile workflow
-  details).
+`generator.py` takes two flags, `--generate` and `--analyze`, plus the
+standard `-h`/`--help`. They are independent of each other and can be
+combined in a single invocation.
+
+## `--generate [TARGETS]`
+
+Controls what to build this run. It is repeatable, and its value is
+optional.
+
+| Invocation | Effect |
+|---|---|
+| *(flag omitted entirely)* | Generates `resume` + `cover_letter` + `readme` (the default) - **unless** `--analyze` was given and `--generate` was not, in which case nothing from `--generate` runs and the invocation does only the analysis. |
+| `--generate` *(no value)* | Generates nothing. |
+| `--generate resume` | Just resumes. |
+| `--generate resume,cover_letter` | Comma-separated list in one occurrence. |
+| `--generate resume --generate readme` | Repeated occurrences are unioned together - equivalent to `--generate resume,readme`. |
+
+Valid values: `resume`, `cover_letter` (or `coverletter`), `readme`,
+`profile` (or `resumedata`). Values are case-insensitive and `-`/`_`
+are interchangeable - `Cover-Letter` and `cover_letter` both resolve to
+the same target. An unrecognized value exits with an error listing the
+valid canonical values, for example:
+
+```
+Unknown --generate value: 'resum'. Valid values: cover_letter, profile, readme, resume.
+```
+
+`profile` is never included in the "omitted entirely" default. It is a
+separate, opt-in maintenance workflow (see
+`05-generation-targets-and-outputs.md` and `generate_profile_draft()`
+in `generator.py`), not something that should run just because you ran
+the script with no flags.
+
+## `--analyze JOB_DESCRIPTION`
+
+Runs a job-fit analysis, independent of `--generate` - pass both to do
+both in one invocation. Its value **is** the job description itself,
+interpreted in this order (see `resolve_job_description()` in
+`generator.py`):
+
+1. An `http://` or `https://` URL - fetched, and reduced to plain text
+   if the response looks like HTML.
+2. A path to an existing local file - text extracted from it
+   (`pdf`/`docx`/`txt`/`md`/`json`/`xml` all supported).
+3. Otherwise, the value itself: job description text pasted directly
+   on the command line.
+
+```bash
+python generator.py --analyze "paste the job description here"
+python generator.py --analyze path/to/job_posting.pdf
+python generator.py --analyze https://example.com/careers/some-job
+```
+
+Uses `KNOWLEDGE_BASE` plus LiteLLM to:
+
+* Estimate percentage fit (0-100). If the posting separates its
+  qualifications into more than one distinct list (for example
+  "Required Qualifications" vs. "Preferred Qualifications"), a
+  **separate** percentage is produced per list instead of one overall
+  number.
+* List skills/qualifications the posting calls for that are not
+  present in the knowledge base.
+* Suggest (preferably free) courses, tutorials, books, or docs to close
+  each gap.
+
+**Where the report goes:** the rendered report is printed to stdout.
+Despite `.env.template` and the root `USAGE.md` describing an
+`ANALYSIS_NAMING_TEMPLATE`-named file under `OUTPUT_FOLDER` as an
+additional destination, reading `main()` in `generator.py` shows the
+current code never writes the analysis report to disk - only
+`print(rendered_job_fit_analysis_report)` runs. If you want to save a
+report, redirect stdout yourself:
+
+```bash
+python generator.py --analyze "..." > "Job Fit Analysis.md"
+```
+
+See `12-troubleshooting-faq.md` and `03-configuration.md` for more on
+this discrepancy.
+
+## `-h` / `--help`
+
+Standard argparse help, listing both flags above with their current
+descriptions and defaults, straight from `build_arg_parser()`.
+
+## Common invocations
+
+| Goal | Command |
+|---|---|
+| Generate everything (default) | `python generator.py` |
+| Generate only resumes | `python generator.py --generate resume` |
+| Generate only cover letters | `python generator.py --generate cover_letter` |
+| Generate resumes and the README, but not cover letters | `python generator.py --generate resume,readme` |
+| Run only a job-fit analysis | `python generator.py --analyze "paste a job description"` |
+| Generate everything and analyze a posting in one run | `python generator.py --generate resume,cover_letter,readme --analyze "paste a job description"` |
+| Build/update the knowledge base from source documents | `python generator.py --generate profile` (requires `DATA` to be set - see `05-generation-targets-and-outputs.md` for the full `--generate profile` workflow) |
