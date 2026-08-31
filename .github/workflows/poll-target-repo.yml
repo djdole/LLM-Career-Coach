@@ -9,6 +9,27 @@
 # push-based (near-instant) alternative you can check into that other
 # repo instead of, or in addition to, this polling workflow.
 #
+# HOW "CHANGED" IS DETECTED: no state is stored anywhere. Each run asks
+# the GitHub API "were there any commits touching this path in the last
+# POLL_LOOKBACK_MINUTES minutes?" (via the commits endpoint's `since`
+# filter). That means this workflow never needs to write anything back
+# to this repo (or anywhere else) - no state file, no extra branch, no
+# `contents: write` permission.
+#
+# TRADE-OFF, on purpose: POLL_LOOKBACK_MINUTES (default 40) is set a bit
+# longer than the 30-minute schedule so consecutive windows overlap.
+# GitHub's cron schedules aren't guaranteed to fire exactly on time
+# (they can run a few minutes late under load), so the overlap exists to
+# make sure a change never falls in the gap between one run's window and
+# the next. Worst case with overlap is a harmless extra check of an
+# already-seen commit (generate.yml opening a PR with an empty diff is a
+# no-op for peter-evans/create-pull-request). This does NOT protect
+# against a run being skipped entirely for longer than the lookback
+# window - e.g. GitHub auto-disables scheduled workflows after 60 days
+# with no repository activity. If that's ever happened, run this
+# workflow manually (workflow_dispatch) with POLL_LOOKBACK_MINUTES set
+# generously to catch up.
+#
 # ---------------------------------------------------------------------
 # ONE-TIME SETUP (Settings > Secrets and variables > Actions)
 #   Variables (Settings > ... > Variables):
@@ -20,6 +41,11 @@
 #                        repo's root, e.g.:
 #                          data/profile.json
 #                          data/knowledge-base/
+#     POLL_TARGET_LOOKBACK_MINUTES
+#                        How far back to look for commits each run.
+#                        Default: 40 (30-minute schedule + 10-minute
+#                        buffer for scheduling jitter). Keep this
+#                        comfortably above the cron interval.
 #     GENERATE_WORKFLOW_REF
 #                        Branch to run generate.yml on when triggered.
 #                        Default: this repo's default branch.
@@ -46,7 +72,7 @@ on:
   workflow_dispatch: {} # allows manually re-running / testing from the Actions tab
 
 permissions:
-  contents: write # to commit the updated poll-state file
+  contents: read
   actions: write # to dispatch generate.yml
 
 concurrency:
@@ -58,19 +84,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Check out repo
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-
-      - name: Check target repo paths for changes
+      - name: Check target repo paths for recent commits
         id: poll
         env:
           GH_API_TOKEN: ${{ secrets.POLL_TARGET_REPO_TOKEN }}
           TARGET_REPO: ${{ secrets.POLL_TARGET_REPO || vars.POLL_TARGET_REPO }}
           TARGET_REF: ${{ secrets.POLL_TARGET_REF || vars.POLL_TARGET_REF || 'main' }}
           WATCH_PATHS: ${{ secrets.POLL_TARGET_PATHS || vars.POLL_TARGET_PATHS || 'data/profile.json' }}
-          STATE_FILE: .github/state/poll-state.json
+          LOOKBACK_MINUTES: ${{ secrets.POLL_TARGET_LOOKBACK_MINUTES || vars.POLL_TARGET_LOOKBACK_MINUTES || '40' }}
         run: |
           set -euo pipefail
 
@@ -79,12 +100,8 @@ jobs:
             exit 1
           fi
 
-          mkdir -p "$(dirname "$STATE_FILE")"
-          if [ -f "$STATE_FILE" ]; then
-            old_state="$(cat "$STATE_FILE")"
-          else
-            old_state="{}"
-          fi
+          since="$(date -u -d "@$(( $(date -u +%s) - LOOKBACK_MINUTES * 60 ))" +%Y-%m-%dT%H:%M:%SZ)"
+          echo "Looking for commits since ${since} (${LOOKBACK_MINUTES} minute lookback)."
 
           auth_header=()
           if [ -n "${GH_API_TOKEN:-}" ]; then
@@ -100,7 +117,6 @@ jobs:
             exit 1
           fi
 
-          new_state="{}"
           changed="false"
 
           for path in "${watch_paths[@]}"; do
@@ -111,6 +127,7 @@ jobs:
               -H "Accept: application/vnd.github+json" \
               --data-urlencode "sha=${TARGET_REF}" \
               --data-urlencode "path=${path}" \
+              --data-urlencode "since=${since}" \
               --data-urlencode "per_page=1" \
               "https://api.github.com/repos/${TARGET_REPO}/commits")"
 
@@ -120,55 +137,24 @@ jobs:
               continue
             fi
 
-            latest_sha="$(echo "$response" | jq -r '.[0].sha // empty')"
+            hit_sha="$(echo "$response" | jq -r '.[0].sha // empty')"
 
-            if [ -z "$latest_sha" ]; then
-              echo "  No commits found for '${path}' on ${TARGET_REF} (path may not exist yet). Skipping."
-              continue
-            fi
-
-            previous_sha="$(echo "$old_state" | jq -r --arg p "$path" '.[$p] // empty')"
-            echo "  latest=${latest_sha} previous=${previous_sha:-<none>}"
-
-            if [ -n "$previous_sha" ] && [ "$previous_sha" != "$latest_sha" ]; then
+            if [ -n "$hit_sha" ]; then
+              echo "  -> recent commit found (${hit_sha})"
               changed="true"
-              echo "  -> changed"
-            elif [ -z "$previous_sha" ]; then
-              # First time we've seen this path - record it, but don't treat
-              # it as a change (avoids an immediate spurious trigger the
-              # first time a new path is added to POLL_TARGET_PATHS).
-              echo "  -> first observation, recording baseline"
+            else
+              echo "  -> no commits in window"
             fi
-
-            new_state="$(echo "$new_state" | jq --arg p "$path" --arg s "$latest_sha" '.[$p] = $s')"
           done
 
-          echo "$new_state" | jq -S . > "$STATE_FILE"
           echo "changed=${changed}" >> "$GITHUB_OUTPUT"
 
       - name: Trigger generate.yml
         if: steps.poll.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RUN_REF: ${{ secrets.GENERATE_WORKFLOW_REF || vars.GENERATE_WORKFLOW_REF || github.event.repository.default_branch }}
+          RUN_REF: ${{ vars.GENERATE_WORKFLOW_REF || github.event.repository.default_branch }}
         run: |
           set -euo pipefail
-          echo "Change detected in watched paths on ${{ secrets.POLL_TARGET_REPO || vars.POLL_TARGET_REPO }} - dispatching generate.yml on ${RUN_REF}"
+          echo "Change detected in watched paths on ${{ vars.POLL_TARGET_REPO }} - dispatching generate.yml on ${RUN_REF}"
           gh workflow run generate.yml --repo "${{ github.repository }}" --ref "$RUN_REF"
-
-      - name: Commit updated poll state
-        env:
-          GIT_AUTHOR_NAME: poll-target-repo-bot
-          GIT_AUTHOR_EMAIL: actions@users.noreply.github.com
-          GIT_COMMITTER_NAME: poll-target-repo-bot
-          GIT_COMMITTER_EMAIL: actions@users.noreply.github.com
-        run: |
-          set -euo pipefail
-          if git diff --quiet -- .github/state/poll-state.json 2>/dev/null && \
-             ! git status --porcelain -- .github/state/poll-state.json | grep -q .; then
-            echo "No change to poll state - nothing to commit."
-            exit 0
-          fi
-          git add .github/state/poll-state.json
-          git commit -m "chore: update poll-target-repo state [skip ci]"
-          git push
