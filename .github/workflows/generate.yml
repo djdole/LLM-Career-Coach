@@ -7,6 +7,14 @@ on:
       # the TRIGGER LIMITATION note above if yours is a URL instead.
       - "data/profile.json"
   workflow_dispatch: {} # allows manually re-running from the Actions tab
+  repository_dispatch:
+    # Fired by another repo's repository-dispatch-trigger.yml (once
+    # copied there and enabled) sending this event type. Note:
+    # poll-target-repo.yml triggers this workflow via `gh workflow run`
+    # instead, which uses the workflow_dispatch trigger above, not this
+    # one. Rename here and in repository-dispatch-trigger.yml together
+    # if you change the event type.
+    types: [career-coach-source-updated]
 
 permissions:
   contents: write

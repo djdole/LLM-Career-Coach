@@ -1,0 +1,174 @@
+# Polls a *different* repo every 30 minutes for changes to a configured
+# list of files/folders, and if anything changed since the last run,
+# triggers this repo's generate.yml (via workflow_dispatch).
+#
+# This exists for the case where your KNOWLEDGE_BASE lives elsewhere (a
+# separate "source of truth" repo) and pushes to it can't natively fire
+# generate.yml's own `push`/`paths` trigger, which only watches this repo.
+# See the companion `repository-dispatch-trigger.yml.disabled` for a
+# push-based (near-instant) alternative you can check into that other
+# repo instead of, or in addition to, this polling workflow.
+#
+# ---------------------------------------------------------------------
+# ONE-TIME SETUP (Settings > Secrets and variables > Actions)
+#   Variables (Settings > ... > Variables):
+#     POLL_TARGET_REPO   "owner/repo" of the repo to watch, e.g.
+#                        "YOUR_USERNAME/career-coach-source"
+#     POLL_TARGET_REF    Branch/ref to watch on that repo. Default: "main"
+#     POLL_TARGET_PATHS  List of files/folders to watch, one per line
+#                        (or comma-separated), relative to the target
+#                        repo's root, e.g.:
+#                          data/profile.json
+#                          data/knowledge-base/
+#     GENERATE_WORKFLOW_REF
+#                        Branch to run generate.yml on when triggered.
+#                        Default: this repo's default branch.
+#   Secrets:
+#     POLL_TARGET_REPO_TOKEN
+#                        A PAT with read access to the target repo.
+#                        Required if that repo is private; a
+#                        fine-grained token scoped to "Contents:
+#                        read-only" on just that repo is enough. May be
+#                        left unset for a public target repo (subject
+#                        to GitHub's lower unauthenticated API rate
+#                        limit).
+#
+# No token setup is needed to trigger generate.yml itself - that uses
+# this workflow's own GITHUB_TOKEN, since it's dispatching a workflow
+# in the same repo (see the "actions: write" permission below).
+# ---------------------------------------------------------------------
+
+name: Poll Target Repo for Changes
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch: {} # allows manually re-running / testing from the Actions tab
+
+permissions:
+  contents: write # to commit the updated poll-state file
+  actions: write # to dispatch generate.yml
+
+concurrency:
+  group: poll-target-repo
+  cancel-in-progress: false
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Check target repo paths for changes
+        id: poll
+        env:
+          GH_API_TOKEN: ${{ secrets.POLL_TARGET_REPO_TOKEN }}
+          TARGET_REPO: ${{ secrets.POLL_TARGET_REPO || vars.POLL_TARGET_REPO }}
+          TARGET_REF: ${{ secrets.POLL_TARGET_REF || vars.POLL_TARGET_REF || 'main' }}
+          WATCH_PATHS: ${{ secrets.POLL_TARGET_PATHS || vars.POLL_TARGET_PATHS || 'data/profile.json' }}
+          STATE_FILE: .github/state/poll-state.json
+        run: |
+          set -euo pipefail
+
+          if [ -z "${TARGET_REPO:-}" ]; then
+            echo "::error::The POLL_TARGET_REPO repository variable is not set (Settings > Secrets and variables > Actions > Variables). Nothing to poll."
+            exit 1
+          fi
+
+          mkdir -p "$(dirname "$STATE_FILE")"
+          if [ -f "$STATE_FILE" ]; then
+            old_state="$(cat "$STATE_FILE")"
+          else
+            old_state="{}"
+          fi
+
+          auth_header=()
+          if [ -n "${GH_API_TOKEN:-}" ]; then
+            auth_header=(-H "Authorization: token ${GH_API_TOKEN}")
+          fi
+
+          # Normalize WATCH_PATHS: allow comma- or newline-separated lists,
+          # trim whitespace, drop blanks.
+          mapfile -t watch_paths < <(printf '%s' "$WATCH_PATHS" | tr ',' '\n' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' | grep -v '^$')
+
+          if [ "${#watch_paths[@]}" -eq 0 ]; then
+            echo "::error::POLL_TARGET_PATHS resolved to an empty list of paths to watch."
+            exit 1
+          fi
+
+          new_state="{}"
+          changed="false"
+
+          for path in "${watch_paths[@]}"; do
+            echo "Checking ${TARGET_REPO}@${TARGET_REF}: ${path}"
+
+            response="$(curl -sS -G \
+              "${auth_header[@]}" \
+              -H "Accept: application/vnd.github+json" \
+              --data-urlencode "sha=${TARGET_REF}" \
+              --data-urlencode "path=${path}" \
+              --data-urlencode "per_page=1" \
+              "https://api.github.com/repos/${TARGET_REPO}/commits")"
+
+            if echo "$response" | jq -e 'type == "object" and has("message")' >/dev/null 2>&1; then
+              msg="$(echo "$response" | jq -r '.message')"
+              echo "::warning::GitHub API error for path '${path}': ${msg}"
+              continue
+            fi
+
+            latest_sha="$(echo "$response" | jq -r '.[0].sha // empty')"
+
+            if [ -z "$latest_sha" ]; then
+              echo "  No commits found for '${path}' on ${TARGET_REF} (path may not exist yet). Skipping."
+              continue
+            fi
+
+            previous_sha="$(echo "$old_state" | jq -r --arg p "$path" '.[$p] // empty')"
+            echo "  latest=${latest_sha} previous=${previous_sha:-<none>}"
+
+            if [ -n "$previous_sha" ] && [ "$previous_sha" != "$latest_sha" ]; then
+              changed="true"
+              echo "  -> changed"
+            elif [ -z "$previous_sha" ]; then
+              # First time we've seen this path - record it, but don't treat
+              # it as a change (avoids an immediate spurious trigger the
+              # first time a new path is added to POLL_TARGET_PATHS).
+              echo "  -> first observation, recording baseline"
+            fi
+
+            new_state="$(echo "$new_state" | jq --arg p "$path" --arg s "$latest_sha" '.[$p] = $s')"
+          done
+
+          echo "$new_state" | jq -S . > "$STATE_FILE"
+          echo "changed=${changed}" >> "$GITHUB_OUTPUT"
+
+      - name: Trigger generate.yml
+        if: steps.poll.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_REF: ${{ secrets.GENERATE_WORKFLOW_REF || vars.GENERATE_WORKFLOW_REF || github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          echo "Change detected in watched paths on ${{ secrets.POLL_TARGET_REPO || vars.POLL_TARGET_REPO }} - dispatching generate.yml on ${RUN_REF}"
+          gh workflow run generate.yml --repo "${{ github.repository }}" --ref "$RUN_REF"
+
+      - name: Commit updated poll state
+        env:
+          GIT_AUTHOR_NAME: poll-target-repo-bot
+          GIT_AUTHOR_EMAIL: actions@users.noreply.github.com
+          GIT_COMMITTER_NAME: poll-target-repo-bot
+          GIT_COMMITTER_EMAIL: actions@users.noreply.github.com
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- .github/state/poll-state.json 2>/dev/null && \
+             ! git status --porcelain -- .github/state/poll-state.json | grep -q .; then
+            echo "No change to poll state - nothing to commit."
+            exit 0
+          fi
+          git add .github/state/poll-state.json
+          git commit -m "chore: update poll-target-repo state [skip ci]"
+          git push
