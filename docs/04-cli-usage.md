@@ -2,9 +2,9 @@
 
 `python generator.py --help` is the authoritative, always-current
 source for flags - this page is a curated explanation on top of it.
-The CLI can change independently of `USAGE.md` and this page, so if
-something here looks stale, `--help` (backed by `build_arg_parser()`
-in `generator.py`) wins.
+The CLI can change independently of this page, so if something here
+looks stale, `--help` (backed by `build_arg_parser()` in
+`generator.py`) wins.
 
 `generator.py` takes two flags, `--generate` and `--analyze`, plus the
 standard `-h`/`--help`. They are independent of each other and can be
@@ -72,10 +72,10 @@ Uses `KNOWLEDGE_BASE` plus LiteLLM to:
   each gap.
 
 **Where the report goes:** the rendered report is printed to stdout.
-Despite `.env.template` and the root `USAGE.md` describing an
-`ANALYSIS_NAMING_TEMPLATE`-named file under `OUTPUT_FOLDER` as an
-additional destination, reading `main()` in `generator.py` shows the
-current code never writes the analysis report to disk - only
+Despite `.env.template` describing an `ANALYSIS_NAMING_TEMPLATE`-named
+file under `OUTPUT_FOLDER` as an additional destination, reading
+`main()` in `generator.py` shows the current code never writes the
+analysis report to disk - only
 `print(rendered_job_fit_analysis_report)` runs. If you want to save a
 report, redirect stdout yourself:
 

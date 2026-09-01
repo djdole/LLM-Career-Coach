@@ -114,8 +114,8 @@ the draft is written right back over `KNOWLEDGE_BASE`. Point
 | `ANALYSIS_PROMPT_TEMPLATE` | `ANALYSIS_PROMPT.template.txt` | The LLM prompt `--analyze` uses, as a `string.Template` file with `$output_rules`/`$candidate_data`/`$job_description` placeholders. Edit this file directly to change how the analysis is framed - no Python changes needed. |
 
 `.env.template` also ships an `ANALYSIS_NAMING_TEMPLATE` setting,
-described there (and in the root `USAGE.md`) as the output filename
-`--analyze`'s report is written under. Reading `main()` in
+described there as the output filename `--analyze`'s report is written
+under. Reading `main()` in
 `generator.py`, however, the current code never reads
 `ANALYSIS_NAMING_TEMPLATE` and never writes the analysis report to a
 file at all - `render_job_fit_analysis_md()`'s output is only printed

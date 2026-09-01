@@ -229,8 +229,8 @@ exactly as you want it to appear.
 
 ### `generation_workflow_for_llm`
 
-Mentioned in the root `USAGE.md` and in `generator.py`'s own module
-docstring as holding the manual, chat-based, per-posting tailoring
+Mentioned in `generator.py`'s own module docstring as holding the
+manual, chat-based, per-posting tailoring
 workflow description - the process for adapting a resume to one
 specific job posting, which is explicitly outside `generator.py`'s own
 scope. Searching every `kb[...]` / `kb.get(...)` access in

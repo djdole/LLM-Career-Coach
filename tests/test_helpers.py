@@ -10,8 +10,8 @@ import generator
 
 
 class TestGenerateAliases:
-    """Every value USAGE.md and generator.py's own module docstring claim
-    is a valid --generate value must actually resolve via
+    """Every value docs/04-cli-usage.md and generator.py's own module
+    docstring claim is a valid --generate value must actually resolve via
     GENERATE_ALIASES -- this class exists specifically to catch a
     documented alias silently missing from the dict (as opposed to a
     typo'd/unsupported value correctly being rejected), since that's a

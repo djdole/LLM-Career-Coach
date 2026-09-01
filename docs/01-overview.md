@@ -126,11 +126,9 @@ not cover in full:
 * Per-target pipelines and output formats: `05-generation-targets-and-outputs.md`.
 * Template file formats: `06-templates.md`.
 * `data/profile.json` schema: `07-knowledge-base-schema.md`.
-* The upstream project repository and its own root `README.md` and
-  `USAGE.md` remain the canonical source for anything not repeated
-  here.
+* The root `README.md` remains a short, top-level project pointer;
+  this `docs/` folder is the canonical, detailed documentation.
 
 ## Full documentation index
 
-See `docs/README.md` for the complete file index and the process used
-to write these docs.
+See `README.md` in this folder for the complete documentation index.
