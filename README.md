@@ -74,11 +74,12 @@ dependencies for you on first run.
 
 GitHub Actions workflows under `.github/workflows/` can regenerate
 output automatically whenever `data/profile.json` changes, and keep
-the test suite/coverage badges above up to date - see `USAGE.md` for
-details. None of it is required to run this locally.
+the test suite/coverage badges above up to date - see
+[`docs/09-automation-ci.md`](./docs/09-automation-ci.md) for details.
+None of it is required to run this locally.
 
-## Learn more
+## Documentation
 
 Full configuration reference, every `.env` variable, naming-template
-placeholders, `--analyze` details, and the test suite are documented
-in [`USAGE.md`](./USAGE.md).
+placeholders, `--analyze` details, the knowledge base schema, and the
+test suite are documented in **[`docs/`](./docs/README.md)**.

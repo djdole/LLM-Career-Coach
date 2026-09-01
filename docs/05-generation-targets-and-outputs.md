@@ -11,7 +11,8 @@
 | `analyze` | 0 files - printed to stdout only | `.md` (rendered, not saved) |
 
 Two notes worth calling out, both confirmed by reading `main()`
-directly rather than assuming the tables in the root `USAGE.md`:
+directly rather than assuming the tables above reflect every claim
+made elsewhere in this repo's comments:
 
 * **Cover letters are only ever written as `.txt`, `.pdf`, and
   `.docx`.** `render_cover_letter_md()` exists in `generator.py` and
@@ -20,8 +21,8 @@ directly rather than assuming the tables in the root `USAGE.md`:
   `render_cover_letter_pdf()` are invoked for the `cover_letter`
   target. There is no cover letter Markdown output.
 * **The `analyze` target's report is never written to a file.**
-  `.env.template` and the root `USAGE.md` describe an
-  `ANALYSIS_NAMING_TEMPLATE`-named file under `OUTPUT_FOLDER` as an
+  `.env.template` describes an `ANALYSIS_NAMING_TEMPLATE`-named file
+  under `OUTPUT_FOLDER` as an
   additional destination for the job-fit report, but `main()` only
   calls `print(rendered_job_fit_analysis_report)` - `ANALYSIS_NAMING_TEMPLATE`
   is not read anywhere in `generator.py`. See `12-troubleshooting-faq.md`

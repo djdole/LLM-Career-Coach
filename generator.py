@@ -1838,8 +1838,8 @@ def render_filename(
     """
     Fills a naming/output-path template -- RESUME_NAMING_TEMPLATE,
     COVERLETTER_NAMING_TEMPLATE, or KNOWLEDGE_BASE_DRAFT -- with this
-    run's actual values. See USAGE.md's "Naming template placeholders"
-    section for the full list; in short:
+    run's actual values. See docs/03-configuration.md's "Naming template
+    placeholders" section for the full list; in short:
       {FirstName}/{LastName} - full_name's first and last whitespace-
         separated token (a middle name/initial is dropped). Both render
         as "" if full_name is falsy (e.g. KNOWLEDGE_BASE_DRAFT during a

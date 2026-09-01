@@ -12,8 +12,8 @@ run. See `01-overview.md` for what the project does, and
 ### Python 3.12
 
 The project is pinned to Python 3.12 (see the `actions/setup-python`
-step in `.github/workflows/tests.yml`, and the Setup section of the
-root `USAGE.md`). Check your version and install it if needed:
+step in `.github/workflows/tests.yml`). Check your version and install
+it if needed:
 
 ```bash
 python3 --version          # confirm 3.12.x
