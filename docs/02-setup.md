@@ -63,6 +63,8 @@ LITELLM_BASE_URL and/or LITELLM_API_KEY are not set.
 There is no default for either value; you must have a running LiteLLM
 instance (self-hosted or otherwise) to point this project at.
 
+Need an easy to spin-up self-hosted LiteLLM instance? Check out The [Architect](https://github.com/BitwiseThought-net/the-architect)!
+
 ## Two ways to run the tool
 
 ### Directly: `python generator.py`
