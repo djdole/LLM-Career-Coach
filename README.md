@@ -9,7 +9,7 @@
 **One structured knowledge base in → tailored resumes, cover letters, a
 GitHub profile README, and job-fit analysis out.** 
 
-A single Python script (`generator.py`) reads `data/profile.json` and, through a [elf-hosted LLM ([LiteLLM in front of Ollama](https://github.com/BitwiseThought-net/the-architect/), or any OpenAI-compatible backend), fills in Markdown templates and renders the results as PDF/DOCX/TXT/MD/JSON - so updating one JSON file regenerates every job-application document, in every format, consistently.
+A single Python script (`generator.py`) reads `data/profile.json` and, through a self-hosted LLM ([LiteLLM in front of Ollama](https://github.com/BitwiseThought-net/the-architect/), or any OpenAI-compatible backend), fills in Markdown templates and renders the results as PDF/DOCX/TXT/MD/JSON - so updating one JSON file regenerates every job-application document, in every format, consistently.
 
 No paid API, no per-run cost, no usage limits.
 
