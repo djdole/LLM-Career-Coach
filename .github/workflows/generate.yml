@@ -30,10 +30,10 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Check out repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -107,7 +107,7 @@ jobs:
           COVERLETTER_NAMING_TEMPLATE: ${{ secrets.COVERLETTER_NAMING_TEMPLATE || vars.COVERLETTER_NAMING_TEMPLATE || '{JobAcronym}/{FirstName} {LastName} Cover Letter ({JobAcronym}).{Extension}' }}
           ANALYSIS_NAMING_TEMPLATE: ${{ secrets.ANALYSIS_NAMING_TEMPLATE || vars.ANALYSIS_NAMING_TEMPLATE || '{FirstName} {LastName} Job Fit Analysis.{Extension}' }}
           ANALYSIS_PROMPT_TEMPLATE: ${{ secrets.ANALYSIS_PROMPT_TEMPLATE || vars.ANALYSIS_PROMPT_TEMPLATE || 'ANALYSIS_PROMPT.template.txt' }}
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v8
         with:
           commit-message: "Regenerate resumes and cover letter from updated knowledge base"
           branch: auto/regenerate-resumes
