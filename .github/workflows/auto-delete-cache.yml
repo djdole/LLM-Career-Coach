@@ -1,0 +1,9 @@
+name: Delete Action Cache
+on:
+  pull_request_target:
+    types: [closed]
+jobs:
+  delete-cache:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: toshimaru/delete-action-cache@main
