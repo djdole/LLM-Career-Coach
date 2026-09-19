@@ -7,4 +7,4 @@ pytest-testmon>=2.1
 pydantic>=2.4.2
 requests
 beautifulsoup4>=4.12
-genbadge[tests,coverage]>=1.1.1
+genbadge[tests,coverage]>=1.1.3
