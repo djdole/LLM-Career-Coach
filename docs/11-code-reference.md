@@ -230,6 +230,19 @@ date comes from `format_certification_date()`.
 `call_llm_fill_resume()`: the resume's education always equals these
 entries, whatever the model wrote.
 
+### `build_certification_records(kb, include_key)` / `ensure_readme_certifications(md, records)`
+
+`build_certification_records()` returns the usable items of
+`kb["certifications"]`, newest first, as `{"name", "issuer", "type",
+"date", "degree"}` dicts, skipping any whose `include_key` flag
+(`include_in_resume_education` or `include_in_readme_education`) is
+`false`. `build_readme_context()` appends them to the README's
+`education` list with `"kind": "certification"` and `"date_label":
+"Issued"`. After the model's README passes `validate_readme()`,
+`call_llm_readme()` runs `ensure_readme_certifications()`, which appends
+a `**name (type)**` / issuer / `Issued <date>` block to the Education
+section for any certification whose name is missing from it.
+
 ### `get_variant_settings(kb, variant)` / `resolve_job_acronym(kb, variant)`
 
 Read `variant_settings` from the knowledge base. `resolve_job_acronym()`

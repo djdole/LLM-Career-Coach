@@ -36,7 +36,7 @@
 
 ## 🎓 Education
 
-<!-- Repeat once per education entry. -->
+<!-- Repeat once per education entry, in the order given in the data (degrees first, then certifications). Include every entry; do not omit any. For an entry whose kind is "certification": put the certification name in {{DEGREE}} exactly as given, write just {{INSTITUTION}} (the issuer) with no " - {{FIELD_OF_STUDY}}", and write "Issued {{GRADUATION_DATE}}" instead of "Graduated". Separate entries with a blank line. -->
 **{{DEGREE}}**<br>
 {{INSTITUTION}} - {{FIELD_OF_STUDY}}<br>
 Graduated {{GRADUATION_DATE}}

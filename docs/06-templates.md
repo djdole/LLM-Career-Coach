@@ -92,7 +92,12 @@ Reading the file in the repository root, section by section:
   bullets rather than the resume's `●` character.
 * **Education:** one block per entry, including
   `{{FIELD_OF_STUDY}}` alongside degree, institution, and graduation
-  date - a field the resume template does not surface.
+  date - a field the resume template does not surface. Degrees come
+  first, then every certification from the knowledge base's
+  [`certifications`](07-knowledge-base-schema.md#certifications) list
+  (unless its `include_in_readme_education` is `false`): a certification
+  has no field of study and reads `Issued <date>` instead of `Graduated
+  <date>`. If the model leaves one out, `call_llm_readme()` appends it.
 * **Career Highlights:** populated **verbatim** from
   `career_narrative_notes.strongest_differentiators` in the knowledge
   base. The template's own HTML comment says explicitly: do not
