@@ -218,6 +218,18 @@ Optional rendered check (enabled by `CHECK_DOCX_PAGES`): converts the DOCX
 to PDF with headless LibreOffice and returns/prints blank pages. Returns
 `None` (check skipped) if LibreOffice is unavailable.
 
+### `build_education_entries(kb)` / `build_certification_education_entries(kb)`
+
+`build_education_entries()` returns the resume's whole Education section as
+`{"degree", "institution", "date"}` dicts: the degrees in
+`kb["education"]`, then `build_certification_education_entries()`'s
+entries for `kb["certifications"]` (newest first; skips an entry with
+`include_in_resume_education: false` or without a name and issuer). The
+date comes from `format_certification_date()`.
+`reconcile_resume_education()` is applied to the model's output in
+`call_llm_fill_resume()`: the resume's education always equals these
+entries, whatever the model wrote.
+
 ### `get_variant_settings(kb, variant)` / `resolve_job_acronym(kb, variant)`
 
 Read `variant_settings` from the knowledge base. `resolve_job_acronym()`

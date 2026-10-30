@@ -385,6 +385,102 @@ def strip_em_dashes(text: str) -> str:
 
 # --- Prompt construction -------------------------------------------------
 
+_MONTH_ABBREVIATIONS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+
+def format_certification_date(cert: dict) -> str:
+    """
+    The date shown for a certification on the resume. Uses the
+    certification's "issue_date_display" if it has one; otherwise formats
+    its "issue_date" ("YYYY-MM" or "YYYY-MM-DD" -> "Sep 2026", "YYYY" ->
+    "2026"); otherwise "".
+    """
+    display = str(cert.get("issue_date_display") or "").strip()
+    if display:
+        return display
+    match = re.match(r"^(\d{4})(?:-(\d{2}))?", str(cert.get("issue_date") or "").strip())
+    if not match:
+        return ""
+    year, month = match.group(1), match.group(2)
+    if month and 1 <= int(month) <= 12:
+        return f"{_MONTH_ABBREVIATIONS[int(month) - 1]} {year}"
+    return year
+
+
+def build_certification_education_entries(kb: dict) -> list:
+    """
+    Resume Education entries for every item in the knowledge base's
+    "certifications" list, newest first (undated last), in the same
+    {"degree", "institution", "date"} shape as a degree:
+      degree      <- "<name> (<type>)", e.g. "JavaScript and Playwright
+                     Automation with AI Program (Certificate of Completion)"
+                     (the type is what keeps a certificate of completion
+                     from reading as a vendor certification)
+      institution <- the issuer
+      date        <- format_certification_date()
+    A certification with "include_in_resume_education": false, or without
+    a name and issuer, is skipped. "|" is replaced with "/" in the text,
+    because "|" delimits the fields of an Education line.
+    """
+    def clean(value) -> str:
+        return str(value or "").replace("|", "/").strip()
+
+    keyed = []
+    for cert in kb.get("certifications") or []:
+        if not isinstance(cert, dict) or cert.get("include_in_resume_education") is False:
+            continue
+        name, issuer, cert_type = clean(cert.get("name")), clean(cert.get("issuer")), clean(cert.get("type"))
+        if not name or not issuer:
+            continue
+        keyed.append((
+            str(cert.get("issue_date") or ""),
+            {"degree": f"{name} ({cert_type})" if cert_type else name,
+             "institution": issuer, "date": format_certification_date(cert)},
+        ))
+    keyed.sort(key=lambda pair: pair[0], reverse=True)
+    return [entry for _, entry in keyed]
+
+
+def build_education_entries(kb: dict) -> list:
+    """
+    Every entry of the resume's Education section: the degrees in
+    kb["education"], then the certifications in kb["certifications"] (see
+    build_certification_education_entries).
+
+    The raw KB uses the key "graduation date" (with a space); the output
+    schema calls it "date". Renaming it here - rather than relying on the
+    model to perform that rename - is what actually fixed education[]
+    entries coming back without a date at all.
+    """
+    degrees = [
+        {"degree": ed["degree"], "institution": ed["institution"], "date": ed["graduation date"]}
+        for ed in kb["education"]
+    ]
+    return degrees + build_certification_education_entries(kb)
+
+
+def reconcile_resume_education(parsed_education: list, expected_education: list, label: str = "") -> list:
+    """
+    Education is copied verbatim from the knowledge base - the model has no
+    editorial role in it - so the resume always ends up with exactly
+    expected_education. When the model's lines already match (ignoring
+    case and spacing) they are returned untouched; when it dropped,
+    reworded, or added an entry (a local model dropping a certification
+    line, say), expected_education is used instead, with a note on stderr.
+    """
+    def key(entries):
+        return [tuple(" ".join(str(e.get(f, "")).lower().split()) for f in ("degree", "institution", "date"))
+                for e in entries]
+
+    if key(parsed_education) == key(expected_education):
+        return parsed_education
+    prefix = f"[{label}] " if label else ""
+    print(f"{prefix}Education section from the model did not match the knowledge base "
+          f"({len(parsed_education)} entries, expected {len(expected_education)}); using the knowledge base's entries.",
+          file=sys.stderr)
+    return [dict(e) for e in expected_education]
+
+
 def build_baseline_context(kb: dict, variant: str) -> dict:
     """
     Trims the full knowledge base down to only what the BASELINE (no-JD)
@@ -419,14 +515,8 @@ def build_baseline_context(kb: dict, variant: str) -> dict:
         }
         for job in kb["work_experience"]
     ]
-    # The raw KB uses the key "graduation date" (with a space); the output
-    # schema calls it "date". Renaming it here - rather than relying on the
-    # model to perform that rename - is what actually fixed education[]
-    # entries coming back without a date at all.
-    education = [
-        {"degree": ed["degree"], "institution": ed["institution"], "date": ed["graduation date"]}
-        for ed in kb["education"]
-    ]
+    # Degrees, then certifications - see build_education_entries().
+    education = build_education_entries(kb)
     return {
         "output_rules": {
             "never_fabricate": rules["never_fabricate"],
@@ -593,6 +683,8 @@ def call_llm_fill_resume(client: openai.OpenAI, kb: dict, variant: str, template
             parsed = parse_filled_resume(text)
             if len(parsed["work_experience"]) != expected_job_count:
                 raise ValueError(f"Got {len(parsed['work_experience'])} jobs, expected {expected_job_count}.")
+            parsed["education"] = reconcile_resume_education(
+                parsed["education"], build_baseline_context(kb, variant)["education"], variant)
             return parsed
         except ValueError as e:
             last_error = e
@@ -698,6 +790,16 @@ def call_llm_cover_letter(client: openai.OpenAI, kb: dict, variant: str) -> dict
 
 # --- Plain text / Markdown -------------------------------------------------
 
+def _education_institution_line(ed: dict) -> str:
+    """"Institution (date)", or just "Institution" when there is no date."""
+    return f"{ed['institution']} ({ed['date']})" if ed.get("date") else f"{ed['institution']}"
+
+
+def _education_line(ed: dict) -> str:
+    """"Degree, Institution (date)" - used for degrees and certifications alike."""
+    return f"{ed['degree']}, {_education_institution_line(ed)}"
+
+
 def render_resume_txt(r: dict) -> str:
     lines = [r["name"], r["contact_line"], "", "SUMMARY", r["summary"], "", r["skills_heading"]]
     for group in r["skills"]:
@@ -713,7 +815,7 @@ def render_resume_txt(r: dict) -> str:
     lines.append("EDUCATION")
     for ed in r["education"]:
         lines.append(f"{ed['degree']}")
-        lines.append(f"{ed['institution']} ({ed['date']})")
+        lines.append(_education_institution_line(ed))
     return strip_em_dashes("\n".join(lines))
 
 
@@ -731,7 +833,7 @@ def render_resume_md(r: dict) -> str:
         lines.append("")
     lines.append("## Education")
     for ed in r["education"]:
-        lines.append(f"- {ed['degree']}, {ed['institution']} ({ed['date']})")
+        lines.append(f"- {_education_line(ed)}")
     return strip_em_dashes("\n".join(lines))
 
 
@@ -999,7 +1101,7 @@ def render_resume_docx(r: dict, path: Path, body_pt: float = 10.5) -> None:
 
     add_heading("EDUCATION")
     for ed in r["education"]:
-        _tight(doc.add_paragraph(f"{ed['degree']}, {ed['institution']} ({ed['date']})"), space_after=1)
+        _tight(doc.add_paragraph(_education_line(ed)), space_after=1)
 
     strip_docx_blank_page_sources(doc)
     doc.save(path)
@@ -1070,7 +1172,7 @@ def _build_resume_story(r: dict, tier) -> list:
             story.append(Paragraph(f"{BULLET_CHAR} {strip_em_dashes(b)}", bullet_style))
     story += heading("EDUCATION")
     for ed in r["education"]:
-        story.append(Paragraph(f"{ed['degree']}, {ed['institution']} ({ed['date']})", body_style))
+        story.append(Paragraph(_education_line(ed), body_style))
     return story
 
 
