@@ -51,7 +51,7 @@ jobs:
           OLLAMA_NUM_CTX: ${{ secrets.OLLAMA_NUM_CTX || vars.OLLAMA_NUM_CTX || '16384' }}
           LITELLM_TIMEOUT: ${{ secrets.LITELLM_TIMEOUT || vars.LITELLM_TIMEOUT || '550' }}
           LITELLM_KEEP_ALIVE: ${{ secrets.LITELLM_KEEP_ALIVE || vars.LITELLM_KEEP_ALIVE || '30m' }}
-          VARIANTS: ${{ secrets.VARIANTS || vars.VARIANTS || '["SDE", "SDET"]' }}
+          VARIANTS: ${{ secrets.VARIANTS || vars.VARIANTS || '["GENERIC", "SDE", "SDET"]' }}
           OUTPUT_FOLDER: ${{ secrets.OUTPUT_FOLDER || vars.OUTPUT_FOLDER || 'generated' }}
           OUTPUT_REPO: ${{ secrets.OUTPUT_REPO || vars.OUTPUT_REPO || 'https://github.com/YOUR_USERNAME/your-resumes.git' }}
           OUTPUT_REPO_BRANCH: ${{ secrets.OUTPUT_REPO_BRANCH || vars.OUTPUT_REPO_BRANCH || '' }}
@@ -68,8 +68,8 @@ jobs:
           README_OUTPUT: ${{ secrets.README_OUTPUT || vars.README_OUTPUT || 'README.md' }}
           EMAIL_TAG_ADDRESS: ${{ secrets.EMAIL_TAG_ADDRESS || vars.EMAIL_TAG_ADDRESS || 'githubcom-profile' }}
           RESUME_TEMPLATE: ${{ secrets.RESUME_TEMPLATE || vars.RESUME_TEMPLATE || 'RESUME.template.md' }}
-          RESUME_NAMING_TEMPLATE: ${{ secrets.RESUME_NAMING_TEMPLATE || vars.RESUME_NAMING_TEMPLATE || '{JobAcronym}/{FirstName} {LastName} Resume ({JobAcronym}).{Extension}' }}
-          COVERLETTER_NAMING_TEMPLATE: ${{ secrets.COVERLETTER_NAMING_TEMPLATE || vars.COVERLETTER_NAMING_TEMPLATE || '{JobAcronym}/{FirstName} {LastName} Cover Letter ({JobAcronym}).{Extension}' }}
+          RESUME_NAMING_TEMPLATE: ${{ secrets.RESUME_NAMING_TEMPLATE || vars.RESUME_NAMING_TEMPLATE || '<{JobAcronym}/>{FirstName} {LastName} Resume< ({JobAcronym})>.{Extension}' }}
+          COVERLETTER_NAMING_TEMPLATE: ${{ secrets.COVERLETTER_NAMING_TEMPLATE || vars.COVERLETTER_NAMING_TEMPLATE || '<{JobAcronym}/>{FirstName} {LastName} Cover Letter< ({JobAcronym})>.{Extension}' }}
           ANALYSIS_NAMING_TEMPLATE: ${{ secrets.ANALYSIS_NAMING_TEMPLATE || vars.ANALYSIS_NAMING_TEMPLATE || '{FirstName} {LastName} Job Fit Analysis.{Extension}' }}
           ANALYSIS_PROMPT_TEMPLATE: ${{ secrets.ANALYSIS_PROMPT_TEMPLATE || vars.ANALYSIS_PROMPT_TEMPLATE || 'ANALYSIS_PROMPT.template.txt' }}
 
@@ -86,7 +86,7 @@ jobs:
           OLLAMA_NUM_CTX: ${{ secrets.OLLAMA_NUM_CTX || vars.OLLAMA_NUM_CTX || '16384' }}
           LITELLM_TIMEOUT: ${{ secrets.LITELLM_TIMEOUT || vars.LITELLM_TIMEOUT || '550' }}
           LITELLM_KEEP_ALIVE: ${{ secrets.LITELLM_KEEP_ALIVE || vars.LITELLM_KEEP_ALIVE || '30m' }}
-          VARIANTS: ${{ secrets.VARIANTS || vars.VARIANTS || '["SDE", "SDET"]' }}
+          VARIANTS: ${{ secrets.VARIANTS || vars.VARIANTS || '["GENERIC", "SDE", "SDET"]' }}
           OUTPUT_FOLDER: ${{ secrets.OUTPUT_FOLDER || vars.OUTPUT_FOLDER || 'generated' }}
           OUTPUT_REPO: ${{ secrets.OUTPUT_REPO || vars.OUTPUT_REPO || 'https://github.com/YOUR_USERNAME/your-resumes.git' }}
           OUTPUT_REPO_BRANCH: ${{ secrets.OUTPUT_REPO_BRANCH || vars.OUTPUT_REPO_BRANCH || '' }}
@@ -103,8 +103,8 @@ jobs:
           README_OUTPUT: ${{ secrets.README_OUTPUT || vars.README_OUTPUT || 'README.md' }}
           EMAIL_TAG_ADDRESS: ${{ secrets.EMAIL_TAG_ADDRESS || vars.EMAIL_TAG_ADDRESS || 'githubcom-profile' }}
           RESUME_TEMPLATE: ${{ secrets.RESUME_TEMPLATE || vars.RESUME_TEMPLATE || 'RESUME.template.md' }}
-          RESUME_NAMING_TEMPLATE: ${{ secrets.RESUME_NAMING_TEMPLATE || vars.RESUME_NAMING_TEMPLATE || '{JobAcronym}/{FirstName} {LastName} Resume ({JobAcronym}).{Extension}' }}
-          COVERLETTER_NAMING_TEMPLATE: ${{ secrets.COVERLETTER_NAMING_TEMPLATE || vars.COVERLETTER_NAMING_TEMPLATE || '{JobAcronym}/{FirstName} {LastName} Cover Letter ({JobAcronym}).{Extension}' }}
+          RESUME_NAMING_TEMPLATE: ${{ secrets.RESUME_NAMING_TEMPLATE || vars.RESUME_NAMING_TEMPLATE || '<{JobAcronym}/>{FirstName} {LastName} Resume< ({JobAcronym})>.{Extension}' }}
+          COVERLETTER_NAMING_TEMPLATE: ${{ secrets.COVERLETTER_NAMING_TEMPLATE || vars.COVERLETTER_NAMING_TEMPLATE || '<{JobAcronym}/>{FirstName} {LastName} Cover Letter< ({JobAcronym})>.{Extension}' }}
           ANALYSIS_NAMING_TEMPLATE: ${{ secrets.ANALYSIS_NAMING_TEMPLATE || vars.ANALYSIS_NAMING_TEMPLATE || '{FirstName} {LastName} Job Fit Analysis.{Extension}' }}
           ANALYSIS_PROMPT_TEMPLATE: ${{ secrets.ANALYSIS_PROMPT_TEMPLATE || vars.ANALYSIS_PROMPT_TEMPLATE || 'ANALYSIS_PROMPT.template.txt' }}
         uses: peter-evans/create-pull-request@v8

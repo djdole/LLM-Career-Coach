@@ -262,8 +262,9 @@ class TestLoadFileLocationSettings:
         assert settings["README_TEMPLATE"] == "README.template.md"
         assert settings["README_OUTPUT"] == "README.md"
         assert settings["RESUME_TEMPLATE"] == "RESUME.template.md"
-        assert settings["RESUME_NAMING_TEMPLATE"] == "{FirstName} {LastName} Resume ({JobAcronym}).{Extension}"
-        assert settings["COVERLETTER_NAMING_TEMPLATE"] == "{FirstName} {LastName} Cover Letter ({JobAcronym}).{Extension}"
+        assert settings["RESUME_NAMING_TEMPLATE"] == "{FirstName} {LastName} Resume< ({JobAcronym})>.{Extension}"
+        assert settings["COVERLETTER_NAMING_TEMPLATE"] == "{FirstName} {LastName} Cover Letter< ({JobAcronym})>.{Extension}"
+        assert settings["CHECK_DOCX_PAGES"] is False
 
     def test_env_vars_override_defaults(self, monkeypatch):
         monkeypatch.setenv("OUTPUT_FOLDER", "custom_output")

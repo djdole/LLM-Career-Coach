@@ -190,8 +190,41 @@ ceiling. **Returns:** a `(pages, body_pt)` tuple for the tier that was
 ultimately used. Tries each tier in `PDF_TIERS` (largest font first),
 building and writing the PDF at each tier, stopping at the first tier
 that fits within `max_pages` - or falling through to the smallest tier
-if none fit. **Side effect:** writes a `.pdf` file to `path` (possibly
-rewritten once per tier tried).
+if none fit. After every build, blank pages are removed with
+`remove_blank_pdf_pages()` and the fit check counts only the remaining
+pages, so a blank page never forces a smaller font. **Side effect:**
+writes a `.pdf` file to `path` (possibly rewritten once per tier tried).
+
+### `find_blank_pdf_pages(path)` / `remove_blank_pdf_pages(path)`
+
+`find_blank_pdf_pages()` returns the 0-based indexes of pages with fewer
+than `BLANK_PAGE_MIN_CHARS` non-whitespace characters of extractable
+text. `remove_blank_pdf_pages()` rewrites the PDF in place without them
+(metadata preserved) and returns how many were removed; it never empties
+a PDF (if every page looks blank the file is left unchanged, with a
+warning). Neither changes font sizes, margins, or content.
+
+### `strip_docx_blank_page_sources(doc)`
+
+**Parameters:** a python-docx `Document`. **Returns:** how many items
+were removed. Removes manual page breaks, `pageBreakBefore`, and empty
+body-level paragraphs (keeping one where Word needs it: after a final
+table, or between two tables). Called by `render_resume_docx()` and
+`render_cover_letter_docx()` before saving.
+
+### `find_blank_docx_pages(path)` / `report_docx_blank_pages(path)`
+
+Optional rendered check (enabled by `CHECK_DOCX_PAGES`): converts the DOCX
+to PDF with headless LibreOffice and returns/prints blank pages. Returns
+`None` (check skipped) if LibreOffice is unavailable.
+
+### `get_variant_settings(kb, variant)` / `resolve_job_acronym(kb, variant)`
+
+Read `variant_settings` from the knowledge base. `resolve_job_acronym()`
+returns the variant name unless `variant_settings.<variant>.job_acronym`
+is present, in which case it returns that value stripped (`null`/`""` ->
+`""`). `main()` passes the result to `render_filename()` as the job
+acronym.
 
 ### `render_cover_letter_pdf(cl, path)`
 
@@ -434,7 +467,10 @@ values. **Returns:** the template filled in via `str.format()`, with
 `{FirstName}`/`{LastName}` derived from `full_name`'s first/last
 whitespace-separated tokens (both `""` if `full_name` is falsy), and a
 fresh `_NowPlaceholder` supplied for every `{datetime.now...}`
-placeholder in this call. No side effects - creating any subfolder the
+placeholder in this call. Text in `<...>` is an optional group: kept
+only if every placeholder inside it is non-blank, otherwise dropped
+(see `_expand_optional_groups()`); a `None`/blank `job_acronym` counts
+as blank. No side effects - creating any subfolder the
 result implies is the caller's job, via `ensure_parent_dir_exists()`.
 
 ### `ensure_parent_dir_exists(path)`

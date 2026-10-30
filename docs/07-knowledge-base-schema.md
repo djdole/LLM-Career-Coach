@@ -78,6 +78,39 @@ per-variant) always uses `summary_variants["SDE"]` directly. The
 job-fit analysis context (`build_job_fit_context()`) includes the
 whole `summary_variants` dict as-is, across every variant.
 
+### `variant_settings`
+
+Optional per-variant presentation settings, keyed by variant name:
+
+```json
+{
+  "variant_settings": {
+    "GENERIC": {
+      "description": "Generic/default resume, not tailored to any particular position.",
+      "job_acronym": "",
+      "skills_heading": "CORE TECHNICAL SKILLS"
+    }
+  }
+}
+```
+
+* `job_acronym` - what `{JobAcronym}` renders as in the resume/cover
+  letter naming templates. Omit the key to use the variant name
+  (`"SDE"` stays `SDE`). `null`, `""`, or whitespace makes it blank,
+  which drops the template's `<optional>` groups that contain it - so a
+  generic variant is written as `Jane Doe Resume.pdf` with no
+  `(...)` suffix and no per-variant subfolder (see
+  [Optional groups](03-configuration.md#optional-groups)).
+* `skills_heading` - overrides the skills section heading for this
+  variant (otherwise `SDE`/`SDET` use their built-in wording and any
+  other variant gets `CORE <VARIANT> SKILLS`).
+
+A non-dict entry (and a variant with no entry at all) is ignored.
+A generic/default variant needs a `summary_variants` entry, a
+`title_by_variant` entry on each `work_experience` item, and a
+`variant_settings` entry like the one above; add `"GENERIC"` to
+`VARIANTS` to generate it.
+
 ### `skills`
 
 A dict of skill categories, each mapping to a list of skill strings:
