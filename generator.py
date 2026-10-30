@@ -407,6 +407,38 @@ def format_certification_date(cert: dict) -> str:
     return year
 
 
+def build_certification_records(kb: dict, include_key: str = "include_in_resume_education") -> list:
+    """
+    Every usable item in the knowledge base's "certifications" list, newest
+    first (undated last), as {"name", "issuer", "type", "date", "degree"}
+    dicts (strings cleaned of "|", which delimits the fields of a resume
+    Education line; "degree" is "<name> (<type>)", or just the name when
+    there is no type).
+
+    An item is skipped when its `include_key` flag is false (the resume
+    uses "include_in_resume_education", the README uses
+    "include_in_readme_education"; both default to included), or when it
+    has no name or no issuer.
+    """
+    def clean(value) -> str:
+        return str(value or "").replace("|", "/").strip()
+
+    keyed = []
+    for cert in kb.get("certifications") or []:
+        if not isinstance(cert, dict) or cert.get(include_key) is False:
+            continue
+        name, issuer, cert_type = clean(cert.get("name")), clean(cert.get("issuer")), clean(cert.get("type"))
+        if not name or not issuer:
+            continue
+        keyed.append((
+            str(cert.get("issue_date") or ""),
+            {"name": name, "issuer": issuer, "type": cert_type, "date": format_certification_date(cert),
+             "degree": f"{name} ({cert_type})" if cert_type else name},
+        ))
+    keyed.sort(key=lambda pair: pair[0], reverse=True)
+    return [record for _, record in keyed]
+
+
 def build_certification_education_entries(kb: dict) -> list:
     """
     Resume Education entries for every item in the knowledge base's
@@ -422,23 +454,10 @@ def build_certification_education_entries(kb: dict) -> list:
     a name and issuer, is skipped. "|" is replaced with "/" in the text,
     because "|" delimits the fields of an Education line.
     """
-    def clean(value) -> str:
-        return str(value or "").replace("|", "/").strip()
-
-    keyed = []
-    for cert in kb.get("certifications") or []:
-        if not isinstance(cert, dict) or cert.get("include_in_resume_education") is False:
-            continue
-        name, issuer, cert_type = clean(cert.get("name")), clean(cert.get("issuer")), clean(cert.get("type"))
-        if not name or not issuer:
-            continue
-        keyed.append((
-            str(cert.get("issue_date") or ""),
-            {"degree": f"{name} ({cert_type})" if cert_type else name,
-             "institution": issuer, "date": format_certification_date(cert)},
-        ))
-    keyed.sort(key=lambda pair: pair[0], reverse=True)
-    return [entry for _, entry in keyed]
+    return [
+        {"degree": r["degree"], "institution": r["issuer"], "date": r["date"]}
+        for r in build_certification_records(kb, "include_in_resume_education")
+    ]
 
 
 def build_education_entries(kb: dict) -> list:
@@ -1275,6 +1294,14 @@ def build_readme_context(kb: dict) -> dict:
          "field_of_study": ed.get("field of study", ""), "graduation_date": ed["graduation date"]}
         for ed in kb["education"]
     ]
+    # Certifications follow the degrees. "kind" and "date_label" tell the
+    # model (and the README template's comment) to write "Issued <date>"
+    # and to leave out the " - <field of study>" part for these entries.
+    education += [
+        {"degree": r["degree"], "institution": r["issuer"], "field_of_study": "",
+         "graduation_date": r["date"], "kind": "certification", "date_label": "Issued"}
+        for r in build_certification_records(kb, "include_in_readme_education")
+    ]
     personal_info = dict(kb["personal_info"])
     personal_info["email_mailto"] = build_tagged_email(
         kb["personal_info"]["email"], os.environ.get("EMAIL_TAG_ADDRESS", "")
@@ -1350,6 +1377,51 @@ def validate_readme(md: str, expected_job_count: int) -> None:
         raise ValueError(f"README has {job_headers} job entries, expected {expected_job_count} (a job may have been dropped or duplicated).")
 
 
+def ensure_readme_certifications(md: str, records: list) -> str:
+    """
+    Guarantees every certification in `records` (see
+    build_certification_records) appears in the README's Education
+    section. The model is asked to include them (see build_readme_context
+    and README.template.md), but a local model may drop one; any whose
+    name is missing from the section is appended, after the last existing
+    entry, as:
+
+        **<name> (<type>)**<br>
+        <issuer><br>
+        Issued <date>
+
+    A section that already mentions a certification's name (ignoring case
+    and spacing) is left alone, so nothing is added twice. Returns md
+    unchanged when there is nothing to add or no Education section.
+    """
+    heading = README_REQUIRED_HEADERS[2]
+    lines = md.split("\n")
+    start = next((i for i, ln in enumerate(lines) if ln.strip().startswith(heading)), None)
+    if start is None or not records:
+        return md
+    end = next((i for i in range(start + 1, len(lines))
+                if lines[i].startswith("## ") or lines[i].strip() == "---"), len(lines))
+
+    def normalize(text: str) -> str:
+        return " ".join(text.lower().split())
+
+    section = normalize(" ".join(lines[start + 1:end]))
+    missing = [r for r in records if normalize(r["name"]) not in section]
+    if not missing:
+        return md
+
+    block = []
+    for r in missing:
+        block += ["", f"**{r['degree']}**<br>"]
+        block += [f"{r['issuer']}<br>", f"Issued {r['date']}"] if r["date"] else [r["issuer"]]
+    insert_at = end
+    while insert_at > start + 1 and not lines[insert_at - 1].strip():
+        insert_at -= 1
+    print(f"[README] Added {len(missing)} certification(s) the model left out of the Education section.",
+          file=sys.stderr)
+    return "\n".join(lines[:insert_at] + block + lines[insert_at:])
+
+
 def call_llm_readme(client: openai.OpenAI, kb: dict, template_text: str) -> str:
     system_prompt = build_readme_system_prompt(kb, template_text)
     messages = [
@@ -1381,7 +1453,7 @@ def call_llm_readme(client: openai.OpenAI, kb: dict, template_text: str) -> str:
         md = extract_markdown(raw)
         try:
             validate_readme(md, expected_job_count)
-            return md
+            return ensure_readme_certifications(md, build_certification_records(kb, "include_in_readme_education"))
         except ValueError as e:
             last_error = e
             print(f"[README] Attempt {attempt + 1}: malformed output ({e}). Raw:\n{raw}\n", file=sys.stderr)

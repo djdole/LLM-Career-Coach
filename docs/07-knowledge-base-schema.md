@@ -142,12 +142,18 @@ entry is added to the resume's Education section** (after the degrees in
   and, unless `issue_date_display` is set, is formatted as `Sep 2026`.
 * `include_in_resume_education` (optional, default `true`): set `false`
   to keep a certification in the knowledge base but off the resume.
+* `include_in_readme_education` (optional, default `true`): the same for
+  the generated README's Education section, which lists each
+  certification as `**<name> (<type>)**`, the issuer, and `Issued <date>`.
+  The two flags are independent.
 * Any other fields (`credential_id`, `skills_covered`, and so on) are
   ignored by the generator.
 
-The Education section is copied from the knowledge base by code, not
-rewritten by the model: if the model drops or rewords an entry, the
-knowledge base's entries are used and a note is printed to stderr.
+The resume's Education section is copied from the knowledge base by
+code, not rewritten by the model: if the model drops or rewords an entry,
+the knowledge base's entries are used and a note is printed to stderr.
+In the README the model writes the section, and code then appends any
+certification it left out (see `ensure_readme_certifications()`).
 
 ### `skills`
 
