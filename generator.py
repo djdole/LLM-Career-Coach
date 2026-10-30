@@ -90,16 +90,18 @@ import html
 import json
 import os
 import re
+import shutil
 import string
 import subprocess
 import sys
+import tempfile
 import types
 import urllib.parse
 from pathlib import Path
 
 import openai
 import httpx
-from pypdf import PdfReader
+from pypdf import PdfReader, PdfWriter
 from docx import Document
 from docx.shared import Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -312,6 +314,41 @@ SKILLS_HEADING_BY_VARIANT = {"SDE": "CORE TECHNICAL SKILLS", "SDET": "CORE SDET 
 # Add an entry above for any variant that deserves custom wording
 # instead of falling through to this generic one.
 SKILLS_HEADING_FALLBACK = "CORE {variant} SKILLS"
+
+
+def get_variant_settings(kb: dict, variant: str) -> dict:
+    """
+    Returns profile.json's optional per-variant presentation settings for
+    `variant` (the "variant_settings" section), or {} if there are none.
+
+    Currently recognized keys:
+      "job_acronym"    - overrides what {JobAcronym} renders as in a
+                         naming template for this variant (see
+                         resolve_job_acronym).
+      "skills_heading" - overrides the skills section heading for this
+                         variant (see build_baseline_context).
+    """
+    settings = (kb.get("variant_settings") or {}).get(variant)
+    return settings if isinstance(settings, dict) else {}
+
+
+def resolve_job_acronym(kb: dict, variant: str) -> str:
+    """
+    The value {JobAcronym} renders as in RESUME_NAMING_TEMPLATE /
+    COVERLETTER_NAMING_TEMPLATE for this variant.
+
+    Defaults to the variant name itself ("SDE" -> "SDE"). A
+    variant_settings entry with a "job_acronym" key overrides that; when
+    the override is null, "" or whitespace the acronym is blank, which
+    drops any <optional group> of the template that contains
+    {JobAcronym} (see render_filename) - that's how a generic/default
+    variant gets a plain "Jane Doe Resume.pdf" with no "(...)" suffix and
+    no per-variant subfolder.
+    """
+    settings = get_variant_settings(kb, variant)
+    if "job_acronym" in settings:
+        return str(settings["job_acronym"] or "").strip()
+    return variant
 BULLET_CHAR = "\u25cf"  # "●", matches the existing hand-written resumes' style
 EM_DASH = "\u2014"
 
@@ -398,7 +435,10 @@ def build_baseline_context(kb: dict, variant: str) -> dict:
         "personal_info": kb["personal_info"],
         "education": education,
         "summary": summary,
-        "skills_heading": SKILLS_HEADING_BY_VARIANT.get(variant, SKILLS_HEADING_FALLBACK.format(variant=variant.upper())),
+        "skills_heading": (
+            (get_variant_settings(kb, variant).get("skills_heading") or "").strip()
+            or SKILLS_HEADING_BY_VARIANT.get(variant, SKILLS_HEADING_FALLBACK.format(variant=variant.upper()))
+        ),
         "skills": skills,
         "work_experience": work_experience,
         "cover_letter_generic_template": kb["cover_letter_building_blocks"]["generic_fallback_template"],
@@ -703,6 +743,160 @@ def render_cover_letter_md(cl: dict) -> str:
     return strip_em_dashes(cl["body"])
 
 
+# --- Blank-page detection / removal ------------------------------------
+#
+# Layout quirks (a trailing flowable that spills over, a manual page break,
+# an empty paragraph that lands at the bottom of a page) can leave a
+# resume or cover letter with a page that has nothing on it. These
+# helpers find such pages and remove them.
+#
+# They NEVER change font sizes, margins, or content to make a page go
+# away - a page is only ever removed when it is genuinely empty, so the
+# text a hiring manager reads stays exactly as large as it was rendered.
+
+# A PDF page counts as blank when it has fewer than this many
+# non-whitespace characters of extractable text: an empty page, or one
+# holding only a stray rule/spacer, is an accident of layout, not content.
+BLANK_PAGE_MIN_CHARS = 5
+
+_W_NS = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+
+# A paragraph holding any of these is not "empty" even without text.
+_DOCX_CONTENT_TAGS = ("drawing", "pict", "object", "fldChar", "fldSimple", "sectPr")
+
+
+def _pdf_page_text_chars(page) -> int:
+    return len(re.sub(r"\s+", "", page.extract_text() or ""))
+
+
+def find_blank_pdf_pages(path: Path) -> list:
+    """Returns the 0-based index of every blank page in the PDF at path
+    (see BLANK_PAGE_MIN_CHARS)."""
+    reader = PdfReader(str(path))
+    return [i for i, page in enumerate(reader.pages) if _pdf_page_text_chars(page) < BLANK_PAGE_MIN_CHARS]
+
+
+def remove_blank_pdf_pages(path: Path) -> int:
+    """
+    Removes every blank page (see find_blank_pdf_pages) from the PDF at
+    path, in place, and returns how many were removed. Content pages are
+    copied through untouched, and document metadata is preserved.
+
+    Never produces an empty PDF: if EVERY page looks blank (e.g. text
+    extraction failed on an unusual font) the file is left exactly as it
+    is, with a warning, rather than being gutted.
+    """
+    reader = PdfReader(str(path))
+    blank = {i for i, page in enumerate(reader.pages) if _pdf_page_text_chars(page) < BLANK_PAGE_MIN_CHARS}
+    if not blank:
+        return 0
+    if len(blank) == len(reader.pages):
+        print(f"WARNING: every page of {Path(path).name} looks blank; leaving it unchanged.", file=sys.stderr)
+        return 0
+    writer = PdfWriter()
+    for i, page in enumerate(reader.pages):
+        if i not in blank:
+            writer.add_page(page)
+    if reader.metadata:
+        try:
+            writer.add_metadata({k: str(v) for k, v in reader.metadata.items()})
+        except Exception:  # metadata is cosmetic; never fail a run over it
+            pass
+    tmp_path = Path(str(path) + ".tmp")
+    with open(tmp_path, "wb") as f:
+        writer.write(f)
+    tmp_path.replace(path)
+    print(f"Removed {len(blank)} blank page(s) from {Path(path).name}.")
+    return len(blank)
+
+
+def _docx_paragraph_is_empty(p) -> bool:
+    """True for a paragraph with no visible text and nothing else that
+    renders (no drawing/field/section break). Line breaks and page
+    breaks alone do not make a paragraph non-empty."""
+    if "".join(t.text or "" for t in p.iter(f"{_W_NS}t")).strip():
+        return False
+    return not any(next(p.iter(f"{_W_NS}{tag}"), None) is not None for tag in _DOCX_CONTENT_TAGS)
+
+
+def strip_docx_blank_page_sources(doc) -> int:
+    """
+    Removes the things that make Word/LibreOffice emit a blank page from a
+    python-docx Document, and returns how many were removed:
+      * manual page breaks (<w:br w:type="page"/>) and "page break
+        before" paragraph properties,
+      * empty body-level paragraphs - the usual cause of a trailing
+        blank page when one lands at the bottom of a full page.
+
+    An empty paragraph is kept where Word needs it: as the last block
+    after a table, or between two tables (removing it would merge them).
+    A DOCX can't be paginated without Word, so this removes the causes
+    rather than measuring the result; see find_blank_docx_pages for an
+    optional rendered check.
+    """
+    body = doc.element.body
+    removed = 0
+    for br in list(body.iter(f"{_W_NS}br")):
+        if br.get(f"{_W_NS}type") == "page":
+            br.getparent().remove(br)
+            removed += 1
+    for el in list(body.iter(f"{_W_NS}pageBreakBefore")):
+        el.getparent().remove(el)
+        removed += 1
+    for el in list(body.iter(f"{_W_NS}lastRenderedPageBreak")):
+        el.getparent().remove(el)
+
+    children = list(body)
+    for idx, child in enumerate(children):
+        if child.tag != f"{_W_NS}p" or not _docx_paragraph_is_empty(child):
+            continue
+        prev = children[idx - 1] if idx > 0 else None
+        nxt = children[idx + 1] if idx + 1 < len(children) else None
+        prev_is_table = prev is not None and prev.tag == f"{_W_NS}tbl"
+        next_is_table = nxt is not None and nxt.tag == f"{_W_NS}tbl"
+        is_last_block = nxt is None or nxt.tag == f"{_W_NS}sectPr"
+        if prev_is_table and (is_last_block or next_is_table):
+            continue
+        body.remove(child)
+        removed += 1
+    return removed
+
+
+def find_blank_docx_pages(path: Path):
+    """
+    OPTIONAL rendered check: converts the DOCX to PDF with headless
+    LibreOffice and returns the 0-based indexes of its blank pages.
+    Returns None - check skipped, not "no blank pages" - when LibreOffice
+    isn't installed or the conversion fails/times out. LibreOffice's
+    pagination is close to, but not identical to, Word's.
+    """
+    soffice = shutil.which("soffice") or shutil.which("libreoffice")
+    if not soffice:
+        return None
+    try:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            subprocess.run(
+                [soffice, "--headless", "--convert-to", "pdf", "--outdir", tmp_dir, str(path)],
+                capture_output=True, timeout=120, check=False,
+            )
+            converted = Path(tmp_dir) / (Path(path).stem + ".pdf")
+            if not converted.exists():
+                return None
+            return find_blank_pdf_pages(converted)
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+def report_docx_blank_pages(path: Path) -> None:
+    """Runs find_blank_docx_pages and prints the outcome (see main(), which
+    calls this only when CHECK_DOCX_PAGES is enabled)."""
+    blank = find_blank_docx_pages(path)
+    if blank is None:
+        print(f"[CHECK_DOCX_PAGES] Skipped {Path(path).name}: LibreOffice (soffice) is not available.")
+    elif blank:
+        print(f"WARNING: {Path(path).name} renders with blank page(s) at {[i + 1 for i in blank]}.", file=sys.stderr)
+
+
 # --- DOCX --------------------------------------------------------------
 
 ACCENT_RGB = RGBColor(0x1F, 0x38, 0x64)  # navy, sampled from the existing hand-written resumes
@@ -807,13 +1001,16 @@ def render_resume_docx(r: dict, path: Path, body_pt: float = 10.5) -> None:
     for ed in r["education"]:
         _tight(doc.add_paragraph(f"{ed['degree']}, {ed['institution']} ({ed['date']})"), space_after=1)
 
+    strip_docx_blank_page_sources(doc)
     doc.save(path)
 
 
 def render_cover_letter_docx(cl: dict, path: Path) -> None:
     doc = Document()
     for para in strip_em_dashes(cl["body"]).split("\n\n"):
-        doc.add_paragraph(para)
+        if para.strip():  # an empty paragraph can spill onto a blank trailing page
+            doc.add_paragraph(para)
+    strip_docx_blank_page_sources(doc)
     doc.save(path)
 
 
@@ -879,7 +1076,13 @@ def _build_resume_story(r: dict, tier) -> list:
 
 def render_resume_pdf(r: dict, path: Path, max_pages: int = 2):
     """Tries progressively smaller tiers until the rendered PDF fits within
-    max_pages, or the smallest tier is reached. Returns (pages, body_pt)."""
+    max_pages, or the smallest tier is reached. Returns (pages, body_pt).
+
+    Blank pages are removed after every build (see remove_blank_pdf_pages)
+    and the fit check counts only the pages that remain. A blank page
+    therefore never counts against max_pages, so it can't push the resume
+    down to a smaller font tier; removing it never changes any text size.
+    """
     for tier in PDF_TIERS:
         _, _, _, margin_in, _, _ = tier
         doc = SimpleDocTemplate(
@@ -888,9 +1091,11 @@ def render_resume_pdf(r: dict, path: Path, max_pages: int = 2):
             topMargin=margin_in * inch, bottomMargin=margin_in * inch,
         )
         doc.build(_build_resume_story(r, tier))
-        if doc.page <= max_pages:
-            return doc.page, tier[0]
-    return doc.page, tier[0]
+        remove_blank_pdf_pages(path)
+        pages = len(PdfReader(str(path)).pages)
+        if pages <= max_pages:
+            return pages, tier[0]
+    return pages, tier[0]
 
 
 def render_cover_letter_pdf(cl: dict, path: Path) -> None:
@@ -899,8 +1104,12 @@ def render_cover_letter_pdf(cl: dict, path: Path) -> None:
     doc = SimpleDocTemplate(str(path), pagesize=LETTER,
                              leftMargin=0.9 * inch, rightMargin=0.9 * inch,
                              topMargin=0.9 * inch, bottomMargin=0.9 * inch)
-    story = [Paragraph(p.replace("\n", "<br/>"), body_style) for p in strip_em_dashes(cl["body"]).split("\n\n")]
+    story = [
+        Paragraph(p.replace("\n", "<br/>"), body_style)
+        for p in strip_em_dashes(cl["body"]).split("\n\n") if p.strip()
+    ]
     doc.build(story)
+    remove_blank_pdf_pages(path)
 
 
 # --- GitHub profile README (separate, template-driven LLM call) -------
@@ -1764,11 +1973,13 @@ def load_file_location_settings() -> dict:
         #
         # Resume/cover-letter variants to generate, in order - see
         # parse_variants_env() above for VARIANTS' JSON-array format.
-        # Each entry becomes {JobAcronym} in a naming template, a key
-        # looked up in profile.json's per-variant fields
-        # (summary_variants, title_by_variant, etc. - see
-        # build_baseline_context), and, unless it's "SDE" or "SDET",
-        # falls back to a generic "CORE <VARIANT> SKILLS" heading (see
+        # Each entry becomes {JobAcronym} in a naming template (unless
+        # profile.json's variant_settings overrides it, even to blank - see
+        # resolve_job_acronym), a key looked up in profile.json's
+        # per-variant fields (summary_variants, title_by_variant, etc. -
+        # see build_baseline_context), and, unless it's "SDE" or "SDET"
+        # or variant_settings gives it a skills_heading, falls back to a
+        # generic "CORE <VARIANT> SKILLS" heading (see
         # SKILLS_HEADING_BY_VARIANT) rather than failing outright.
         "VARIANTS": parse_variants_env(os.environ.get("VARIANTS")),
         "OUTPUT_FOLDER": os.environ.get("OUTPUT_FOLDER", "generated"),
@@ -1779,12 +1990,17 @@ def load_file_location_settings() -> dict:
         "README_OUTPUT": os.environ.get("README_OUTPUT", "README.md"),
         "RESUME_TEMPLATE": os.environ.get("RESUME_TEMPLATE", "RESUME.template.md"),
         "RESUME_NAMING_TEMPLATE": os.environ.get(
-            "RESUME_NAMING_TEMPLATE", "{FirstName} {LastName} Resume ({JobAcronym}).{Extension}"
+            "RESUME_NAMING_TEMPLATE", "{FirstName} {LastName} Resume< ({JobAcronym})>.{Extension}"
         ),
         "COVERLETTER_NAMING_TEMPLATE": os.environ.get(
-            "COVERLETTER_NAMING_TEMPLATE", "{FirstName} {LastName} Cover Letter ({JobAcronym}).{Extension}"
+            "COVERLETTER_NAMING_TEMPLATE", "{FirstName} {LastName} Cover Letter< ({JobAcronym})>.{Extension}"
         ),
         "ANALYSIS_PROMPT_TEMPLATE": os.environ.get("ANALYSIS_PROMPT_TEMPLATE", "ANALYSIS_PROMPT.template.txt"),
+        # Opt-in: after writing each DOCX, render it with headless
+        # LibreOffice and warn about blank pages (see
+        # report_docx_blank_pages). Off by default: it needs LibreOffice
+        # installed and adds a few seconds per DOCX.
+        "CHECK_DOCX_PAGES": os.environ.get("CHECK_DOCX_PAGES", "false").strip().lower() in ("true", "1", "yes"),
         # OUTPUT_REPO and friends: see sync_output_repo() and
         # commit_and_push_output_repo(). Unset OUTPUT_REPO (the default)
         # means "no change" - OUTPUT_FOLDER is written into this checkout,
@@ -1832,6 +2048,31 @@ class _NowPlaceholder(str):
         return getattr(self._dt, name)
 
 
+_OPTIONAL_GROUP_RE = re.compile(r"<([^<>]*)>")
+
+
+def _expand_optional_groups(template: str, values: dict) -> str:
+    """
+    Resolves the <optional groups> of a naming template: text wrapped in
+    "<" and ">" is kept (without the angle brackets) only if EVERY
+    placeholder inside it renders non-blank (after stripping
+    whitespace); otherwise the whole group, literal text included, is
+    dropped. "<" and ">" are not legal in Windows filenames, so they can
+    never be mistaken for real filename text. Groups do not nest.
+    """
+    def resolve(match):
+        segment = match.group(1)
+        for _, field_name, spec, conversion in string.Formatter().parse(segment):
+            if field_name is None:
+                continue
+            probe = "{" + field_name + (f"!{conversion}" if conversion else "") + (f":{spec}" if spec else "") + "}"
+            if not probe.format(**values).strip():
+                return ""
+        return segment
+
+    return _OPTIONAL_GROUP_RE.sub(resolve, template)
+
+
 def render_filename(
     naming_template: str, full_name: str, job_acronym: str, extension: str, email: str = "",
 ) -> str:
@@ -1845,10 +2086,18 @@ def render_filename(
         as "" if full_name is falsy (e.g. KNOWLEDGE_BASE_DRAFT during a
         from-scratch profile build, before any name is known yet).
       {JobAcronym} - job_acronym verbatim (e.g. "SDE"/"SDET"); "" where
-        not applicable (KNOWLEDGE_BASE_DRAFT isn't per-variant).
+        not applicable (KNOWLEDGE_BASE_DRAFT isn't per-variant) or for a
+        variant whose profile.json variant_settings blank it out.
       {Extension} - extension verbatim (e.g. "pdf").
       {Email} - email verbatim; "" if not given.
       {datetime.now...} - see _NowPlaceholder.
+
+    <Optional groups>: text wrapped in "<" and ">" is included only if
+    every placeholder inside it is non-blank, e.g.
+    "<{JobAcronym}/>{FirstName} {LastName} Resume< ({JobAcronym})>.{Extension}"
+    gives "SDE/Jane Doe Resume (SDE).pdf" for SDE but just
+    "Jane Doe Resume.pdf" when JobAcronym is blank. See
+    _expand_optional_groups.
 
     A template MAY contain "/" to nest the result under a subfolder
     (e.g. "{JobAcronym}/{FirstName} {LastName} Resume.{Extension}") --
@@ -1860,10 +2109,11 @@ def render_filename(
     first_name = parts[0] if parts else ""
     last_name = parts[-1] if parts else ""
     now_ns = types.SimpleNamespace(now=_NowPlaceholder(datetime.datetime.now()))
-    return naming_template.format(
-        FirstName=first_name, LastName=last_name, JobAcronym=job_acronym, Extension=extension,
+    values = dict(
+        FirstName=first_name, LastName=last_name, JobAcronym=(job_acronym or "").strip(), Extension=extension,
         Email=email or "", datetime=now_ns,
     )
+    return _expand_optional_groups(naming_template, values).format(**values)
 
 
 def ensure_parent_dir_exists(path: Path) -> Path:
@@ -2100,11 +2350,17 @@ def main(argv=None):
         )
 
         for variant in s["VARIANTS"]:
+            # {JobAcronym} is the variant name unless profile.json's
+            # variant_settings overrides it (a blank override, e.g. for a
+            # generic/default variant, drops the template's <optional>
+            # JobAcronym groups - see render_filename).
+            job_acronym = resolve_job_acronym(kb, variant)
+
             def resume_path(ext: str) -> Path:
-                return ensure_parent_dir_exists(out_dir / render_filename(s["RESUME_NAMING_TEMPLATE"], full_name, variant, ext))
+                return ensure_parent_dir_exists(out_dir / render_filename(s["RESUME_NAMING_TEMPLATE"], full_name, job_acronym, ext))
 
             def cl_path(ext: str) -> Path:
-                return ensure_parent_dir_exists(out_dir / render_filename(s["COVERLETTER_NAMING_TEMPLATE"], full_name, variant, ext))
+                return ensure_parent_dir_exists(out_dir / render_filename(s["COVERLETTER_NAMING_TEMPLATE"], full_name, job_acronym, ext))
 
             if "resume" in targets:
                 r = call_llm_fill_resume(client, kb, variant, resume_template_text)
@@ -2119,6 +2375,8 @@ def main(argv=None):
                 else:
                     print(f"{variant} resume: {pages} page(s) at {body_pt}pt.")
                 render_resume_docx(r, resume_path("docx"), body_pt=body_pt)
+                if s["CHECK_DOCX_PAGES"]:
+                    report_docx_blank_pages(resume_path("docx"))
 
             if "cover_letter" in targets:
                 cl = call_llm_cover_letter(client, kb, variant)
@@ -2126,6 +2384,8 @@ def main(argv=None):
                 cl_path("txt").write_text(render_cover_letter_txt(cl), encoding="utf-8")
                 render_cover_letter_docx(cl, cl_path("docx"))
                 render_cover_letter_pdf(cl, cl_path("pdf"))
+                if s["CHECK_DOCX_PAGES"]:
+                    report_docx_blank_pages(cl_path("docx"))
 
     if "readme" in targets:
         # Separate LLM call, template-driven: fills README_TEMPLATE using

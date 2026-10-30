@@ -23,6 +23,7 @@ copies of them.
 | `test_profile.py` | The `--generate profile` workflow: `build_source_file_list()`, `extract_text_from_source_file()`, `build_profile_prompt()`, `validate_profile_draft()`, `call_llm_update_profile()` (mocked client), and the `generate_profile_draft()` orchestrator (LLM call stubbed). |
 | `test_readme_validation.py` | `validate_readme()`, the structural check run on the LLM's filled-in README before it is accepted (see `call_llm_readme()`). |
 | `test_renderers.py` | The `render_*` functions: plain text, Markdown, DOCX, and PDF output for both the resume and the cover letter. |
+| `test_blank_pages.py` | Blank-page detection/removal for PDF and DOCX (including that a blank page never shrinks the resume font), `<optional group>` naming templates, `variant_settings`, and an end-to-end `main()` run with a blank-acronym `GENERIC` variant. The LibreOffice-rendered DOCX test is skipped when `soffice` is not installed. |
 | `test_resume_parsing.py` | `parse_filled_resume()`, which turns a filled-in `RESUME_TEMPLATE` back into the structured dict the renderers expect (see `build_resume_fill_prompt()` / `RESUME.template.md` for the expected shape). |
 
 ## Installing test dependencies

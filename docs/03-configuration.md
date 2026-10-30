@@ -61,8 +61,9 @@ Set `VARIANTS='["SDE"]'` to generate a single variant, or
 | `README_OUTPUT` | `README.md` | Where the filled-in README is written (repository root, by default, so it renders as the GitHub profile README). |
 | `EMAIL_TAG_ADDRESS` | `""` (no tag) | Optional "plus addressing" tag (RFC 5233 subaddressing - Gmail, Outlook, and similar providers honor it) applied to the README's email `mailto:` link only. |
 | `RESUME_TEMPLATE` | `RESUME.template.md` | Template `--generate resume` fills in. |
-| `RESUME_NAMING_TEMPLATE` | `{FirstName} {LastName} Resume ({JobAcronym}).{Extension}` | Output path pattern for resumes - see [Naming template placeholders](#naming-template-placeholders) below. |
-| `COVERLETTER_NAMING_TEMPLATE` | `{FirstName} {LastName} Cover Letter ({JobAcronym}).{Extension}` | Same, for cover letters. |
+| `RESUME_NAMING_TEMPLATE` | `{FirstName} {LastName} Resume< ({JobAcronym})>.{Extension}` | Output path pattern for resumes - see [Naming template placeholders](#naming-template-placeholders) below. |
+| `COVERLETTER_NAMING_TEMPLATE` | `{FirstName} {LastName} Cover Letter< ({JobAcronym})>.{Extension}` | Same, for cover letters. |
+| `CHECK_DOCX_PAGES` | `false` | When `true`, renders each DOCX with headless LibreOffice (`soffice`) after writing it and warns about blank pages. Skipped (with a note) if LibreOffice is not installed. See [Blank pages](#blank-pages). |
 
 `EMAIL_TAG_ADDRESS` changes only the link a reader clicks, never the
 address displayed on the page. `build_tagged_email()` in
@@ -138,7 +139,7 @@ be combined, repeated, or omitted freely.
 | `{FirstName}` | First whitespace-separated token of `personal_info.full_name`. | Resume/cover letter naming templates: always. `KNOWLEDGE_BASE_DRAFT`: only once `KNOWLEDGE_BASE` has some readable `personal_info.full_name` to read from - `""` during a from-scratch build (no knowledge base yet), or if `KNOWLEDGE_BASE` is missing, unreadable, or malformed. |
 | `{LastName}` | Last whitespace-separated token of `personal_info.full_name` (a middle name/initial is dropped). | Same as `{FirstName}`. |
 | `{Email}` | `personal_info.email` verbatim. | Same as `{FirstName}` - `""` wherever a name is not available yet either. |
-| `{JobAcronym}` | The resume variant currently being generated. | Resume/cover letter naming templates only. Always `""` in `KNOWLEDGE_BASE_DRAFT` and `OUTPUT_REPO_COMMIT_MESSAGE` (neither is per-variant). |
+| `{JobAcronym}` | The resume variant currently being generated, unless `variant_settings.<VARIANT>.job_acronym` in `profile.json` overrides it (a `null`/`""`/whitespace override makes it blank - see [Optional groups](#optional-groups)). | Resume/cover letter naming templates only. Always `""` in `KNOWLEDGE_BASE_DRAFT` and `OUTPUT_REPO_COMMIT_MESSAGE` (neither is per-variant). |
 | `{Extension}` | The output format for this specific file: `pdf`/`docx`/`txt`/`md`/`json` for resumes, `pdf`/`docx`/`txt` for cover letters. | Resume/cover letter naming templates only. Always `"json"` in `KNOWLEDGE_BASE_DRAFT` (the draft is always JSON); always `""` in `OUTPUT_REPO_COMMIT_MESSAGE`. |
 | `{datetime.now}` | The current local date/time as `YYYY-MM-DD_HHMMSS` (sortable, no `:` or space, safe as a path segment on any OS). | All naming templates. |
 | `{datetime.now.year}` | Four-digit year, as a real `int` (so `{datetime.now.month:02d}` zero-pads via a normal `str.format` spec). | All naming templates. |
@@ -147,6 +148,40 @@ be combined, repeated, or omitted freely.
 | `{datetime.now.hour}` | Hour, `0`-`23`. | All naming templates. |
 | `{datetime.now.minute}` | Minute, `0`-`59`. | All naming templates. |
 | `{datetime.now.second}` | Second, `0`-`59`. | All naming templates. |
+
+### Optional groups
+
+Text wrapped in `<` and `>` is an **optional group**: it is included
+(without the angle brackets) only if every placeholder inside it renders
+non-blank, and dropped entirely - literal text included - otherwise.
+Groups do not nest, and `<`/`>` are not legal in Windows filenames, so
+they cannot be confused with real filename text.
+
+```bash
+RESUME_NAMING_TEMPLATE="<{JobAcronym}/>{FirstName} {LastName} Resume< ({JobAcronym})>.{Extension}"
+```
+
+| `{JobAcronym}` | Result |
+|---|---|
+| `SDE` | `SDE/Jane Doe Resume (SDE).pdf` |
+| blank (e.g. the `GENERIC` variant) | `Jane Doe Resume.pdf` |
+
+A variant gets a blank `{JobAcronym}` by giving it a `variant_settings`
+entry in `profile.json` with `"job_acronym": ""` (or `null`) - see
+[the knowledge base schema](07-knowledge-base-schema.md#variant_settings).
+Templates with no `<...>` groups behave exactly as before.
+
+### Blank pages
+
+Every PDF the tool writes is checked for blank pages (pages with fewer
+than `BLANK_PAGE_MIN_CHARS` non-whitespace characters of text) and any
+found are removed. The resume's font-fit check counts only the pages
+that remain, so a blank page can never push the resume into a smaller
+font tier, and removing one never changes any text size. For DOCX files
+the causes of blank pages (manual page breaks and empty paragraphs) are
+always stripped; because a DOCX cannot be paginated without Word, set
+`CHECK_DOCX_PAGES=true` to additionally verify the rendered result with
+LibreOffice.
 
 A couple of things worth knowing:
 
