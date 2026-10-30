@@ -43,7 +43,12 @@ Reading the file in the repository root, section by section:
   middot-separated), omitted entirely for a job with no
   `team_context`. Then one `● {{BULLET}}` line per bullet, using the
   literal bullet character `●` (`BULLET_CHAR` in `generator.py`).
-* **`EDUCATION` section:** one `{{DEGREE}} | {{INSTITUTION}} |
+* **`EDUCATION` section:** (degrees first, then every certification from
+  the knowledge base's `certifications` list - see
+  [`certifications`](07-knowledge-base-schema.md#certifications); a
+  certification's name goes in `{{DEGREE}}`, its issuer in
+  `{{INSTITUTION}}`, and its issue date in `{{GRADUATION_DATE}}`) one
+  `{{DEGREE}} | {{INSTITUTION}} |
   {{GRADUATION_DATE}}` line per entry, again `" | "`-delimited and
   parsed the same strict way.
 

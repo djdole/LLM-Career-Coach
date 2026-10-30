@@ -19,5 +19,5 @@ WORK EXPERIENCE
 <!-- Omit the team-context line entirely for a job with no team_context. -->
 
 EDUCATION
-<!-- Repeat once per education entry, one per line, using " | " exactly as the separator. -->
+<!-- Repeat once per education entry, one per line, in the order given in the data (degrees first, then certifications/training), using " | " exactly as the separator. For a certification, put the certification name in {{DEGREE}}, the issuing organization in {{INSTITUTION}}, and the issue date in {{GRADUATION_DATE}}. Include every entry; do not omit any. -->
 {{DEGREE}} | {{INSTITUTION}} | {{GRADUATION_DATE}}

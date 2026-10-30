@@ -1,0 +1,511 @@
+diff --git a/RESUME.template.md b/RESUME.template.md
+index 4292161..75d81f0 100644
+--- a/RESUME.template.md
++++ b/RESUME.template.md
+@@ -19,5 +19,5 @@ WORK EXPERIENCE
+ <!-- Omit the team-context line entirely for a job with no team_context. -->
+ 
+ EDUCATION
+-<!-- Repeat once per education entry, one per line, using " | " exactly as the separator. -->
++<!-- Repeat once per education entry, one per line, in the order given in the data (degrees first, then certifications/training), using " | " exactly as the separator. For a certification, put the certification name in {{DEGREE}}, the issuing organization in {{INSTITUTION}}, and the issue date in {{GRADUATION_DATE}}. Include every entry; do not omit any. -->
+ {{DEGREE}} | {{INSTITUTION}} | {{GRADUATION_DATE}}
+diff --git a/docs/06-templates.md b/docs/06-templates.md
+index 32f1ba1..49510cf 100644
+--- a/docs/06-templates.md
++++ b/docs/06-templates.md
+@@ -43,7 +43,12 @@ Reading the file in the repository root, section by section:
+   middot-separated), omitted entirely for a job with no
+   `team_context`. Then one `● {{BULLET}}` line per bullet, using the
+   literal bullet character `●` (`BULLET_CHAR` in `generator.py`).
+-* **`EDUCATION` section:** one `{{DEGREE}} | {{INSTITUTION}} |
++* **`EDUCATION` section:** (degrees first, then every certification from
++  the knowledge base's `certifications` list - see
++  [`certifications`](07-knowledge-base-schema.md#certifications); a
++  certification's name goes in `{{DEGREE}}`, its issuer in
++  `{{INSTITUTION}}`, and its issue date in `{{GRADUATION_DATE}}`) one
++  `{{DEGREE}} | {{INSTITUTION}} |
+   {{GRADUATION_DATE}}` line per entry, again `" | "`-delimited and
+   parsed the same strict way.
+ 
+diff --git a/docs/07-knowledge-base-schema.md b/docs/07-knowledge-base-schema.md
+index 622b43f..c2d12e4 100644
+--- a/docs/07-knowledge-base-schema.md
++++ b/docs/07-knowledge-base-schema.md
+@@ -111,6 +111,44 @@ A generic/default variant needs a `summary_variants` entry, a
+ `variant_settings` entry like the one above; add `"GENERIC"` to
+ `VARIANTS` to generate it.
+ 
++### `certifications`
++
++Optional list of certifications, certificates, or training. **Every
++entry is added to the resume's Education section** (after the degrees in
++`education`, newest first), in every variant:
++
++```json
++{
++  "certifications": [
++    {
++      "name": "JavaScript and Playwright Automation with AI Program",
++      "issuer": "CYDEO",
++      "type": "Certificate of Completion",
++      "issue_date": "2026-09-01",
++      "issue_date_display": "Sep 2026",
++      "include_in_resume_education": true
++    }
++  ]
++}
++```
++
++* `name` and `issuer` (required) become the entry's degree and
++  institution fields. An entry missing either is skipped.
++* `type` (optional) is appended in parentheses, so a certificate of
++  completion does not read as a vendor certification: the example renders
++  as `JavaScript and Playwright Automation with AI Program (Certificate of
++  Completion), CYDEO (Sep 2026)`.
++* `issue_date` (`YYYY`, `YYYY-MM`, or `YYYY-MM-DD`) orders the entries
++  and, unless `issue_date_display` is set, is formatted as `Sep 2026`.
++* `include_in_resume_education` (optional, default `true`): set `false`
++  to keep a certification in the knowledge base but off the resume.
++* Any other fields (`credential_id`, `skills_covered`, and so on) are
++  ignored by the generator.
++
++The Education section is copied from the knowledge base by code, not
++rewritten by the model: if the model drops or rewords an entry, the
++knowledge base's entries are used and a note is printed to stderr.
++
+ ### `skills`
+ 
+ A dict of skill categories, each mapping to a list of skill strings:
+diff --git a/docs/11-code-reference.md b/docs/11-code-reference.md
+index a1f27bc..3d38318 100644
+--- a/docs/11-code-reference.md
++++ b/docs/11-code-reference.md
+@@ -218,6 +218,18 @@ Optional rendered check (enabled by `CHECK_DOCX_PAGES`): converts the DOCX
+ to PDF with headless LibreOffice and returns/prints blank pages. Returns
+ `None` (check skipped) if LibreOffice is unavailable.
+ 
++### `build_education_entries(kb)` / `build_certification_education_entries(kb)`
++
++`build_education_entries()` returns the resume's whole Education section as
++`{"degree", "institution", "date"}` dicts: the degrees in
++`kb["education"]`, then `build_certification_education_entries()`'s
++entries for `kb["certifications"]` (newest first; skips an entry with
++`include_in_resume_education: false` or without a name and issuer). The
++date comes from `format_certification_date()`.
++`reconcile_resume_education()` is applied to the model's output in
++`call_llm_fill_resume()`: the resume's education always equals these
++entries, whatever the model wrote.
++
+ ### `get_variant_settings(kb, variant)` / `resolve_job_acronym(kb, variant)`
+ 
+ Read `variant_settings` from the knowledge base. `resolve_job_acronym()`
+diff --git a/generator.py b/generator.py
+index 304f2e2..0ac10d2 100644
+--- a/generator.py
++++ b/generator.py
+@@ -385,6 +385,102 @@ def strip_em_dashes(text: str) -> str:
+ 
+ # --- Prompt construction -------------------------------------------------
+ 
++_MONTH_ABBREVIATIONS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
++
++
++def format_certification_date(cert: dict) -> str:
++    """
++    The date shown for a certification on the resume. Uses the
++    certification's "issue_date_display" if it has one; otherwise formats
++    its "issue_date" ("YYYY-MM" or "YYYY-MM-DD" -> "Sep 2026", "YYYY" ->
++    "2026"); otherwise "".
++    """
++    display = str(cert.get("issue_date_display") or "").strip()
++    if display:
++        return display
++    match = re.match(r"^(\d{4})(?:-(\d{2}))?", str(cert.get("issue_date") or "").strip())
++    if not match:
++        return ""
++    year, month = match.group(1), match.group(2)
++    if month and 1 <= int(month) <= 12:
++        return f"{_MONTH_ABBREVIATIONS[int(month) - 1]} {year}"
++    return year
++
++
++def build_certification_education_entries(kb: dict) -> list:
++    """
++    Resume Education entries for every item in the knowledge base's
++    "certifications" list, newest first (undated last), in the same
++    {"degree", "institution", "date"} shape as a degree:
++      degree      <- "<name> (<type>)", e.g. "JavaScript and Playwright
++                     Automation with AI Program (Certificate of Completion)"
++                     (the type is what keeps a certificate of completion
++                     from reading as a vendor certification)
++      institution <- the issuer
++      date        <- format_certification_date()
++    A certification with "include_in_resume_education": false, or without
++    a name and issuer, is skipped. "|" is replaced with "/" in the text,
++    because "|" delimits the fields of an Education line.
++    """
++    def clean(value) -> str:
++        return str(value or "").replace("|", "/").strip()
++
++    keyed = []
++    for cert in kb.get("certifications") or []:
++        if not isinstance(cert, dict) or cert.get("include_in_resume_education") is False:
++            continue
++        name, issuer, cert_type = clean(cert.get("name")), clean(cert.get("issuer")), clean(cert.get("type"))
++        if not name or not issuer:
++            continue
++        keyed.append((
++            str(cert.get("issue_date") or ""),
++            {"degree": f"{name} ({cert_type})" if cert_type else name,
++             "institution": issuer, "date": format_certification_date(cert)},
++        ))
++    keyed.sort(key=lambda pair: pair[0], reverse=True)
++    return [entry for _, entry in keyed]
++
++
++def build_education_entries(kb: dict) -> list:
++    """
++    Every entry of the resume's Education section: the degrees in
++    kb["education"], then the certifications in kb["certifications"] (see
++    build_certification_education_entries).
++
++    The raw KB uses the key "graduation date" (with a space); the output
++    schema calls it "date". Renaming it here - rather than relying on the
++    model to perform that rename - is what actually fixed education[]
++    entries coming back without a date at all.
++    """
++    degrees = [
++        {"degree": ed["degree"], "institution": ed["institution"], "date": ed["graduation date"]}
++        for ed in kb["education"]
++    ]
++    return degrees + build_certification_education_entries(kb)
++
++
++def reconcile_resume_education(parsed_education: list, expected_education: list, label: str = "") -> list:
++    """
++    Education is copied verbatim from the knowledge base - the model has no
++    editorial role in it - so the resume always ends up with exactly
++    expected_education. When the model's lines already match (ignoring
++    case and spacing) they are returned untouched; when it dropped,
++    reworded, or added an entry (a local model dropping a certification
++    line, say), expected_education is used instead, with a note on stderr.
++    """
++    def key(entries):
++        return [tuple(" ".join(str(e.get(f, "")).lower().split()) for f in ("degree", "institution", "date"))
++                for e in entries]
++
++    if key(parsed_education) == key(expected_education):
++        return parsed_education
++    prefix = f"[{label}] " if label else ""
++    print(f"{prefix}Education section from the model did not match the knowledge base "
++          f"({len(parsed_education)} entries, expected {len(expected_education)}); using the knowledge base's entries.",
++          file=sys.stderr)
++    return [dict(e) for e in expected_education]
++
++
+ def build_baseline_context(kb: dict, variant: str) -> dict:
+     """
+     Trims the full knowledge base down to only what the BASELINE (no-JD)
+@@ -419,14 +515,8 @@ def build_baseline_context(kb: dict, variant: str) -> dict:
+         }
+         for job in kb["work_experience"]
+     ]
+-    # The raw KB uses the key "graduation date" (with a space); the output
+-    # schema calls it "date". Renaming it here - rather than relying on the
+-    # model to perform that rename - is what actually fixed education[]
+-    # entries coming back without a date at all.
+-    education = [
+-        {"degree": ed["degree"], "institution": ed["institution"], "date": ed["graduation date"]}
+-        for ed in kb["education"]
+-    ]
++    # Degrees, then certifications - see build_education_entries().
++    education = build_education_entries(kb)
+     return {
+         "output_rules": {
+             "never_fabricate": rules["never_fabricate"],
+@@ -593,6 +683,8 @@ def call_llm_fill_resume(client: openai.OpenAI, kb: dict, variant: str, template
+             parsed = parse_filled_resume(text)
+             if len(parsed["work_experience"]) != expected_job_count:
+                 raise ValueError(f"Got {len(parsed['work_experience'])} jobs, expected {expected_job_count}.")
++            parsed["education"] = reconcile_resume_education(
++                parsed["education"], build_baseline_context(kb, variant)["education"], variant)
+             return parsed
+         except ValueError as e:
+             last_error = e
+@@ -698,6 +790,16 @@ def call_llm_cover_letter(client: openai.OpenAI, kb: dict, variant: str) -> dict
+ 
+ # --- Plain text / Markdown -------------------------------------------------
+ 
++def _education_institution_line(ed: dict) -> str:
++    """"Institution (date)", or just "Institution" when there is no date."""
++    return f"{ed['institution']} ({ed['date']})" if ed.get("date") else f"{ed['institution']}"
++
++
++def _education_line(ed: dict) -> str:
++    """"Degree, Institution (date)" - used for degrees and certifications alike."""
++    return f"{ed['degree']}, {_education_institution_line(ed)}"
++
++
+ def render_resume_txt(r: dict) -> str:
+     lines = [r["name"], r["contact_line"], "", "SUMMARY", r["summary"], "", r["skills_heading"]]
+     for group in r["skills"]:
+@@ -713,7 +815,7 @@ def render_resume_txt(r: dict) -> str:
+     lines.append("EDUCATION")
+     for ed in r["education"]:
+         lines.append(f"{ed['degree']}")
+-        lines.append(f"{ed['institution']} ({ed['date']})")
++        lines.append(_education_institution_line(ed))
+     return strip_em_dashes("\n".join(lines))
+ 
+ 
+@@ -731,7 +833,7 @@ def render_resume_md(r: dict) -> str:
+         lines.append("")
+     lines.append("## Education")
+     for ed in r["education"]:
+-        lines.append(f"- {ed['degree']}, {ed['institution']} ({ed['date']})")
++        lines.append(f"- {_education_line(ed)}")
+     return strip_em_dashes("\n".join(lines))
+ 
+ 
+@@ -999,7 +1101,7 @@ def render_resume_docx(r: dict, path: Path, body_pt: float = 10.5) -> None:
+ 
+     add_heading("EDUCATION")
+     for ed in r["education"]:
+-        _tight(doc.add_paragraph(f"{ed['degree']}, {ed['institution']} ({ed['date']})"), space_after=1)
++        _tight(doc.add_paragraph(_education_line(ed)), space_after=1)
+ 
+     strip_docx_blank_page_sources(doc)
+     doc.save(path)
+@@ -1070,7 +1172,7 @@ def _build_resume_story(r: dict, tier) -> list:
+             story.append(Paragraph(f"{BULLET_CHAR} {strip_em_dashes(b)}", bullet_style))
+     story += heading("EDUCATION")
+     for ed in r["education"]:
+-        story.append(Paragraph(f"{ed['degree']}, {ed['institution']} ({ed['date']})", body_style))
++        story.append(Paragraph(_education_line(ed), body_style))
+     return story
+ 
+ 
+diff --git a/tests/test_certification_education.py b/tests/test_certification_education.py
+new file mode 100644
+index 0000000..3291901
+--- /dev/null
++++ b/tests/test_certification_education.py
+@@ -0,0 +1,218 @@
++"""Tests for putting every certification in the resume's Education
++section: build_certification_education_entries / build_education_entries,
++format_certification_date, reconcile_resume_education, the
++call_llm_fill_resume enforcement, and the renderers' handling of
++certification entries."""
++
++import copy
++from unittest.mock import MagicMock
++
++import pytest
++from docx import Document
++from pypdf import PdfReader
++
++import generator
++
++CYDEO = {
++    "name": "JavaScript and Playwright Automation with AI Program",
++    "issuer": "CYDEO",
++    "type": "Certificate of Completion",
++    "issue_date": "2026-09-01",
++    "issue_date_display": "Sep 2026",
++}
++CYDEO_ENTRY = {
++    "degree": "JavaScript and Playwright Automation with AI Program (Certificate of Completion)",
++    "institution": "CYDEO",
++    "date": "Sep 2026",
++}
++
++
++@pytest.fixture
++def cert_kb(sample_kb):
++    sample_kb["certifications"] = [copy.deepcopy(CYDEO)]
++    return sample_kb
++
++
++class TestFormatCertificationDate:
++    def test_prefers_display_value(self):
++        assert generator.format_certification_date({"issue_date": "2026-09-01", "issue_date_display": "Fall 2026"}) == "Fall 2026"
++
++    @pytest.mark.parametrize("raw,expected", [
++        ("2026-09-01", "Sep 2026"), ("2024-01", "Jan 2024"), ("2023-12-31", "Dec 2023"),
++        ("2022", "2022"), ("2022-13", "2022"), ("", ""), (None, ""), ("soon", ""),
++    ])
++    def test_formats_issue_date(self, raw, expected):
++        assert generator.format_certification_date({"issue_date": raw}) == expected
++
++    def test_missing_fields(self):
++        assert generator.format_certification_date({}) == ""
++
++
++class TestBuildCertificationEducationEntries:
++    def test_entry_shape_with_type(self, cert_kb):
++        assert generator.build_certification_education_entries(cert_kb) == [CYDEO_ENTRY]
++
++    def test_no_certifications_key_or_empty(self, sample_kb):
++        assert generator.build_certification_education_entries(sample_kb) == []
++        sample_kb["certifications"] = []
++        assert generator.build_certification_education_entries(sample_kb) == []
++
++    def test_without_type_has_no_parentheses(self, cert_kb):
++        del cert_kb["certifications"][0]["type"]
++        entry = generator.build_certification_education_entries(cert_kb)[0]
++        assert entry["degree"] == "JavaScript and Playwright Automation with AI Program"
++
++    def test_newest_first_and_undated_last(self, cert_kb):
++        cert_kb["certifications"] = [
++            {"name": "Old", "issuer": "A", "issue_date": "2019-05"},
++            {"name": "Undated", "issuer": "C"},
++            {"name": "New", "issuer": "B", "issue_date": "2025-01"},
++        ]
++        names = [e["degree"] for e in generator.build_certification_education_entries(cert_kb)]
++        assert names == ["New", "Old", "Undated"]
++
++    def test_include_false_is_skipped(self, cert_kb):
++        cert_kb["certifications"][0]["include_in_resume_education"] = False
++        assert generator.build_certification_education_entries(cert_kb) == []
++
++    def test_include_true_and_default_are_kept(self, cert_kb):
++        cert_kb["certifications"][0]["include_in_resume_education"] = True
++        assert len(generator.build_certification_education_entries(cert_kb)) == 1
++
++    @pytest.mark.parametrize("cert", [{"issuer": "X"}, {"name": "X"}, {"name": " ", "issuer": "X"}, "not a dict", None])
++    def test_incomplete_entries_are_skipped(self, cert_kb, cert):
++        cert_kb["certifications"] = [cert]
++        assert generator.build_certification_education_entries(cert_kb) == []
++
++    def test_pipe_characters_are_replaced(self, cert_kb):
++        cert_kb["certifications"] = [{"name": "A | B", "issuer": "C | D", "issue_date": "2020"}]
++        entry = generator.build_certification_education_entries(cert_kb)[0]
++        assert "|" not in entry["degree"] and "|" not in entry["institution"]
++
++
++class TestBuildEducationEntries:
++    def test_degrees_then_certifications(self, cert_kb):
++        entries = generator.build_education_entries(cert_kb)
++        assert entries[0]["institution"] == "State University"
++        assert entries[0]["date"] == "2015"
++        assert entries[-1] == CYDEO_ENTRY
++
++    def test_without_certifications_matches_old_behavior(self, sample_kb):
++        assert generator.build_education_entries(sample_kb) == [
++            {"degree": "Bachelor of Science in Computer Science", "institution": "State University", "date": "2015"}
++        ]
++
++    @pytest.mark.parametrize("variant", ["SDE", "SDET", "GENERIC"])
++    def test_baseline_context_includes_certifications_for_every_variant(self, cert_kb, variant):
++        cert_kb["summary_variants"]["GENERIC"] = "g"
++        assert CYDEO_ENTRY in generator.build_baseline_context(cert_kb, variant)["education"]
++
++
++class TestReconcileResumeEducation:
++    EXPECTED = [
++        {"degree": "BS", "institution": "School", "date": "2015"},
++        dict(CYDEO_ENTRY),
++    ]
++
++    def test_matching_entries_returned_untouched(self):
++        parsed = [dict(e) for e in self.EXPECTED]
++        assert generator.reconcile_resume_education(parsed, self.EXPECTED) is parsed
++
++    def test_case_and_spacing_differences_are_ignored(self):
++        parsed = [{"degree": " bs ", "institution": "SCHOOL", "date": "2015"}, dict(CYDEO_ENTRY)]
++        assert generator.reconcile_resume_education(parsed, self.EXPECTED) is parsed
++
++    def test_dropped_certification_is_restored(self, capsys):
++        parsed = [dict(self.EXPECTED[0])]
++        result = generator.reconcile_resume_education(parsed, self.EXPECTED, "SDE")
++        assert result == self.EXPECTED
++        assert "[SDE]" in capsys.readouterr().err
++
++    def test_reworded_entry_is_replaced(self):
++        parsed = [dict(self.EXPECTED[0]), {**CYDEO_ENTRY, "degree": "Playwright cert"}]
++        assert generator.reconcile_resume_education(parsed, self.EXPECTED) == self.EXPECTED
++
++    def test_extra_entry_is_removed(self):
++        parsed = [dict(e) for e in self.EXPECTED] + [{"degree": "Invented", "institution": "X", "date": "2000"}]
++        assert generator.reconcile_resume_education(parsed, self.EXPECTED) == self.EXPECTED
++
++    def test_result_is_a_copy_of_expected(self):
++        result = generator.reconcile_resume_education([], self.EXPECTED)
++        result[0]["degree"] = "changed"
++        assert self.EXPECTED[0]["degree"] == "BS"
++
++
++def _response(text):
++    r = MagicMock()
++    r.choices = [MagicMock()]
++    r.choices[0].message.content = text
++    return r
++
++
++RESUME_WITHOUT_CERT = (
++    "Jane Doe\ncontact\n\nSUMMARY\nGreat.\n\nCORE TECHNICAL SKILLS\nLanguages: Python\n\n"
++    "WORK EXPERIENCE\nSWE | Acme Corp | 2020-01 - 2023-01\n\u25cf Did X.\n\n"
++    "EDUCATION\nBachelor of Science in Computer Science | State University | 2015\n"
++)
++
++
++class TestCallLlmFillResumeKeepsCertifications:
++    def test_certification_dropped_by_model_is_restored(self, cert_kb):
++        cert_kb["work_experience"] = [cert_kb["work_experience"][0]]
++        cert_kb["work_experience"][0]["title_by_variant"] = {"SDE": "SWE"}
++        client = MagicMock()
++        client.chat.completions.create.return_value = _response(RESUME_WITHOUT_CERT)
++        result = generator.call_llm_fill_resume(client, cert_kb, "SDE", "template")
++        assert client.chat.completions.create.call_count == 1  # no wasted retry
++        assert result["education"][-1] == CYDEO_ENTRY
++        assert len(result["education"]) == 2
++
++    def test_prompt_data_includes_the_certification(self, cert_kb):
++        prompt = generator.build_resume_fill_prompt(cert_kb, "SDE", "template")
++        assert "JavaScript and Playwright Automation with AI Program (Certificate of Completion)" in prompt
++        assert "CYDEO" in prompt
++
++
++class TestRenderersWithCertifications:
++    @pytest.fixture
++    def resume(self, sample_resume_dict):
++        r = copy.deepcopy(sample_resume_dict)
++        r["education"] = r["education"] + [dict(CYDEO_ENTRY)]
++        return r
++
++    def test_txt(self, resume):
++        out = generator.render_resume_txt(resume)
++        assert CYDEO_ENTRY["degree"] in out and "CYDEO (Sep 2026)" in out
++
++    def test_md(self, resume):
++        out = generator.render_resume_md(resume)
++        assert f"- {CYDEO_ENTRY['degree']}, CYDEO (Sep 2026)" in out
++
++    def test_docx(self, resume, tmp_path):
++        path = tmp_path / "r.docx"
++        generator.render_resume_docx(resume, path, body_pt=10.5)
++        texts = [p.text for p in Document(str(path)).paragraphs]
++        assert f"{CYDEO_ENTRY['degree']}, CYDEO (Sep 2026)" in texts
++
++    def test_pdf(self, resume, tmp_path):
++        path = tmp_path / "r.pdf"
++        generator.render_resume_pdf(resume, path)
++        text = " ".join(" ".join((pg.extract_text() or "").split()) for pg in PdfReader(str(path)).pages)
++        assert "Certificate of Completion), CYDEO (Sep 2026)" in text
++
++    def test_entry_without_date_has_no_empty_parentheses(self, resume):
++        resume["education"][-1]["date"] = ""
++        assert "()" not in generator.render_resume_txt(resume)
++        assert "()" not in generator.render_resume_md(resume)
++        assert generator._education_line(resume["education"][-1]).endswith("CYDEO")
++
++    def test_degree_entries_render_as_before(self, sample_resume_dict):
++        ed = sample_resume_dict["education"][0]
++        assert generator._education_line(ed) == f"{ed['degree']}, {ed['institution']} ({ed['date']})"
++
++
++class TestResumeTemplate:
++    def test_template_mentions_certifications_in_education_instruction(self, resume_template_text):
++        edu = resume_template_text.split("EDUCATION", 1)[1]
++        assert "certification" in edu.lower()
++        assert "{{DEGREE}} | {{INSTITUTION}} | {{GRADUATION_DATE}}" in edu

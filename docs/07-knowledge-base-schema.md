@@ -111,6 +111,44 @@ A generic/default variant needs a `summary_variants` entry, a
 `variant_settings` entry like the one above; add `"GENERIC"` to
 `VARIANTS` to generate it.
 
+### `certifications`
+
+Optional list of certifications, certificates, or training. **Every
+entry is added to the resume's Education section** (after the degrees in
+`education`, newest first), in every variant:
+
+```json
+{
+  "certifications": [
+    {
+      "name": "JavaScript and Playwright Automation with AI Program",
+      "issuer": "CYDEO",
+      "type": "Certificate of Completion",
+      "issue_date": "2026-09-01",
+      "issue_date_display": "Sep 2026",
+      "include_in_resume_education": true
+    }
+  ]
+}
+```
+
+* `name` and `issuer` (required) become the entry's degree and
+  institution fields. An entry missing either is skipped.
+* `type` (optional) is appended in parentheses, so a certificate of
+  completion does not read as a vendor certification: the example renders
+  as `JavaScript and Playwright Automation with AI Program (Certificate of
+  Completion), CYDEO (Sep 2026)`.
+* `issue_date` (`YYYY`, `YYYY-MM`, or `YYYY-MM-DD`) orders the entries
+  and, unless `issue_date_display` is set, is formatted as `Sep 2026`.
+* `include_in_resume_education` (optional, default `true`): set `false`
+  to keep a certification in the knowledge base but off the resume.
+* Any other fields (`credential_id`, `skills_covered`, and so on) are
+  ignored by the generator.
+
+The Education section is copied from the knowledge base by code, not
+rewritten by the model: if the model drops or rewords an entry, the
+knowledge base's entries are used and a note is printed to stderr.
+
 ### `skills`
 
 A dict of skill categories, each mapping to a list of skill strings:
