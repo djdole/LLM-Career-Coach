@@ -44,6 +44,33 @@ for example:
 VARIANTS='["SDE", "SDET"]'
 ```
 
+## "Cannot reach LiteLLM" or "Connection error." before any text is generated
+
+**Symptom:** The workflow's **Check LiteLLM is reachable** step fails, or
+`generator.py` stops on its very first request with `Could not reach
+LiteLLM at ...: Connection error.`
+
+**Cause:** The runner could not connect to `LITELLM_BASE_URL` at all, so
+no timeout is involved (a slow response would say `Request timed out.`
+instead). The workflow step prints the reason it found, with curl's exit
+code:
+
+| Exit code / HTTP status | Likely cause |
+|---|---|
+| 6 | The hostname does not resolve: wrong name, or stale dynamic DNS. |
+| 7 | Connection refused: the port forward is gone, LiteLLM or the reverse proxy is down, or the port is wrong. |
+| 28 | Timed out connecting: a firewall or ISP is dropping packets, or the host is off. |
+| 35, 51, 60, 83 | TLS handshake or certificate failure: an expired or mismatched certificate, or `http://` and `https://` mixed up. |
+| 52, 56 | The server or proxy closed or reset the connection. |
+| HTTP 401 or 403 | LiteLLM is reachable but rejected `LITELLM_API_KEY`. |
+| other HTTP status | The proxy is up but LiteLLM behind it is not healthy. |
+
+Note that a `LITELLM_BASE_URL` repository **secret** overrides a
+repository variable of the same name. Only the status or exit code is
+printed, never curl's own error text, because that text contains the
+bare hostname, which GitHub does not mask in public logs. To skip the
+check, set the repository variable `LITELLM_PREFLIGHT` to `false`.
+
 ## LLM calls time out or the connection drops before `LITELLM_TIMEOUT` is reached
 
 **Symptom:** A generation run fails partway through with a connection

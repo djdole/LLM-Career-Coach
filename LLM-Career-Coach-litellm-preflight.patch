@@ -1,0 +1,93 @@
+diff --git a/.github/workflows/generate.yml b/.github/workflows/generate.yml
+index a1f3f0f..2fa4b35 100644
+--- a/.github/workflows/generate.yml
++++ b/.github/workflows/generate.yml
+@@ -40,6 +40,50 @@ jobs:
+       - name: Install dependencies
+         run: pip install -r requirements.txt
+ 
++      - name: Check LiteLLM is reachable
++        # Fails fast with the actual cause, instead of the generator's generic
++        # "Connection error.", if the LiteLLM proxy (or the reverse proxy in
++        # front of it) can't be reached from the runner. Only the HTTP status
++        # or curl's exit code is printed, never curl's own error text: that
++        # text contains the bare hostname, which GitHub does not mask even
++        # when LITELLM_BASE_URL is a secret, and this repo's logs are public.
++        # Skip it by setting the repo variable LITELLM_PREFLIGHT to "false".
++        if: ${{ vars.LITELLM_PREFLIGHT != 'false' }}
++        env:
++          LITELLM_BASE_URL: ${{ secrets.LITELLM_BASE_URL || vars.LITELLM_BASE_URL || 'http://localhost:4000' }}
++          LITELLM_API_KEY: ${{ secrets.LITELLM_API_KEY || vars.LITELLM_API_KEY || '' }}
++        run: |
++          set +e
++          status=$(curl -sS -m 15 -o /dev/null -w '%{http_code}' \
++            -H "Authorization: Bearer ${LITELLM_API_KEY}" \
++            "${LITELLM_BASE_URL%/}/v1/models" 2>/dev/null)
++          rc=$?
++          set -e
++          if [ "$rc" -eq 0 ]; then
++            case "$status" in
++              2??)
++                echo "LiteLLM is reachable (HTTP $status)."
++                exit 0 ;;
++              401|403)
++                echo "::error::LiteLLM is reachable but rejected the API key (HTTP $status). Check the LITELLM_API_KEY secret."
++                exit 1 ;;
++              *)
++                echo "::error::LiteLLM answered /v1/models with HTTP $status: the proxy is up but LiteLLM (or what is behind it) is not healthy. To skip this check, set the repo variable LITELLM_PREFLIGHT to false."
++                exit 1 ;;
++            esac
++          fi
++          case "$rc" in
++            3)  why="LITELLM_BASE_URL is malformed" ;;
++            6)  why="DNS could not resolve the host (wrong hostname, or stale dynamic DNS)" ;;
++            7)  why="connection refused (port forward missing, LiteLLM or the proxy is down, or the port is wrong)" ;;
++            28) why="connection timed out (a firewall or ISP is dropping packets, or the host is off)" ;;
++            35|51|60|83) why="TLS handshake or certificate failure (expired or mismatched certificate, or http/https mixed up)" ;;
++            52|56) why="the connection was closed or reset by the server or proxy" ;;
++            *)  why="curl could not complete the request" ;;
++          esac
++          echo "::error::Cannot reach LiteLLM: $why (curl exit code $rc)."
++          exit 1
++
+       - name: Generate baseline outputs
+         env:
+           LITELLM_BASE_URL: ${{ secrets.LITELLM_BASE_URL || vars.LITELLM_BASE_URL || 'http://localhost:4000' }}
+diff --git a/docs/12-troubleshooting-faq.md b/docs/12-troubleshooting-faq.md
+index 0989c55..c5f4c3e 100644
+--- a/docs/12-troubleshooting-faq.md
++++ b/docs/12-troubleshooting-faq.md
+@@ -44,6 +44,33 @@ for example:
+ VARIANTS='["SDE", "SDET"]'
+ ```
+ 
++## "Cannot reach LiteLLM" or "Connection error." before any text is generated
++
++**Symptom:** The workflow's **Check LiteLLM is reachable** step fails, or
++`generator.py` stops on its very first request with `Could not reach
++LiteLLM at ...: Connection error.`
++
++**Cause:** The runner could not connect to `LITELLM_BASE_URL` at all, so
++no timeout is involved (a slow response would say `Request timed out.`
++instead). The workflow step prints the reason it found, with curl's exit
++code:
++
++| Exit code / HTTP status | Likely cause |
++|---|---|
++| 6 | The hostname does not resolve: wrong name, or stale dynamic DNS. |
++| 7 | Connection refused: the port forward is gone, LiteLLM or the reverse proxy is down, or the port is wrong. |
++| 28 | Timed out connecting: a firewall or ISP is dropping packets, or the host is off. |
++| 35, 51, 60, 83 | TLS handshake or certificate failure: an expired or mismatched certificate, or `http://` and `https://` mixed up. |
++| 52, 56 | The server or proxy closed or reset the connection. |
++| HTTP 401 or 403 | LiteLLM is reachable but rejected `LITELLM_API_KEY`. |
++| other HTTP status | The proxy is up but LiteLLM behind it is not healthy. |
++
++Note that a `LITELLM_BASE_URL` repository **secret** overrides a
++repository variable of the same name. Only the status or exit code is
++printed, never curl's own error text, because that text contains the
++bare hostname, which GitHub does not mask in public logs. To skip the
++check, set the repository variable `LITELLM_PREFLIGHT` to `false`.
++
+ ## LLM calls time out or the connection drops before `LITELLM_TIMEOUT` is reached
+ 
+ **Symptom:** A generation run fails partway through with a connection
