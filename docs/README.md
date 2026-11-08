@@ -11,7 +11,7 @@ truth. There is no paid API, no per-run cost, and no usage limit tied
 to a hosted provider.
 
 This folder is the full documentation for the project. The root
-[`README.md`](../README.md) is a short landing page; everything below
+[`README.md`](https://github.com/djdole/LLM-Career-Coach/blob/main/README.md) is a short landing page; everything below
 is the detailed reference.
 
 ## Start here
